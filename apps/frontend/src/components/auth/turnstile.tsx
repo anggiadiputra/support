@@ -39,29 +39,39 @@ const TURNSTILE_SCRIPT_ID = "cf-turnstile-script"
 const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
 
 /**
- * Skeleton Placeholder for Turnstile widget (prevents Layout Shift)
+ * Skeleton Placeholder for Turnstile widget (prevents Layout Shift and provides smooth loading UX)
  */
 export function TurnstileSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative flex h-[65px] w-full max-w-[300px] items-center justify-between rounded-lg border border-slate-200 bg-slate-100/90 px-3.5 py-2 shadow-xs transition-all dark:border-slate-800 dark:bg-slate-900/60 animate-pulse my-2 mx-auto",
+        "relative flex h-[65px] w-full max-w-[300px] items-center justify-between rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-2.5 shadow-xs transition-all dark:border-slate-800 dark:bg-slate-900/60 my-2 mx-auto overflow-hidden",
         className
       )}
     >
-      <div className="flex items-center gap-2.5">
-        <div className="h-5 w-5 rounded-md border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800" />
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-28 rounded bg-slate-300 dark:bg-slate-700" />
-          <div className="h-2 w-16 rounded bg-slate-200 dark:bg-slate-800" />
+      {/* Animated shimmer overlay */}
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/5" />
+
+      {/* Left checkbox & verifying text */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 bg-slate-200/80 dark:border-slate-700 dark:bg-slate-800">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent dark:border-slate-500" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="h-3.5 w-32 rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="h-2.5 w-20 rounded bg-slate-200/60 dark:bg-slate-800/60" />
         </div>
       </div>
-      <div className="flex items-center gap-1.5 opacity-60">
-        <ShieldCheck className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-        <div className="flex flex-col items-end gap-1">
-          <div className="h-2 w-12 rounded bg-slate-300 dark:bg-slate-700" />
-          <div className="h-1.5 w-8 rounded bg-slate-200 dark:bg-slate-800" />
+
+      {/* Right Cloudflare brand logo & privacy badge placeholder */}
+      <div className="flex flex-col items-end gap-1 opacity-70">
+        <div className="flex items-center gap-1">
+          <ShieldCheck className="h-4 w-4 text-slate-400 dark:text-slate-500 animate-pulse" />
+          <span className="text-[10px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+            Turnstile
+          </span>
         </div>
+        <div className="h-2 w-10 rounded bg-slate-200/60 dark:bg-slate-800/60" />
       </div>
     </div>
   )
