@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "login": "Login",
+    "signup": "Sign Up",
+    "menu": "Menu"
+  },
+  "footer": {
+    "rights": "All rights reserved."
+  }
+}

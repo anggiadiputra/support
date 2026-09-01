@@ -1,11 +1,10 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
 import { ActivityService, ActivityType } from '../../services/activity-service.js'
 import { getEffectiveUserId } from '../../middleware/resolveContext.js'
-
-const prisma = new PrismaClient()
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
+import { prisma } from '../../utils/database.js'
 const app = new Hono()
 
 // Validation schemas
@@ -58,11 +57,7 @@ app.get('/:id/activities', async (c: Context) => {
         })
 
         if (!queryParams.success) {
-            return c.json({
-                success: false,
-                error: 'Invalid query parameters',
-                details: queryParams.error.issues
-            }, 400)
+            return handleValidationError(queryParams.error, c)
         }
 
         const { limit, offset, type } = queryParams.data
@@ -85,7 +80,7 @@ app.get('/:id/activities', async (c: Context) => {
             },
         })
     } catch (error) {
-        console.error('Error fetching activities:', error)
+        logDetailedError(error, { path: c.req.path, method: c.req.method })
         return c.json({
             success: false,
             error: 'Failed to fetch activities'
@@ -126,35 +121,45 @@ app.post('/:id/activities', async (c: Context) => {
         const validation = createActivitySchema.safeParse(body)
 
         if (!validation.success) {
-            return c.json({
-                success: false,
-                error: 'Invalid request body',
-                details: validation.error.issues
-            }, 400)
+            return handleValidationError(validation.error, c)
         }
 
         const { type, title, description, metadata } = validation.data
 
-        // Create activity
-        const activity = await ActivityService.logActivity(
-            customerId,
-            user.id,
-            type,
-            title,
-            description,
-            metadata
-        )
+        // Use transaction to create both activity and note (if NOTE_ADDED)
+        const result = await prisma.$transaction(async (tx) => {
+            // Create activity
+            const activity = await ActivityService.logActivity(
+                customerId,
+                user.id,
+                type,
+                title,
+                description,
+                metadata
+            )
 
-        if (!activity) {
-            return c.json({
-                success: false,
-                error: 'Failed to create activity'
-            }, 500)
-        }
+            if (!activity) {
+                throw new Error('Failed to create activity')
+            }
+
+            // If this is a NOTE_ADDED activity, also create CustomerNote
+            // This ensures notes sync between Activity Timeline (Customers page) and Notes section (OneInbox)
+            if (type === ActivityType.NOTE_ADDED && description) {
+                await tx.customerNote.create({
+                    data: {
+                        content: description,
+                        customerId,
+                        createdBy: user.id
+                    }
+                })
+            }
+
+            return activity
+        })
 
         // Fetch the created activity with user info
         const activityWithUser = await prisma.customerActivity.findUnique({
-            where: { id: activity.id },
+            where: { id: result.id },
             include: {
                 user: {
                     select: {
@@ -171,7 +176,7 @@ app.post('/:id/activities', async (c: Context) => {
             data: activityWithUser,
         }, 201)
     } catch (error) {
-        console.error('Error creating activity:', error)
+        logDetailedError(error, { path: c.req.path, method: c.req.method })
         return c.json({
             success: false,
             error: 'Failed to create activity'

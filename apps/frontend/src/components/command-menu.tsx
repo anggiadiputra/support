@@ -1,9 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "@/i18n/routing"
-import { ArrowRight, Laptop, Moon, Sun } from "lucide-react"
+import {
+  IconArrowRightDashed,
+  IconDeviceLaptop,
+  IconMoon,
+  IconSun,
+} from "@tabler/icons-react"
 import { useTheme } from "next-themes"
+import { useRouter } from "@/i18n/routing"
 import {
   CommandDialog,
   CommandEmpty,
@@ -49,7 +54,7 @@ export function CommandMenu() {
                       }}
                     >
                       <div className="mr-2 flex h-4 w-4 items-center justify-center">
-                        <ArrowRight className="text-muted-foreground/80 size-2" />
+                        <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
                       </div>
                       {navItem.title}
                     </CommandItem>
@@ -64,7 +69,7 @@ export function CommandMenu() {
                     }}
                   >
                     <div className="mr-2 flex h-4 w-4 items-center justify-center">
-                      <ArrowRight className="text-muted-foreground/80 size-2" />
+                      <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
                     </div>
                     {subItem.title}
                   </CommandItem>
@@ -75,14 +80,14 @@ export function CommandMenu() {
           <CommandSeparator />
           <CommandGroup heading="Theme">
             <CommandItem onSelect={() => runCommand(() => setTheme("light"))}>
-              <Sun /> <span>Light</span>
+              <IconSun /> <span>Light</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme("dark"))}>
-              <Moon className="scale-90" />
+              <IconMoon className="scale-90" />
               <span>Dark</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme("system"))}>
-              <Laptop />
+              <IconDeviceLaptop />
               <span>System</span>
             </CommandItem>
           </CommandGroup>

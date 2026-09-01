@@ -6,11 +6,13 @@ import { auditLog } from '../../utils/auditLog.js'
 import { LeadScoringService } from '../../services/lead-scoring.js'
 import { ActivityService } from '../../services/activity-service.js'
 import { getEffectiveUserId } from '../../middleware/resolveContext.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
 
 const app = new Hono()
 
 const updateCustomerSchema = z.object({
   name: z.string().optional(),
+  email: z.string().email().nullable().optional(),
   consentStatus: z.boolean().optional(),
   blacklisted: z.boolean().optional(),
   // CRM Fields
@@ -51,9 +53,14 @@ app.patch('/:id', async (c: Context) => {
     const { customFields, ...simpleData } = data
 
     // Validate pipelineStageId if provided - skip if stage doesn't exist (user may not have created pipeline yet)
+    // Scope to owner via the parent pipeline to prevent moving a customer into
+    // another tenant's stage (cross-tenant reference).
     if (simpleData.pipelineStageId) {
-      const stageExists = await prisma.pipelineStage.findUnique({
-        where: { id: simpleData.pipelineStageId }
+      const stageExists = await prisma.pipelineStage.findFirst({
+        where: {
+          id: simpleData.pipelineStageId,
+          pipeline: { userId: customer.userId }
+        }
       })
       if (!stageExists) {
         // Remove invalid pipelineStageId from update data instead of erroring
@@ -107,7 +114,7 @@ app.patch('/:id', async (c: Context) => {
           c.user.id,
           oldStage?.name || null,
           newStage?.name || 'None'
-        ).catch(err => console.error('Failed to log stage change:', err))
+        ).catch(err => logDetailedError(err, { action: 'logStageChange', customerId: id }))
       }
 
       // Log field updates
@@ -118,13 +125,13 @@ app.patch('/:id', async (c: Context) => {
           'name',
           customer.name,
           data.name
-        ).catch(err => console.error('Failed to log field update:', err))
+        ).catch(err => logDetailedError(err, { action: 'logFieldUpdate', customerId: id }))
       }
     }
 
     // Trigger lead scoring update asynchronously
     LeadScoringService.updateCustomerScore(id).catch(err =>
-      console.error(`Failed to update lead score for customer ${id}:`, err)
+      logDetailedError(err, { action: 'updateCustomerScore', customerId: id })
     )
 
     await auditLog('CUSTOMER_UPDATED', 'Customer', id, { updates: data, updatedBy: c.user?.id }, c.user?.id)
@@ -132,9 +139,9 @@ app.patch('/:id', async (c: Context) => {
     return c.json({ success: true, data: updated })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({ error: { code: 'ValidationError', message: 'Invalid input', details: error.issues } }, 400)
+      return handleValidationError(error, c)
     }
-    console.error('Update customer error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({ error: { code: 'InternalServerError', message: 'Failed to update customer' } }, 500)
   }
 })

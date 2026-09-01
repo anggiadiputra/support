@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send, Image, Heart, Loader2 } from "lucide-react"
@@ -25,6 +25,15 @@ export function IGMessageInput({ onSendMessage, sending, disabled }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  // Auto-focus on mount
+  useEffect(() => {
+    if (!disabled) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    }
+  }, [disabled])
 
   const handleSend = async () => {
     if (!text.trim() || sending || disabled) return
@@ -167,7 +176,7 @@ export function IGMessageInput({ onSendMessage, sending, disabled }: Props) {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Text input */}
+{/* Text input */}
         <Textarea
           ref={textareaRef}
           value={text}
@@ -177,6 +186,7 @@ export function IGMessageInput({ onSendMessage, sending, disabled }: Props) {
           disabled={disabled || isLoading}
           className="min-h-[40px] max-h-[120px] resize-none"
           rows={1}
+          autoFocus
         />
 
         {/* Send button */}

@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { prisma } from '../../utils/database.js'
-import { getWhatsAppClientAsync } from '../../utils/whatsapp.js'
+import { WhatsAppAPI } from '../../utils/whatsapp.js'
+import { resolveCredentialsForSending } from '../../utils/whatsapp-account-helper.js'
 
 const app = new Hono()
 
@@ -24,14 +25,6 @@ app.post('/:id/send-test', async (c: Context) => {
 
     const template = await prisma.messageTemplate.findUnique({
       where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            wabaId: true
-          }
-        }
-      }
     })
 
     if (!template) {
@@ -63,17 +56,28 @@ app.post('/:id/send-test', async (c: Context) => {
       }, 400)
     }
 
-    // Get WhatsApp client and send test message
-    try {
-      const whatsapp = await getWhatsAppClientAsync()
-      
-      // Use the test number from Meta App Review dashboard
-      const testPhoneNumberId = process.env.META_PHONE_NUMBER_ID || '902563782933278'
-      const wabaId = template.user.wabaId || process.env.META_WABA_ID || '1550105869459821'
+    // Resolve WhatsApp account credentials for test sending
+    const credentials = await resolveCredentialsForSending(template.userId)
 
-      console.log('🧪 Sending test message to:', to)
-      console.log('📱 Using Phone Number ID:', testPhoneNumberId)
-      console.log('🏢 Using WABA ID:', wabaId)
+    if (!credentials) {
+      return c.json({
+        error: {
+          code: 'ConfigurationError',
+          message: 'WhatsApp Business Account not connected or configuration incomplete'
+        }
+      }, 400)
+    }
+
+    // Get WhatsApp client and send test message with per-account token
+    try {
+      const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
+
+      const testPhoneNumberId = credentials.phoneNumberId
+      const wabaId = credentials.wabaId
+
+      console.log('Mengirim test message...')
+      console.log('Using Phone Number ID:', testPhoneNumberId)
+      console.log('Using WABA ID:', wabaId)
       
       const result = await whatsapp.sendMessage({
         phoneNumberId: testPhoneNumberId,
@@ -87,7 +91,7 @@ app.post('/:id/send-test', async (c: Context) => {
         }
       })
 
-      console.log('✅ Test message sent successfully:', result)
+      console.log('Test message terkirim')
 
       return c.json({
         success: true,
@@ -106,8 +110,8 @@ app.post('/:id/send-test', async (c: Context) => {
         }
       })
     } catch (metaError: any) {
-      console.error('❌ Meta API error:', metaError)
-      console.error('📋 Meta response:', metaError.response?.data)
+      console.error('Meta API error:', metaError)
+      console.error('Meta response:', metaError.response?.data)
       
       return c.json({
         error: {

@@ -34,6 +34,7 @@ export interface AuditLogsQuery {
   entityType?: string
   startDate?: string
   endDate?: string
+  search?: string
 }
 
 interface UseAdminAuditReturn {
@@ -66,6 +67,7 @@ export function useAdminAudit(initialQuery: AuditLogsQuery = {}): UseAdminAuditR
       if (query.entityType) params.set("entityType", query.entityType)
       if (query.startDate) params.set("startDate", query.startDate)
       if (query.endDate) params.set("endDate", query.endDate)
+      if (query.search) params.set("search", query.search)
 
       const response = await fetch(`${API_URL}/api/v1/admin/audit?${params}`, {
         credentials: "include",

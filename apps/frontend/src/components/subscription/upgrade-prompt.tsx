@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Lock, Sparkles } from "lucide-react"
 import type { SubscriptionTier } from "@/lib/api/subscription-api"
+import { useBranding } from "@/hooks/use-branding"
 
-export type FeatureType = "apiAccess" | "webhooksEnabled" | "aiChatbot"
+export type FeatureType = "apiAccess" | "webhooksEnabled" | "aiChatbot" | "teamManagement"
 
 interface UpgradePromptProps {
   feature: FeatureType
@@ -15,35 +16,42 @@ interface UpgradePromptProps {
   requiredTier: SubscriptionTier
 }
 
-const featureDescriptions: Record<FeatureType, { title: string; description: string }> = {
+const getFeatureDescriptions = (appName: string): Record<FeatureType, { title: string; description: string }> => ({
   apiAccess: {
     title: "API Access",
-    description: "Create API keys to integrate with your applications and automate messaging workflows.",
+    description: `Create API keys to integrate ${appName} with your applications and automate messaging workflows.`,
   },
   webhooksEnabled: {
     title: "Webhooks",
-    description: "Receive real-time notifications when events occur in your account.",
+    description: `Receive real-time notifications when events occur in your ${appName} account.`,
   },
   aiChatbot: {
     title: "AI Chatbot",
     description: "Enable AI-powered auto-replies and intelligent conversation handling.",
   },
-}
+  teamManagement: {
+    title: "Team Management",
+    description: "Invite team members and agents to help manage your customer conversations.",
+  },
+})
 
 const tierLabels: Record<SubscriptionTier, string> = {
   FREE: "Free",
+  BASIC: "Basic",
   LITE: "Lite",
   PRO: "Pro",
 }
 
 const tierColors: Record<SubscriptionTier, string> = {
   FREE: "bg-muted text-muted-foreground",
+  BASIC: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   LITE: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   PRO: "bg-primary text-primary-foreground",
 }
 
 export function UpgradePrompt({ feature, currentTier, requiredTier }: UpgradePromptProps) {
-  const featureInfo = featureDescriptions[feature]
+  const { websiteName } = useBranding()
+  const featureInfo = getFeatureDescriptions(websiteName)[feature]
 
   return (
     <Card className="border-dashed">

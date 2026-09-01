@@ -9,11 +9,11 @@ import React, {
   JSX,
 } from "react"
 import {
-  ChevronUp,
-  ChevronDown,
-  Check,
-  Calendar as CalendarIcon,
-} from "lucide-react"
+  ChevronUpIcon,
+  ChevronDownIcon,
+  CheckIcon,
+} from "@radix-ui/react-icons"
+import { IconCalendar } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { DateInput } from "./date-input"
 import { Button } from "./ui/button"
@@ -316,7 +316,7 @@ export const DateRangePicker: FC<DateRangePickerProps> & {
     >
       <>
         <span className={cn("pr-2 opacity-0", isSelected && "opacity-70")}>
-          <Check width={18} height={18} />
+          <CheckIcon width={18} height={18} />
         </span>
         {label}
       </>
@@ -353,7 +353,7 @@ export const DateRangePicker: FC<DateRangePickerProps> & {
       <PopoverTrigger asChild>
         <div className="flex items-center">
           <div className="rounded-l-md border border-r-0 px-2 py-[0.5rem]">
-            <CalendarIcon size={18} />
+            <IconCalendar size={18} />
           </div>
           <Button className="rounded-l-none px-3" variant="outline">
             <div className="text-right">
@@ -374,7 +374,11 @@ export const DateRangePicker: FC<DateRangePickerProps> & {
               )}
             </div>
             <div className="pl-1 opacity-60">
-              {isOpen ? <ChevronUp width={20} /> : <ChevronDown width={20} />}
+              {isOpen ? (
+                <ChevronUpIcon width={20} />
+              ) : (
+                <ChevronDownIcon width={20} />
+              )}
             </div>
           </Button>
         </div>

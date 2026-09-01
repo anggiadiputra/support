@@ -6,6 +6,8 @@ export const templateButtonSchema = z.object({
     z.literal("URL"),
     z.literal("PHONE_NUMBER"),
     z.literal("QUICK_REPLY"),
+    z.literal("COPY_CODE"),
+    z.literal("OTP"),
   ]),
   text: z.string(),
   url: z.string().optional().nullable(),
@@ -39,13 +41,13 @@ export const templateComponentSchema = z.object({
 // WhatsApp Message Template Schema
 export const templateSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  templateName: z.string(), // Matches Prisma: templateName
   category: z.union([
     z.literal("MARKETING"),
     z.literal("UTILITY"),
     z.literal("AUTHENTICATION"),
   ]),
-  language: z.string(), // e.g., "en_US", "id_ID"
+  language: z.string(), // e.g., "en_US", "id" (Indonesian uses "id" without locale)
   status: z.union([
     z.literal("APPROVED"),
     z.literal("PENDING"),
@@ -69,6 +71,7 @@ export const templateSchema = z.object({
     .union([z.literal("HIGH"), z.literal("MEDIUM"), z.literal("LOW"), z.null()])
     .optional()
     .nullable(),
+  buttons: z.array(templateButtonSchema).optional().nullable(),
   // Components from WhatsApp API (for variable parsing)
   components: z.array(templateComponentSchema).optional().nullable(),
   createdAt: z.coerce.date(),

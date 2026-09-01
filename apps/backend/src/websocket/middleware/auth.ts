@@ -41,7 +41,8 @@ export async function authMiddleware(
       where: { id: session.user.id },
       select: {
         id: true,
-        isActive: true
+        isActive: true,
+        role: true
       }
     })
 
@@ -50,13 +51,40 @@ export async function authMiddleware(
       return next(new Error('User not found or inactive'))
     }
 
+    // Resolve businessOwnerId based on user role
+    let businessOwnerId: string
+
+    if (user.role === 'AGENT') {
+      // For agents, look up TeamMember table to get businessOwnerId
+      const teamMember = await prisma.teamMember.findFirst({
+        where: {
+          agentUserId: user.id,
+          status: 'ACTIVE'
+        },
+        select: {
+          businessOwnerId: true
+        }
+      })
+
+      if (!teamMember) {
+        console.log('[WebSocket Auth] Agent not associated with any business')
+        return next(new Error('Agent not associated with any business'))
+      }
+
+      businessOwnerId = teamMember.businessOwnerId
+    } else {
+      // For BUSINESS_OWNER or ADMIN, businessOwnerId = userId
+      businessOwnerId = user.id
+    }
+
     // Attach user info to socket
     const authenticatedSocket = socket as AuthenticatedSocket
     authenticatedSocket.userId = user.id
     authenticatedSocket.sessionId = session.session?.id || ''
     authenticatedSocket.userAgent = socket.handshake.headers['user-agent']
+    authenticatedSocket.businessOwnerId = businessOwnerId
 
-    console.log(`[WebSocket Auth] User ${user.id} authenticated`)
+    console.log(`[WebSocket Auth] User ${user.id} authenticated (businessOwnerId: ${businessOwnerId})`)
     next()
   } catch (error) {
     console.error('[WebSocket Auth] Authentication error:', error)

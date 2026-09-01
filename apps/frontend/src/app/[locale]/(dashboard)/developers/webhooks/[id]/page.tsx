@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react"
 import { format } from "date-fns"
-import { Bolt, CalendarCheck, LinkIcon, Loader2 } from "lucide-react"
+import { CalendarCheck, LinkIcon } from "lucide-react"
 import { Link } from "@/i18n/routing"
 import { useRouter } from "@/i18n/routing"
 import {
@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/hooks/use-toast"
-import { webhooksApi, type WebhookEndpoint, type WebhookDeliveryLog } from "@/lib/api/webhooks-api"
+import { useWebhooks, useWebhookLogs } from "@/hooks/use-webhooks"
 import { WebhookDetailActions } from "./components/webhook-detail-actions"
 import { WebhookLogsTable } from "./components/webhook-logs-table"
 import { WebhookStatusIcon } from "./components/webhook-status-icon"
@@ -27,63 +27,36 @@ interface Props {
 
 export default function WebhookDetailPage({ params }: Props) {
   const router = useRouter()
-  const [webhook, setWebhook] = useState<WebhookEndpoint | null>(null)
-  const [logs, setLogs] = useState<WebhookDeliveryLog[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [webhookId, setWebhookId] = useState<string | null>(null)
 
   useEffect(() => {
     params.then((p) => setWebhookId(p.id))
   }, [params])
 
+  // TanStack Query - find webhook from cached list
+  const { data: webhooks = [], isLoading: isLoadingWebhooks } = useWebhooks(!!webhookId)
+  const { data: logs = [], isLoading: isLoadingLogs } = useWebhookLogs(webhookId || '', 50, !!webhookId)
+  
+  const webhook = webhooks.find((w) => w.id === webhookId)
+  const isLoading = isLoadingWebhooks || isLoadingLogs
+
+  // Redirect if webhook not found after loading
   useEffect(() => {
-    if (!webhookId) return
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        const [webhooks, logsData] = await Promise.all([
-          webhooksApi.list(),
-          webhooksApi.getLogs(webhookId, 50),
-        ])
-
-        const found = webhooks.find((w) => w.id === webhookId)
-        if (!found) {
-          toast({
-            title: "Not Found",
-            description: "Webhook endpoint not found",
-            variant: "destructive",
-          })
-          router.push("/developers/webhooks")
-          return
-        }
-
-        setWebhook(found)
-        setLogs(logsData)
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to fetch webhook details",
-          variant: "destructive",
-        })
-        router.push("/developers/webhooks")
-      } finally {
-        setIsLoading(false)
-      }
+    if (!isLoadingWebhooks && webhookId && webhooks.length > 0 && !webhook) {
+      toast({
+        title: "Not Found",
+        description: "Webhook endpoint not found",
+        variant: "destructive",
+      })
+      router.push("/developers/webhooks")
     }
-
-    fetchData()
-  }, [webhookId, router])
-
-  const handleWebhookUpdated = (updated: WebhookEndpoint) => {
-    setWebhook(updated)
-  }
+  }, [isLoadingWebhooks, webhookId, webhooks, webhook, router])
 
   const handleWebhookDeleted = () => {
     router.push("/developers/webhooks")
   }
 
-  if (isLoading) {
+  if (isLoading || !webhookId) {
     return (
       <div className="flex w-full flex-1 flex-col gap-4">
         <Skeleton className="h-6 w-64" />
@@ -135,7 +108,6 @@ export default function WebhookDetailPage({ params }: Props) {
           <h2 className="text-2xl font-bold">{webhook.name}</h2>
           <WebhookDetailActions
             webhook={webhook}
-            onUpdated={handleWebhookUpdated}
             onDeleted={handleWebhookDeleted}
           />
         </div>

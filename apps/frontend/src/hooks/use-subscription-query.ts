@@ -39,6 +39,16 @@ const defaultSubscriptionData: SubscriptionData = {
     apiKeys: 0,
     webhookEndpoints: 0,
   },
+  channelLimits: {
+    maxWhatsappDevices: 1,
+    maxInstagramAccounts: 1,
+    maxMessengerAccounts: 1,
+  },
+  channelUsage: {
+    whatsappDevices: 0,
+    instagramAccounts: 0,
+    messengerAccounts: 0,
+  },
 }
 
 /**

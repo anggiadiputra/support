@@ -25,6 +25,11 @@ export interface Customer {
         messages: number
         consentLogs: number
     }
+    // WhatsApp BSUID fields
+    whatsappBsuid?: string | null
+    whatsappParentBsuid?: string | null
+    whatsappUsername?: string | null
+    bsuidMappedAt?: string | null
 }
 
 /**
@@ -36,9 +41,43 @@ export interface CustomersFilters {
     pipeline?: string
     consentStatus?: boolean
     blacklisted?: boolean
+    whatsappPhoneNumberId?: string
+}
+
+/**
+ * Customer statistics type
+ */
+export interface CustomerStats {
+    total: number
+    consented: number
+    activeWindow: number
+    blacklisted: number
 }
 
 export const customersApi = {
+    /**
+     * Get customer statistics
+     * Supports filtering by whatsappPhoneNumberId for multi-number accounts
+     */
+    async getStats(filters?: { whatsappPhoneNumberId?: string }): Promise<CustomerStats> {
+        const params = new URLSearchParams()
+        if (filters?.whatsappPhoneNumberId) {
+            params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
+        }
+        
+        const queryString = params.toString()
+        const url = `${API_URL}/api/v1/customers/stats${queryString ? `?${queryString}` : ''}`
+        
+        const response = await fetch(url, {
+            credentials: 'include',
+        })
+        const result = await response.json()
+        if (!response.ok) {
+            throw new Error(result.error?.message || 'Failed to fetch customer stats')
+        }
+        return result.data
+    },
+
     /**
      * Get customers list with optional filters
      */
@@ -50,6 +89,9 @@ export const customersApi = {
         }
         if (filters?.blacklisted !== undefined) {
             params.append('blacklisted', String(filters.blacklisted))
+        }
+        if (filters?.whatsappPhoneNumberId) {
+            params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
         }
         
         const queryString = params.toString()
@@ -82,6 +124,7 @@ export const customersApi = {
     async createCustomer(data: {
         phoneNumber: string
         name?: string
+        whatsappPhoneNumberId: string
         consentStatus: boolean
         consentSource: string
     }) {
@@ -98,7 +141,7 @@ export const customersApi = {
         return result
     },
 
-    async updateCustomer(id: string, data: { name?: string; pipelineStageId?: string }) {
+    async updateCustomer(id: string, data: { name?: string; email?: string | null; pipelineStageId?: string | null }) {
         const response = await fetch(`${API_URL}/api/v1/customers/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },

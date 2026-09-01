@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
 import { getEffectiveUserId } from '../../middleware/resolveContext.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
 
 const app = new Hono()
 
@@ -40,9 +41,9 @@ app.patch('/:id/blacklist', async (c: Context) => {
     return c.json({ success: true, data: updated })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({ error: { code: 'ValidationError', message: 'Invalid input', details: error.issues } }, 400)
+      return handleValidationError(error, c)
     }
-    console.error('Update blacklist error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({ error: { code: 'InternalServerError', message: 'Failed to update blacklist' } }, 500)
   }
 })

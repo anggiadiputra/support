@@ -23,6 +23,7 @@ export interface TemplatesFilters {
   status?: string
   category?: string
   wabaId?: string
+  whatsappAccountId?: string
 }
 
 /**
@@ -38,7 +39,9 @@ export interface TemplatesFilters {
 export function useTemplates(filters?: TemplatesFilters, enabled: boolean = true) {
   return useQuery<Template[], Error>({
     queryKey: queryKeys.templates.list(filters || {}),
-    queryFn: () => templatesApi.getTemplates(),
+    queryFn: () => templatesApi.getTemplates(
+      filters?.whatsappAccountId ? { whatsappAccountId: filters.whatsappAccountId } : undefined
+    ),
     ...CACHE_TIMES.templates,
     enabled,
     // Show cached data on error
@@ -81,6 +84,13 @@ export interface CreateTemplateInput {
   footerContent?: string
   buttons?: any[]
   variables?: string[]
+  headerMediaId?: string
+  whatsappAccountId?: string
+  // Authentication template specific fields
+  addSecurityRecommendation?: boolean
+  codeExpirationMinutes?: number
+  otpType?: "COPY_CODE" | "ONE_TAP"
+  copyCodeButtonText?: string
 }
 
 /**

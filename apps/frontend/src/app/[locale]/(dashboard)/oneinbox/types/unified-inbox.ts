@@ -1,12 +1,13 @@
 /**
  * Unified Inbox Types
- * Common types for combining WhatsApp and Instagram conversations
+ * Common types for combining WhatsApp, Instagram, and Messenger conversations
  */
 
 import type { Customer } from "../../messages/hooks/use-chat"
 import type { IGConversation } from "@/lib/api/instagram"
+import type { MessengerConversation } from "@/lib/api/messenger"
 
-export type ChannelType = "whatsapp" | "instagram"
+export type ChannelType = "whatsapp" | "instagram" | "messenger"
 
 // Filter types for OneInbox filtering capabilities
 export type ReadStatusFilter = "all" | "read" | "unread"
@@ -64,7 +65,7 @@ export type AssigneeType = "HUMAN" | "AI_AGENT"
 export interface AssignmentResult {
   id: string
   conversationId: string
-  conversationType: "WHATSAPP" | "INSTAGRAM"
+  conversationType: "WHATSAPP" | "INSTAGRAM" | "MESSENGER"
   assigneeType: AssigneeType
   // Human fields (when assigneeType = HUMAN)
   assigneeId: string | null
@@ -83,6 +84,10 @@ export interface AssignmentResult {
 export interface AssignmentHistoryItem extends AssignmentResult {
   unassignedAt: Date | null
   assignedByName: string
+  // Escalation info (when assignment is triggered by keyword)
+  isEscalation?: boolean
+  escalationKeywordGroup?: string | null
+  escalationKeyword?: string | null
 }
 
 export interface FilterState {
@@ -133,6 +138,11 @@ export interface CRMCustomerDetail {
   customFields: Record<string, string>
   createdAt: Date
   updatedAt: Date
+  // WhatsApp BSUID fields
+  whatsappBsuid?: string | null
+  whatsappParentBsuid?: string | null
+  whatsappUsername?: string | null
+  bsuidMappedAt?: Date | null
 }
 
 export interface UnifiedConversation {
@@ -167,8 +177,15 @@ export interface UnifiedConversation {
   assigneeType?: AssigneeType
   aiAgentId?: string | null
   aiAgentName?: string | null
+  // Multi-account fields for Instagram, Messenger, and WhatsApp
+  whatsappPhoneNumberId?: string | null
+  whatsappDisplayNumber?: string | null
+  instagramAccountId?: string | null
+  instagramAccountUsername?: string | null
+  facebookPageId?: string | null
+  facebookPageName?: string | null
   // Original data for passing to existing components
-  originalData: Customer | IGConversation
+  originalData: Customer | IGConversation | MessengerConversation
 }
 
 /**
@@ -192,9 +209,9 @@ export function transformWhatsAppToUnified(
     assignedAt: string
   }>
 ): UnifiedConversation {
-  // Get messages for this customer
+  // Get messages for this customer (match by id only, not phoneNumber, to avoid mixing conversations across WA numbers)
   const customerMessages = messages.filter(
-    (m) => m.customer?.id === customer.id || m.customer?.phoneNumber === customer.phoneNumber
+    (m) => m.customer?.id === customer.id
   )
   
   // Sort by timestamp descending to get the latest message
@@ -234,6 +251,13 @@ export function transformWhatsAppToUnified(
     assigneeType: assignment?.assigneeType || "HUMAN",
     aiAgentId: assignment?.aiAgentId || null,
     aiAgentName: assignment?.aiAgentName || null,
+    // Multi-account fields
+    whatsappPhoneNumberId: (customer as any).whatsappPhoneNumberId || (customer as any).whatsappPhoneNumber?.id || null,
+    whatsappDisplayNumber: (customer as any).whatsappPhoneNumber?.displayPhoneNumber || null,
+    instagramAccountId: null,
+    instagramAccountUsername: null,
+    facebookPageId: null,
+    facebookPageName: null,
     originalData: customer,
   }
 }
@@ -275,6 +299,56 @@ export function transformInstagramToUnified(
     assigneeType: (conversation as any).assigneeType || "HUMAN",
     aiAgentId: (conversation as any).aiAgentId || null,
     aiAgentName: (conversation as any).aiAgentName || null,
+    // Multi-account fields
+    instagramAccountId: conversation.instagramAccountId || conversation.instagramAccount?.id || null,
+    instagramAccountUsername: conversation.instagramAccount?.username || null,
+    facebookPageId: null,
+    facebookPageName: null,
     originalData: conversation,
   }
 }
+
+/**
+ * Transform Messenger Conversation to UnifiedConversation
+ */
+export function transformMessengerToUnified(
+  conversation: MessengerConversation
+): UnifiedConversation {
+  return {
+    id: `msg-${conversation.id}`,
+    channel: "messenger",
+    participantName: conversation.participantName || null,
+    // Use PSID as identifier for CRM matching
+    participantIdentifier: conversation.participantPsid,
+    // Use name or PSID for display
+    participantDisplayId: conversation.participantName || conversation.participantPsid,
+    participantAvatar: conversation.participantProfilePic || null,
+    lastMessagePreview: conversation.lastMessagePreview || null,
+    lastMessageAt: conversation.lastMessageAt 
+      ? new Date(conversation.lastMessageAt) 
+      : null,
+    unreadCount: conversation.unreadCount || 0,
+    isWindowActive: conversation.isWindowActive,
+    // CRM fields - will be enriched later with CRM data if linked
+    tags: [],
+    pipelineStageId: null,
+    pipelineStage: null,
+    crmCustomerId: conversation.customerId || null,
+    crmCustomerDetail: null,
+    // Assignment fields from backend (if available) - support both HUMAN and AI_AGENT types
+    assigneeId: (conversation as any).assigneeId || null,
+    assigneeName: (conversation as any).assigneeName || null,
+    assigneeImage: (conversation as any).assigneeImage || null,
+    assignedAt: (conversation as any).assignedAt ? new Date((conversation as any).assignedAt) : null,
+    assigneeType: (conversation as any).assigneeType || "HUMAN",
+    aiAgentId: (conversation as any).aiAgentId || null,
+    aiAgentName: (conversation as any).aiAgentName || null,
+    // Multi-account fields
+    instagramAccountId: null,
+    instagramAccountUsername: null,
+    facebookPageId: (conversation as any).facebookPageId || (conversation as any).facebookPage?.id || null,
+    facebookPageName: (conversation as any).facebookPage?.pageName || null,
+    originalData: conversation,
+  }
+}
+

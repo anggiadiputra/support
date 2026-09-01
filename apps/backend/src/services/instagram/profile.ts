@@ -8,6 +8,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { IGAccountProfile, IGUserProfile } from './types.js';
 import { IGErrorCode, InstagramError } from './errors.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
 
 // ============================================================================
 // Profile Functions
@@ -117,11 +118,17 @@ export async function getUserProfile(
       }
 
       // For other errors, log but still return null to not block message processing
-      console.error(`Failed to fetch user profile for ${igsid}:`, metaError?.message || error.message);
+      logger.error('Failed to fetch IG user profile (axios error)', {
+        igsid,
+        message: metaError?.message || error.message,
+      });
       return null;
     }
 
-    console.error(`Failed to fetch user profile for ${igsid}:`, error);
+    logger.error('Failed to fetch IG user profile', {
+      igsid,
+      error: extractAxiosError(error),
+    });
     return null;
   }
 }

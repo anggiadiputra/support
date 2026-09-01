@@ -72,7 +72,8 @@ async function main() {
   })
 
   if (adminUser) {
-    if (adminUser.accounts.length === 0) {
+    const existingCredAccount = adminUser.accounts.find(a => a.providerId === 'credential')
+    if (!existingCredAccount) {
       await prisma.account.create({
         data: {
           id: `credential_${adminUser.id}`,
@@ -85,11 +86,11 @@ async function main() {
       })
       console.log(`   ✅ Account record created for better-auth`)
     } else {
-      await prisma.account.updateMany({
-        where: { userId: adminUser.id, providerId: 'credential' },
+      await prisma.account.update({
+        where: { id: existingCredAccount.id },
         data: {
           issuer: 'local:credential',
-          password: adminUser.passwordHash
+          password: adminUser.passwordHash,
         }
       })
       console.log(`   ✅ Account record updated for better-auth`)

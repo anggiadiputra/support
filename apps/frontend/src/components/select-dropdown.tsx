@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader } from "lucide-react"
+import { IconLoader } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { FormControl } from "@/components/ui/form"
 import {
@@ -46,7 +46,7 @@ export default function SelectDropdown({
         {isPending ? (
           <SelectItem disabled value="loading" className="h-14">
             <div className="flex items-center justify-center gap-2">
-              <Loader className="h-5 w-5 animate-spin" />
+              <IconLoader className="h-5 w-5 animate-spin" />
               {"  "}
               Loading...
             </div>

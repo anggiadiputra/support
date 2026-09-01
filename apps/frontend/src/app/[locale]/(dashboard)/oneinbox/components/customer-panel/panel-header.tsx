@@ -24,26 +24,21 @@ export function PanelHeader({ customer, onClose }: PanelHeaderProps) {
   }
 
   return (
-    <div className="flex items-start justify-between p-4 border-b">
+    <div className="flex items-center justify-between p-4 border-b bg-background">
       <div className="flex items-center gap-3">
-        <Avatar className="h-12 w-12">
+        <Avatar className="h-10 w-10">
           <AvatarImage src={customer.avatar || undefined} />
           <AvatarFallback className="bg-primary/10 text-primary font-medium">
             {getInitials(customer.name, customer.phoneNumber)}
           </AvatarFallback>
         </Avatar>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="font-semibold truncate">
             {customer.name || "Unknown"}
           </h3>
-          <p className="text-sm text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground truncate">
             {customer.phoneNumber}
           </p>
-          {customer.email && (
-            <p className="text-xs text-muted-foreground truncate">
-              {customer.email}
-            </p>
-          )}
         </div>
       </div>
       <Button

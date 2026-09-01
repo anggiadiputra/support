@@ -9,9 +9,36 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { customersApi, type Customer, type CustomersFilters } from '@/lib/api/customers-api'
+import { customersApi, type Customer, type CustomersFilters, type CustomerStats } from '@/lib/api/customers-api'
 import { queryKeys } from '@/lib/query-keys'
 import { CACHE_TIMES } from '@/lib/cache-config'
+
+/**
+ * Filters for customer statistics
+ */
+export interface CustomerStatsFilters {
+  whatsappPhoneNumberId?: string
+}
+
+/**
+ * Hook for fetching customer statistics
+ *
+ * Returns counts for total, consented, active window, and blacklisted customers.
+ * Stats are cached and invalidated when customer data changes.
+ * Supports filtering by whatsappPhoneNumberId for multi-number accounts.
+ *
+ * @param filters - Optional filters for phone number
+ * @param enabled - Whether the query should be enabled (default: true)
+ */
+export function useCustomerStats(filters?: CustomerStatsFilters, enabled: boolean = true) {
+  return useQuery<CustomerStats, Error>({
+    queryKey: queryKeys.customers.stats(filters || {}),
+    queryFn: () => customersApi.getStats(filters),
+    ...CACHE_TIMES.customers,
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
 
 /**
  * Hook for fetching customers list with pagination and filtering support
@@ -64,6 +91,7 @@ export function useCustomerDetail(id: string | undefined, enabled: boolean = tru
 export interface CreateCustomerInput {
   phoneNumber: string
   name?: string
+  whatsappPhoneNumberId: string
   consentStatus: boolean
   consentSource: string
 }
@@ -97,7 +125,8 @@ export interface UpdateCustomerInput {
   id: string
   data: {
     name?: string
-    pipelineStageId?: string
+    email?: string | null
+    pipelineStageId?: string | null
   }
 }
 
@@ -286,21 +315,93 @@ export function useToggleCustomerBlacklist() {
 }
 
 /**
- * Hook for importing customers from CSV
+ * Import customer input type for optimistic updates
+ */
+export interface ImportCustomerInput {
+  phoneNumber: string
+  name?: string
+  consentStatus?: boolean
+  consentSource?: string
+}
+
+/**
+ * Hook for importing customers from CSV with optimistic update
  *
- * Invalidates all customers queries on success.
+ * Optimistically adds imported customers to the list immediately,
+ * then reconciles with server response or rolls back on error.
  *
- * Requirements: 4.2, 8.1
+ * Requirements: 4.2, 8.1, 8.2, 8.3
  */
 export function useImportCustomers() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (customers: any[]) => customersApi.importCustomers(customers),
-    onSuccess: () => {
-      // Invalidate all customers queries
+    mutationFn: (customers: ImportCustomerInput[]) => customersApi.importCustomers(customers),
+    // Optimistic update: immediately add customers to the list
+    onMutate: async (newCustomers: ImportCustomerInput[]) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: queryKeys.customers.lists() })
+      await queryClient.cancelQueries({ queryKey: queryKeys.customers.stats() })
+
+      // Snapshot the previous values
+      const previousLists = queryClient.getQueriesData<Customer[]>({ queryKey: queryKeys.customers.lists() })
+      const previousStats = queryClient.getQueryData<CustomerStats>(queryKeys.customers.stats())
+
+      // Create optimistic customers with temporary IDs
+      const now = new Date().toISOString()
+      const optimisticCustomers: Customer[] = newCustomers.map((c, index) => ({
+        id: `temp-${Date.now()}-${index}`,
+        phoneNumber: c.phoneNumber,
+        name: c.name || null,
+        email: null,
+        consentStatus: c.consentStatus ? 'CONSENTED' : 'NOT_CONSENTED',
+        blacklisted: false,
+        leadScore: 0,
+        pipelineStageId: null,
+        pipelineStage: null,
+        lastMessageAt: null,
+        hasActiveWindow: false,
+        createdAt: now,
+        updatedAt: now,
+        _isOptimistic: true, // Flag to identify optimistic entries
+      } as Customer & { _isOptimistic?: boolean }))
+
+      // Optimistically add to all list caches
+      previousLists.forEach(([queryKey, listData]) => {
+        if (listData) {
+          queryClient.setQueryData<Customer[]>(queryKey, [...optimisticCustomers, ...listData])
+        }
+      })
+
+      // Optimistically update stats
+      if (previousStats) {
+        const consentedCount = newCustomers.filter(c => c.consentStatus).length
+        queryClient.setQueryData<CustomerStats>(queryKeys.customers.stats(), {
+          ...previousStats,
+          total: previousStats.total + newCustomers.length,
+          consented: previousStats.consented + consentedCount,
+        })
+      }
+
+      // Return context with previous values for rollback
+      return { previousLists, previousStats, optimisticCustomers }
+    },
+    // Rollback on error
+    onError: (_error, _variables, context) => {
+      // Restore all list caches
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data)
+        })
+      }
+      // Restore stats
+      if (context?.previousStats) {
+        queryClient.setQueryData(queryKeys.customers.stats(), context.previousStats)
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
-      // Also invalidate dashboard stats as customer counts may change
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() })
     },
   })

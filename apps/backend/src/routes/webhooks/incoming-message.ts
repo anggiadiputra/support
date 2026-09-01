@@ -1,9 +1,13 @@
 import { webhookQueue } from '../../utils/queue.js'
+import type { PhoneNumber, WhatsAppAccount } from '@prisma/client'
 
 export async function handleIncomingMessage(
   message: any,
   metadata: any,
-  user: any
+  contacts: any[] | undefined,
+  user: any,
+  phoneNumberRecord?: PhoneNumber | null,
+  whatsappAccount?: WhatsAppAccount | null
 ): Promise<void> {
   try {
     if (!user) {
@@ -14,7 +18,9 @@ export async function handleIncomingMessage(
     console.log('📨 Enqueueing incoming message:', {
       from: message.from,
       type: message.type,
-      userId: user.id
+      userId: user.id,
+      phoneNumberId: phoneNumberRecord?.phoneNumberId,
+      whatsappAccountId: whatsappAccount?.id,
     })
 
     // Add job to queue for background processing
@@ -23,7 +29,20 @@ export async function handleIncomingMessage(
       {
         message,
         metadata,
+        contacts,
         user,
+        phoneNumberRecord: phoneNumberRecord ? {
+          id: phoneNumberRecord.id,
+          phoneNumberId: phoneNumberRecord.phoneNumberId,
+          displayPhoneNumber: phoneNumberRecord.displayPhoneNumber,
+        } : null,
+        whatsappAccount: whatsappAccount ? {
+          id: whatsappAccount.id,
+          wabaId: whatsappAccount.wabaId,
+          accessToken: whatsappAccount.accessToken,
+          accessTokenIV: whatsappAccount.accessTokenIV,
+          accessTokenTag: whatsappAccount.accessTokenTag,
+        } : null,
       },
       {
         // Priority based on message type (text messages get higher priority for AI)

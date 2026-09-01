@@ -1,0 +1,95 @@
+{
+  "title": "CRM Settings",
+  "description": "Manage your sales pipelines and custom fields.",
+  "sidebar": {
+    "pipelines": "Pipelines",
+    "customFields": "Custom Fields"
+  },
+  "pipelines": {
+    "title": "Pipelines",
+    "description": "Configure your sales pipeline stages for tracking customer progress",
+    "info": "Pipelines help you track customer journey from lead to conversion. Drag customers between stages in the Pipeline Board to update their status.",
+    "empty": {
+      "title": "No pipelines yet",
+      "description": "Create your first pipeline to start tracking customer progress"
+    },
+    "newPipeline": "New Pipeline",
+    "editPipeline": "Edit Pipeline",
+    "deletePipeline": "Delete Pipeline",
+    "deleteConfirm": "Are you sure you want to delete \"{name}\"? This will remove all associated data. This action cannot be undone.",
+    "stages": "stages",
+    "default": "Default",
+    "dialog": {
+      "createTitle": "New Pipeline",
+      "editTitle": "Edit Pipeline",
+      "description": "Configure your sales pipeline stages. Drag to reorder.",
+      "pipelineName": "Pipeline Name",
+      "pipelineNamePlaceholder": "e.g. Sales Pipeline",
+      "stagesLabel": "Stages",
+      "addStage": "Add Stage",
+      "stageName": "Stage Name",
+      "newStage": "New Stage"
+    },
+    "toast": {
+      "created": "Pipeline created",
+      "updated": "Pipeline updated",
+      "deleted": "Pipeline deleted",
+      "error": "Operation failed"
+    }
+  },
+  "customFields": {
+    "title": "Custom Fields",
+    "description": "Define custom data fields to capture additional customer information",
+    "info": "Custom fields allow you to store additional information about your customers. These fields will appear in the customer detail view and can be filtered in reports.",
+    "empty": {
+      "title": "No custom fields yet",
+      "description": "Create your first custom field to capture additional customer data"
+    },
+    "newField": "New Field",
+    "table": {
+      "name": "Name",
+      "key": "Key",
+      "type": "Type",
+      "required": "Required"
+    },
+    "dialog": {
+      "createTitle": "New Custom Field",
+      "editTitle": "Edit Field",
+      "createDescription": "Create a new custom field to capture additional customer information.",
+      "editDescription": "Update the field settings. Note that key and type cannot be changed.",
+      "fieldName": "Name",
+      "fieldNamePlaceholder": "e.g. Customer Type",
+      "fieldKey": "Key (API Identifier)",
+      "fieldKeyPlaceholder": "e.g. customer_type",
+      "fieldKeyHelp": "Used to reference this field in the API",
+      "fieldType": "Type",
+      "options": "Options (comma separated)",
+      "optionsPlaceholder": "Option 1, Option 2, Option 3",
+      "requiredField": "This field is required",
+      "createButton": "Create Field",
+      "saveButton": "Save Changes"
+    },
+    "deleteConfirm": "Are you sure you want to delete \"{name}\"? This will remove all data for this field from all customers. This action cannot be undone.",
+    "types": {
+      "TEXT": "Text",
+      "NUMBER": "Number",
+      "DATE": "Date",
+      "BOOLEAN": "Yes/No",
+      "SELECT": "Select",
+      "MULTI_SELECT": "Multi Select"
+    },
+    "toast": {
+      "created": "Field created",
+      "updated": "Field updated",
+      "deleted": "Field deleted",
+      "error": "Operation failed"
+    }
+  },
+  "common": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save Changes",
+    "yes": "Yes"
+  }
+}

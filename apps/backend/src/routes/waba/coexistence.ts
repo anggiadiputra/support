@@ -7,10 +7,12 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { prisma } from '../../utils/database.js'
 import { wabaService } from '../../services/waba/index.js'
-import { TokenEncryptionService } from '../../utils/tokenEncryption.js'
+import {
+  getWhatsAppAccountByWabaId,
+  decryptAccountToken,
+} from '../../utils/whatsapp-account-helper.js'
 
 const app = new Hono()
-const tokenEncryption = new TokenEncryptionService()
 
 // POST /:wabaId/sync-contacts - Trigger contact synchronization
 app.post('/:wabaId/sync-contacts', async (c: Context) => {
@@ -26,15 +28,10 @@ app.post('/:wabaId/sync-contacts', async (c: Context) => {
 
     const wabaId = c.req.param('wabaId')
 
-    // Get user with WABA
-    const user = await prisma.user.findFirst({
-      where: {
-        id: c.user.id,
-        wabaId
-      }
-    })
+    // Get WhatsApp account by WABA ID
+    const account = await getWhatsAppAccountByWabaId(wabaId)
 
-    if (!user) {
+    if (!account || account.userId !== c.user.id) {
       return c.json({
         error: {
           code: 'NotFound',
@@ -43,7 +40,7 @@ app.post('/:wabaId/sync-contacts', async (c: Context) => {
       }, 404)
     }
 
-    if (!user.isCoexistence) {
+    if (!account.isCoexistence) {
       return c.json({
         error: {
           code: 'InvalidOperation',
@@ -52,7 +49,9 @@ app.post('/:wabaId/sync-contacts', async (c: Context) => {
       }, 400)
     }
 
-    if (!user.phoneNumberId) {
+    // Get the primary phone number for this account
+    const primaryPhone = account.phoneNumbers.find(p => p.isPrimary) ?? account.phoneNumbers[0]
+    if (!primaryPhone) {
       return c.json({
         error: {
           code: 'InvalidState',
@@ -62,35 +61,22 @@ app.post('/:wabaId/sync-contacts', async (c: Context) => {
     }
 
     // Decrypt access token
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
-      return c.json({
-        error: {
-          code: 'InvalidState',
-          message: 'Access token not found'
-        }
-      }, 400)
-    }
-
-    const accessToken = tokenEncryption.decrypt({
-      ciphertext: user.wabaAccessToken,
-      iv: user.wabaAccessTokenIV,
-      authTag: user.wabaAccessTokenTag,
-      algorithm: 'aes-256-gcm'
-    })
+    const accessToken = decryptAccountToken(account)
 
     // Trigger contact sync
-    const requestId = await wabaService.syncContacts(user.phoneNumberId, accessToken)
+    const requestId = await wabaService.syncContacts(primaryPhone.phoneNumberId, accessToken)
 
     // Create or update sync status
     await prisma.coexistenceSyncStatus.upsert({
       where: {
         userId_syncType: {
-          userId: user.id,
+          userId: account.userId,
           syncType: 'contacts'
         }
       },
       create: {
-        userId: user.id,
+        userId: account.userId,
+        whatsappAccountId: account.id,
         syncType: 'contacts',
         status: 'in_progress',
         requestId,
@@ -100,6 +86,7 @@ app.post('/:wabaId/sync-contacts', async (c: Context) => {
         status: 'in_progress',
         requestId,
         progress: 0,
+        whatsappAccountId: account.id,
         errorMessage: null,
         errorCode: null
       }
@@ -137,15 +124,10 @@ app.post('/:wabaId/sync-history', async (c: Context) => {
 
     const wabaId = c.req.param('wabaId')
 
-    // Get user with WABA
-    const user = await prisma.user.findFirst({
-      where: {
-        id: c.user.id,
-        wabaId
-      }
-    })
+    // Get WhatsApp account by WABA ID
+    const account = await getWhatsAppAccountByWabaId(wabaId)
 
-    if (!user) {
+    if (!account || account.userId !== c.user.id) {
       return c.json({
         error: {
           code: 'NotFound',
@@ -154,7 +136,7 @@ app.post('/:wabaId/sync-history', async (c: Context) => {
       }, 404)
     }
 
-    if (!user.isCoexistence) {
+    if (!account.isCoexistence) {
       return c.json({
         error: {
           code: 'InvalidOperation',
@@ -163,7 +145,9 @@ app.post('/:wabaId/sync-history', async (c: Context) => {
       }, 400)
     }
 
-    if (!user.phoneNumberId) {
+    // Get the primary phone number for this account
+    const primaryPhone = account.phoneNumbers.find(p => p.isPrimary) ?? account.phoneNumbers[0]
+    if (!primaryPhone) {
       return c.json({
         error: {
           code: 'InvalidState',
@@ -173,35 +157,22 @@ app.post('/:wabaId/sync-history', async (c: Context) => {
     }
 
     // Decrypt access token
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
-      return c.json({
-        error: {
-          code: 'InvalidState',
-          message: 'Access token not found'
-        }
-      }, 400)
-    }
-
-    const accessToken = tokenEncryption.decrypt({
-      ciphertext: user.wabaAccessToken,
-      iv: user.wabaAccessTokenIV,
-      authTag: user.wabaAccessTokenTag,
-      algorithm: 'aes-256-gcm'
-    })
+    const accessToken = decryptAccountToken(account)
 
     // Trigger history sync
-    const requestId = await wabaService.syncHistory(user.phoneNumberId, accessToken)
+    const requestId = await wabaService.syncHistory(primaryPhone.phoneNumberId, accessToken)
 
     // Create or update sync status
     await prisma.coexistenceSyncStatus.upsert({
       where: {
         userId_syncType: {
-          userId: user.id,
+          userId: account.userId,
           syncType: 'history'
         }
       },
       create: {
-        userId: user.id,
+        userId: account.userId,
+        whatsappAccountId: account.id,
         syncType: 'history',
         status: 'in_progress',
         requestId,
@@ -212,6 +183,7 @@ app.post('/:wabaId/sync-history', async (c: Context) => {
         requestId,
         progress: 0,
         phase: 0,
+        whatsappAccountId: account.id,
         errorMessage: null,
         errorCode: null
       }
@@ -249,15 +221,10 @@ app.get('/:wabaId/sync-status', async (c: Context) => {
 
     const wabaId = c.req.param('wabaId')
 
-    // Get user with WABA
-    const user = await prisma.user.findFirst({
-      where: {
-        id: c.user.id,
-        wabaId
-      }
-    })
+    // Get WhatsApp account by WABA ID
+    const account = await getWhatsAppAccountByWabaId(wabaId)
 
-    if (!user) {
+    if (!account || account.userId !== c.user.id) {
       return c.json({
         error: {
           code: 'NotFound',
@@ -267,13 +234,13 @@ app.get('/:wabaId/sync-status', async (c: Context) => {
     }
 
     // Get sync status
-    const syncStatus = await wabaService.getSyncStatus(user.id)
+    const syncStatus = await wabaService.getSyncStatus(account.userId)
 
     return c.json({
       success: true,
       data: {
-        isCoexistence: user.isCoexistence,
-        syncStatus: user.coexistenceSyncStatus,
+        isCoexistence: account.isCoexistence,
+        syncStatus: account.coexistenceSyncStatus,
         overallProgress: syncStatus.overallProgress,
         contacts: syncStatus.contacts,
         history: syncStatus.history
@@ -304,15 +271,10 @@ app.get('/:wabaId/coexistence-status', async (c: Context) => {
 
     const wabaId = c.req.param('wabaId')
 
-    // Get user with WABA
-    const user = await prisma.user.findFirst({
-      where: {
-        id: c.user.id,
-        wabaId
-      }
-    })
+    // Get WhatsApp account by WABA ID
+    const account = await getWhatsAppAccountByWabaId(wabaId)
 
-    if (!user) {
+    if (!account || account.userId !== c.user.id) {
       return c.json({
         error: {
           code: 'NotFound',
@@ -321,7 +283,9 @@ app.get('/:wabaId/coexistence-status', async (c: Context) => {
       }, 404)
     }
 
-    if (!user.phoneNumberId) {
+    // Get the primary phone number for this account
+    const primaryPhone = account.phoneNumbers.find(p => p.isPrimary) ?? account.phoneNumbers[0]
+    if (!primaryPhone) {
       return c.json({
         error: {
           code: 'InvalidState',
@@ -331,32 +295,18 @@ app.get('/:wabaId/coexistence-status', async (c: Context) => {
     }
 
     // Decrypt access token
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
-      return c.json({
-        error: {
-          code: 'InvalidState',
-          message: 'Access token not found'
-        }
-      }, 400)
-    }
-
-    const accessToken = tokenEncryption.decrypt({
-      ciphertext: user.wabaAccessToken,
-      iv: user.wabaAccessTokenIV,
-      authTag: user.wabaAccessTokenTag,
-      algorithm: 'aes-256-gcm'
-    })
+    const accessToken = decryptAccountToken(account)
 
     // Check coexistence status from Meta API
     const coexStatus = await wabaService.checkCoexistenceStatus(
-      user.phoneNumberId,
+      primaryPhone.phoneNumberId,
       accessToken
     )
 
-    // Update database if status changed
-    if (coexStatus.isOnBizApp !== user.isCoexistence) {
-      await prisma.user.update({
-        where: { id: user.id },
+    // Update WhatsApp account if status changed
+    if (coexStatus.isOnBizApp !== account.isCoexistence) {
+      await prisma.whatsAppAccount.update({
+        where: { id: account.id },
         data: {
           isCoexistence: coexStatus.isOnBizApp
         }

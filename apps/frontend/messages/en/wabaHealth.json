@@ -1,0 +1,88 @@
+{
+  "status": {
+    "active": "Active",
+    "restricted": "Restricted",
+    "underReview": "Under Review",
+    "flagged": "Flagged",
+    "disabled": "Disabled"
+  },
+  "banner": {
+    "title": {
+      "restricted": "Your WhatsApp Account is Restricted",
+      "underReview": "Your WhatsApp Account is Under Review",
+      "flagged": "Your WhatsApp Account is Flagged",
+      "disabled": "Your WhatsApp Account is Disabled"
+    },
+    "detectedAt": "Detected: {time}",
+    "reason": "Reason: {reason}",
+    "viewDetail": "View Detail",
+    "contactAdmin": "Contact Admin"
+  },
+  "dialog": {
+    "title": "Message Failed to Send",
+    "errorTitle": "Error {code} - {title}",
+    "recoveryTitle": "Recovery Steps:",
+    "needHelp": "Need help? Contact admin for further assistance in resolving this issue.",
+    "contactAdmin": "Contact Admin",
+    "close": "Close"
+  },
+  "errors": {
+    "131031": {
+      "title": "Account Locked",
+      "description": "Your WhatsApp Business Account has been restricted due to policy violations or verification data mismatch.",
+      "recovery": [
+        "Open WhatsApp Manager at business.facebook.com",
+        "Check for any notifications or warnings on the dashboard",
+        "If there's a 'Request Review' option, submit an appeal",
+        "Wait 24-48 hours for Meta's review"
+      ]
+    },
+    "368": {
+      "title": "Temporarily Blocked",
+      "description": "Account is temporarily blocked due to WhatsApp policy violations.",
+      "recovery": [
+        "Review WhatsApp Business policies at business.whatsapp.com/policy",
+        "Ensure message content follows guidelines",
+        "Wait until the block period ends",
+        "Contact admin if you need assistance"
+      ]
+    },
+    "131048": {
+      "title": "Spam Rate Limit Hit",
+      "description": "Too many previous messages were blocked or reported as spam by recipients.",
+      "recovery": [
+        "Reduce message sending frequency",
+        "Ensure recipients have opted-in to receive messages",
+        "Improve message content quality and relevance",
+        "Check quality rating in WhatsApp Manager"
+      ]
+    },
+    "131049": {
+      "title": "Delivery Blocked",
+      "description": "Meta chose not to deliver this message to maintain a healthy ecosystem.",
+      "recovery": [
+        "Wait at least 24 hours before resending",
+        "Reduce marketing message frequency to the same user",
+        "Ensure content is relevant to the recipient"
+      ]
+    },
+    "unknown": {
+      "title": "Unknown Error",
+      "description": "An unknown error occurred while sending the message.",
+      "recovery": [
+        "Try resending the message",
+        "Check your internet connection",
+        "Contact admin if the issue persists"
+      ]
+    }
+  },
+  "restrictionTypes": {
+    "ACCOUNT_LOCKED": "Account Locked",
+    "POLICY_VIOLATION": "Policy Violation",
+    "SPAM_RATE_LIMIT": "Spam Rate Limit Hit",
+    "DELIVERY_BLOCKED": "Delivery Blocked",
+    "CANNOT_SEND_MESSAGE": "Cannot Send Message",
+    "PENDING_REVIEW": "Pending Review",
+    "ENTITY_RESTRICTED": "Entity Restricted"
+  }
+}

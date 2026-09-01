@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Link } from "@/i18n/routing"
-import { Instagram, AlertTriangle, X } from "lucide-react"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { IconBrandWhatsapp, IconBrandInstagram, IconAlertTriangle, IconX } from "@tabler/icons-react"
 
 interface ConnectionStatusBannerProps {
   whatsappConnected: boolean
@@ -16,9 +15,7 @@ export function ConnectionStatusBanner({
   whatsappConnected,
   instagramConnected,
 }: ConnectionStatusBannerProps) {
-  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(
-    new Set()
-  )
+  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set())
 
   // Load dismissed banners from localStorage on mount
   useEffect(() => {
@@ -37,10 +34,7 @@ export function ConnectionStatusBanner({
     const newDismissed = new Set(dismissedBanners)
     newDismissed.add(bannerId)
     setDismissedBanners(newDismissed)
-    localStorage.setItem(
-      "oneinbox-dismissed-banners",
-      JSON.stringify(Array.from(newDismissed))
-    )
+    localStorage.setItem("oneinbox-dismissed-banners", JSON.stringify(Array.from(newDismissed)))
   }
 
   const bothDisconnected = !whatsappConnected && instagramConnected === false
@@ -54,22 +48,19 @@ export function ConnectionStatusBanner({
   if (bothDisconnected) {
     return (
       <Alert variant="destructive" className="mx-4 mt-4">
-        <AlertTriangle className="h-4 w-4" />
+        <IconAlertTriangle className="h-4 w-4" />
         <AlertDescription className="flex flex-col gap-3">
-          <span>
-            No messaging channels connected. Connect at least one channel to
-            start receiving messages.
-          </span>
+          <span>No messaging channels connected. Connect at least one channel to start receiving messages.</span>
           <div className="flex gap-2">
             <Button asChild size="sm" variant="outline" className="gap-1.5">
               <Link href="/waba">
-                <WhatsAppIcon size={16} className="text-green-500" />
+                <IconBrandWhatsapp className="h-4 w-4 text-green-500" />
                 Connect WhatsApp
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="gap-1.5">
               <Link href="/instagram">
-                <Instagram className="h-4 w-4 text-pink-500" />
+                <IconBrandInstagram className="h-4 w-4 text-pink-500" />
                 Connect Instagram
               </Link>
             </Button>
@@ -80,18 +71,20 @@ export function ConnectionStatusBanner({
   }
 
   return (
-    <div className="mx-4 mt-4 flex flex-col gap-2">
+    <div className="flex flex-col gap-2 mx-4 mt-4">
       {/* WhatsApp not connected */}
       {!whatsappConnected && !dismissedBanners.has("whatsapp") && (
         <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
-          <WhatsAppIcon size={16} className="text-green-500" />
+          <IconBrandWhatsapp className="h-4 w-4 text-green-500" />
           <AlertDescription className="flex items-center justify-between">
             <span className="text-amber-800 dark:text-amber-200">
               WhatsApp not connected. Some messages may not appear.
             </span>
             <div className="flex items-center gap-2">
               <Button asChild size="sm" variant="outline" className="gap-1.5">
-                <Link href="/waba">Connect</Link>
+                <Link href="/waba">
+                  Connect
+                </Link>
               </Button>
               <Button
                 size="sm"
@@ -99,7 +92,7 @@ export function ConnectionStatusBanner({
                 onClick={() => dismissBanner("whatsapp")}
                 className="h-8 w-8 p-0"
               >
-                <X className="h-4 w-4" />
+                <IconX className="h-4 w-4" />
               </Button>
             </div>
           </AlertDescription>
@@ -109,14 +102,16 @@ export function ConnectionStatusBanner({
       {/* Instagram not connected */}
       {instagramConnected === false && !dismissedBanners.has("instagram") && (
         <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
-          <Instagram className="h-4 w-4 text-pink-500" />
+          <IconBrandInstagram className="h-4 w-4 text-pink-500" />
           <AlertDescription className="flex items-center justify-between">
             <span className="text-amber-800 dark:text-amber-200">
               Instagram not connected. Some messages may not appear.
             </span>
             <div className="flex items-center gap-2">
               <Button asChild size="sm" variant="outline" className="gap-1.5">
-                <Link href="/instagram">Connect</Link>
+                <Link href="/instagram">
+                  Connect
+                </Link>
               </Button>
               <Button
                 size="sm"
@@ -124,7 +119,7 @@ export function ConnectionStatusBanner({
                 onClick={() => dismissBanner("instagram")}
                 className="h-8 w-8 p-0"
               >
-                <X className="h-4 w-4" />
+                <IconX className="h-4 w-4" />
               </Button>
             </div>
           </AlertDescription>

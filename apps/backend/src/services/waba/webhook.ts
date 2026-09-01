@@ -5,7 +5,7 @@
 import axios from 'axios';
 import https from 'https';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { logger } from '../../utils/logger.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
 import { WABAServiceError, WABAErrorCode } from './errors.js';
 import { wabaSettings, WABASettings } from './settings.js';
 import type { WebhookConfig, WebhookEventType, WebhookEvent, MetaAPIError } from './types.js';
@@ -241,7 +241,7 @@ export class WABAWebhook {
         }
       }
     } catch (error) {
-      logger.error('Webhook event handling error', { error });
+      logger.error('Webhook event handling error', { error: extractAxiosError(error) });
       throw error;
     }
   }

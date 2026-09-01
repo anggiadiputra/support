@@ -41,14 +41,14 @@ export const webhookEndpointDisabledTemplate: EmailTemplate = (params: WebhookEn
         <li>Check that your webhook URL is accessible</li>
         <li>Verify your server is running and responding correctly</li>
         <li>Check your webhook handler logs for errors</li>
-        <li>Once fixed, go to Settings → Webhooks in KirimChat</li>
+        <li>Once fixed, go to Settings → Webhooks in your dashboard</li>
         <li>Re-enable the webhook endpoint</li>
         <li>Use the "Test" button to verify it's working</li>
       </ol>
       
       <p>If you need help troubleshooting, please check our documentation or contact support.</p>
       
-      <p>Best regards,<br>The KirimChat Team</p>
+      <p>Best regards,<br>The ${process.env.APP_NAME || 'Messaging Platform'} Team</p>
     `
   };
 };

@@ -13,10 +13,12 @@ import {
   apiKeyExpiringTemplate,
   subscriptionActivationTemplate,
   subscriptionExpiryReminderTemplate,
-  subscriptionExpiredTemplate
+  subscriptionExpiredTemplate,
+  welcomeEmailTemplate
 } from './templates/index.js';
 import { settingsCache, CACHE_KEYS, CACHE_TTL } from '../settings-cache.js';
 import type { SmtpSettings } from '../../types/admin-settings.js';
+import { emailTemplateService } from './email-template-service.js';
 
 /**
  * EmailService
@@ -30,6 +32,28 @@ import type { SmtpSettings } from '../../types/admin-settings.js';
  * 
  * Requirements: 3.4, 6.3 - Check database first, fallback to .env, cache with TTL
  */
+/**
+ * Default application name shown in emails when no explicit appName is provided.
+ * Falls back to "Messaging Platform" so emails stay brand-agnostic.
+ */
+const DEFAULT_APP_NAME = process.env.APP_NAME || 'Messaging Platform';
+
+/**
+ * Default locale prefix for links in emails (next-intl uses localePrefix: 'always').
+ */
+const DEFAULT_LOCALE = process.env.DEFAULT_LOCALE || 'en';
+
+/**
+ * Default dashboard URL used in emails when no explicit URL is provided.
+ * Includes locale prefix because frontend always requires /en or /id.
+ */
+const DEFAULT_DASHBOARD_URL = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${DEFAULT_LOCALE}/dashboard`;
+
+/**
+ * Default sender email used when neither SMTP_FROM_EMAIL nor EMAIL_FROM is set.
+ */
+const DEFAULT_FROM_EMAIL = 'no-reply@example.com';
+
 export class EmailService {
   private provider: SMTPProvider | null = null;
   private enabled: boolean;
@@ -39,7 +63,7 @@ export class EmailService {
 
   constructor() {
     this.enabled = process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true';
-    this.fromEmail = process.env.SMTP_FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@kirim.chat';
+    this.fromEmail = process.env.SMTP_FROM_EMAIL || process.env.EMAIL_FROM || DEFAULT_FROM_EMAIL;
     this.adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
     
     // Auto-detect and initialize provider from env (will be updated from DB on first use)
@@ -125,7 +149,7 @@ export class EmailService {
       user: settings.user || '',
       password: settings.password || '',
       fromEmail: settings.fromEmail || '',
-      fromName: settings.fromName || 'KirimChat',
+      fromName: settings.fromName || DEFAULT_APP_NAME,
       secure: settings.secure ?? false,
     };
   }
@@ -208,6 +232,16 @@ export class EmailService {
     expiresInMinutes: number;
     appName?: string;
   }): Promise<EmailSendResult> {
+    // Try DB template override
+    const dbTemplate = await emailTemplateService.resolveTemplate('otp-verification', {
+      otp: params.otp,
+      expiresInMinutes: String(params.expiresInMinutes),
+      appName: params.appName || DEFAULT_APP_NAME,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
     const template = otpVerificationTemplate({
       otp: params.otp,
       expiresInMinutes: params.expiresInMinutes,
@@ -231,6 +265,15 @@ export class EmailService {
     expiresInMinutes: number;
     appName?: string;
   }): Promise<EmailSendResult> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('password-reset', {
+      otp: params.otp,
+      expiresInMinutes: String(params.expiresInMinutes),
+      appName: params.appName || DEFAULT_APP_NAME,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
     const template = passwordResetTemplate({
       otp: params.otp,
       expiresInMinutes: params.expiresInMinutes,
@@ -302,6 +345,20 @@ export class EmailService {
     error: string,
     adminEmail: string
   ): Promise<void> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('token-refresh-failed', {
+      wabaId, businessName, error,
+    });
+    if (dbTemplate) {
+      await this.sendNotification({
+        type: 'token_refresh_failed',
+        recipient: adminEmail,
+        subject: dbTemplate.subject,
+        body: dbTemplate.html,
+        metadata: { wabaId, businessName, error },
+      });
+      return;
+    }
+
     const { subject, body } = tokenRefreshFailedTemplate({ wabaId, businessName, error });
 
     await this.sendNotification({
@@ -323,11 +380,25 @@ export class EmailService {
     businessName: string,
     adminEmail: string
   ): Promise<void> {
-    const { subject, body } = qualityRatingDropTemplate({ 
-      phoneNumber, 
-      oldRating, 
-      newRating, 
-      businessName 
+    const dbTemplate = await emailTemplateService.resolveTemplate('quality-rating-drop', {
+      phoneNumber, oldRating, newRating, businessName,
+    });
+    if (dbTemplate) {
+      await this.sendNotification({
+        type: 'quality_rating_dropped',
+        recipient: adminEmail,
+        subject: dbTemplate.subject,
+        body: dbTemplate.html,
+        metadata: { phoneNumber, oldRating, newRating, businessName },
+      });
+      return;
+    }
+
+    const { subject, body } = qualityRatingDropTemplate({
+      phoneNumber,
+      oldRating,
+      newRating,
+      businessName
     });
 
     await this.sendNotification({
@@ -353,19 +424,21 @@ export class EmailService {
       return;
     }
 
-    const { subject, body } = webhookSubscriptionFailedTemplate({ 
-      wabaId, 
-      businessName, 
-      error, 
-      attemptCount 
+    const dbTemplate = await emailTemplateService.resolveTemplate('webhook-subscription-failed', {
+      wabaId, businessName, error, attemptCount: String(attemptCount),
     });
+
+    const emailSubject = dbTemplate?.subject
+      ?? webhookSubscriptionFailedTemplate({ wabaId, businessName, error, attemptCount }).subject;
+    const emailBody = dbTemplate?.html
+      ?? webhookSubscriptionFailedTemplate({ wabaId, businessName, error, attemptCount }).body;
 
     for (const adminEmail of this.adminEmails) {
       await this.sendNotification({
         type: 'webhook_subscription_failed',
         recipient: adminEmail,
-        subject,
-        body,
+        subject: emailSubject,
+        body: emailBody,
         metadata: { wabaId, businessName, error, attemptCount },
       });
     }
@@ -380,6 +453,20 @@ export class EmailService {
     reason: string,
     adminEmail: string
   ): Promise<void> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('waba-disconnected', {
+      wabaId, businessName, reason,
+    });
+    if (dbTemplate) {
+      await this.sendNotification({
+        type: 'waba_disconnected',
+        recipient: adminEmail,
+        subject: dbTemplate.subject,
+        body: dbTemplate.html,
+        metadata: { wabaId, businessName, reason },
+      });
+      return;
+    }
+
     const { subject, body } = wabaDisconnectedTemplate({ wabaId, businessName, reason });
 
     await this.sendNotification({
@@ -400,10 +487,24 @@ export class EmailService {
     userName: string,
     userEmail: string
   ): Promise<void> {
-    const { subject, body } = webhookEndpointDisabledTemplate({ 
-      endpointName, 
-      endpointUrl, 
-      userName 
+    const dbTemplate = await emailTemplateService.resolveTemplate('webhook-endpoint-disabled', {
+      endpointName, endpointUrl, userName,
+    });
+    if (dbTemplate) {
+      await this.sendNotification({
+        type: 'webhook_endpoint_disabled',
+        recipient: userEmail,
+        subject: dbTemplate.subject,
+        body: dbTemplate.html,
+        metadata: { endpointName, endpointUrl, userName },
+      });
+      return;
+    }
+
+    const { subject, body } = webhookEndpointDisabledTemplate({
+      endpointName,
+      endpointUrl,
+      userName
     });
 
     await this.sendNotification({
@@ -426,12 +527,29 @@ export class EmailService {
     userName: string,
     userEmail: string
   ): Promise<void> {
-    const { subject, body } = apiKeyExpiringTemplate({ 
-      keyName, 
-      keyPrefix, 
+    const dbTemplate = await emailTemplateService.resolveTemplate('api-key-expiring', {
+      keyName, keyPrefix,
+      expiresAt: expiresAt.toISOString(),
+      daysUntilExpiry: String(daysUntilExpiry),
+      userName,
+    });
+    if (dbTemplate) {
+      await this.sendNotification({
+        type: 'api_key_expiring',
+        recipient: userEmail,
+        subject: dbTemplate.subject,
+        body: dbTemplate.html,
+        metadata: { keyName, keyPrefix, expiresAt, daysUntilExpiry, userName },
+      });
+      return;
+    }
+
+    const { subject, body } = apiKeyExpiringTemplate({
+      keyName,
+      keyPrefix,
       expiresAt,
       daysUntilExpiry,
-      userName 
+      userName
     });
 
     await this.sendNotification({
@@ -459,6 +577,23 @@ export class EmailService {
     durationDays?: number;
     durationLabel?: string;
   }): Promise<EmailSendResult> {
+    const formatDate = (d: Date) => d.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const formatCurrency = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
+
+    const dbTemplate = await emailTemplateService.resolveTemplate('subscription-activation', {
+      userName: params.userName,
+      tierName: params.tierName,
+      startDate: formatDate(params.startDate),
+      endDate: formatDate(params.endDate),
+      orderId: params.orderId,
+      amount: formatCurrency(params.amount),
+      durationLabel: params.durationLabel || '1 Bulan',
+      appName: params.appName || DEFAULT_APP_NAME,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
     const template = subscriptionActivationTemplate({
       userName: params.userName,
       tierName: params.tierName,
@@ -491,6 +626,17 @@ export class EmailService {
     daysUntilExpiry: number;
     appName?: string;
   }): Promise<EmailSendResult> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('subscription-expiry-reminder', {
+      userName: params.userName,
+      tierName: params.tierName,
+      expiryDate: params.expiryDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      daysUntilExpiry: String(params.daysUntilExpiry),
+      appName: params.appName || DEFAULT_APP_NAME,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
     const template = subscriptionExpiryReminderTemplate({
       userName: params.userName,
       tierName: params.tierName,
@@ -518,11 +664,55 @@ export class EmailService {
     expiredDate: Date;
     appName?: string;
   }): Promise<EmailSendResult> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('subscription-expired', {
+      userName: params.userName,
+      tierName: params.tierName,
+      expiredDate: params.expiredDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      appName: params.appName || DEFAULT_APP_NAME,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
     const template = subscriptionExpiredTemplate({
       userName: params.userName,
       tierName: params.tierName,
       expiredDate: params.expiredDate,
       appName: params.appName,
+    });
+
+    return this.send({
+      to: params.to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  /**
+   * Send welcome email to new users
+   */
+  async sendWelcomeEmail(params: {
+    to: string;
+    userName: string;
+    appName?: string;
+    dashboardUrl?: string;
+  }): Promise<EmailSendResult> {
+    const dbTemplate = await emailTemplateService.resolveTemplate('welcome', {
+      userName: params.userName,
+      userEmail: params.to,
+      appName: params.appName || DEFAULT_APP_NAME,
+      dashboardUrl: params.dashboardUrl || DEFAULT_DASHBOARD_URL,
+    });
+    if (dbTemplate) {
+      return this.send({ to: params.to, ...dbTemplate });
+    }
+
+    const template = welcomeEmailTemplate({
+      userName: params.userName,
+      userEmail: params.to,
+      appName: params.appName,
+      dashboardUrl: params.dashboardUrl,
     });
 
     return this.send({

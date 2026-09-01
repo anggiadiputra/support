@@ -1,7 +1,24 @@
 import { randomBytes, randomUUID } from 'crypto';
+import { Agent } from 'undici';
 import { prisma } from '../utils/database.js';
 import { tokenEncryption } from '../utils/tokenEncryption.js';
-import { webhookOutboundQueue } from '../utils/queue.js';
+import { webhookOutboundQueue, redisConnection } from '../utils/queue.js';
+import { CtwaService } from './ctwa-service.js';
+
+// Create agent that forces IPv4 (fixes ETIMEDOUT/fetch failed on some servers)
+const ipv4Agent = new Agent({
+  connect: {
+    family: 4, // Force IPv4
+  },
+});
+
+// Deduplication key prefix and TTL
+const DEDUP_KEY_PREFIX = 'webhook:dedup:';
+const DEDUP_TTL_SECONDS = 86400; // 24 hours - prevents re-emit for same message
+
+// Webhook header prefix - configurable for white-label (default: KirimChat)
+// Example: X-KirimChat-Signature, X-KirimChat-Event, etc.
+const WEBHOOK_HEADER_PREFIX = process.env.WEBHOOK_HEADER_PREFIX || 'KirimChat';
 
 /**
  * Webhook event types supported by the system
@@ -16,7 +33,7 @@ export type WebhookEventType =
 /**
  * Channel types for webhook filtering
  */
-export type WebhookChannel = 'whatsapp' | 'instagram' | 'all';
+export type WebhookChannel = 'whatsapp' | 'instagram' | 'messenger' | 'all';
 
 /**
  * Input for creating a webhook endpoint
@@ -27,6 +44,7 @@ export interface CreateWebhookEndpointInput {
   url: string;
   events: WebhookEventType[];
   channels: WebhookChannel[];
+  channelAccountIds?: string[]; // Optional, default [] means all accounts
 }
 
 /**
@@ -37,6 +55,7 @@ export interface UpdateWebhookEndpointInput {
   url?: string;
   events?: WebhookEventType[];
   channels?: WebhookChannel[];
+  channelAccountIds?: string[];
   isActive?: boolean;
 }
 
@@ -49,6 +68,7 @@ export interface WebhookEndpointResponse {
   url: string;
   events: string[];
   channels: string[];
+  channelAccountIds: string[];
   isActive: boolean;
   failureCount: number;
   lastFailedAt: Date | null;
@@ -70,6 +90,30 @@ export interface TestEndpointResult {
 }
 
 /**
+ * Sanitized raw WhatsApp message (sensitive fields removed)
+ */
+export interface SanitizedWhatsAppRaw {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: string;
+  text?: { body: string };
+  image?: { caption?: string; mime_type?: string; sha256?: string };
+  video?: { caption?: string; mime_type?: string; sha256?: string };
+  audio?: { mime_type?: string; sha256?: string };
+  document?: { caption?: string; filename?: string; mime_type?: string; sha256?: string };
+  sticker?: { mime_type?: string; sha256?: string };
+  location?: { latitude: number; longitude: number; name?: string; address?: string };
+  contacts?: Array<{ name?: { formatted_name?: string }; phones?: Array<{ phone?: string }> }>;
+  reaction?: { emoji?: string; message_id?: string };
+  interactive?: { type?: string; button_reply?: { id?: string; title?: string }; list_reply?: { id?: string; title?: string } };
+  button?: { text?: string; payload?: string };
+  context?: { from?: string; id?: string; referred_product?: unknown };
+  referral?: unknown;
+  errors?: Array<{ code?: number; title?: string; message?: string }>;
+}
+
+/**
  * Webhook payload structure (as per requirements 8.1, 8.2, 8.4)
  */
 export interface WebhookPayload {
@@ -85,7 +129,10 @@ export interface WebhookPayload {
     message_type: string;
     content?: string;
     media_url?: string;
-    channel: 'whatsapp' | 'instagram';
+    channel: 'whatsapp' | 'instagram' | 'messenger';
+    phone_number_id?: string; // WhatsApp phone number ID (internal)
+    business_phone?: string; // Business phone number that received/sent the message
+    raw?: SanitizedWhatsAppRaw; // Raw WhatsApp message (WhatsApp only, sensitive fields removed)
   };
 }
 
@@ -99,6 +146,7 @@ export interface WebhookOutboundJobData {
   payload: WebhookPayload;
   attempt: number;
   maxAttempts: number;
+  idempotencyKey?: string; // Used by n8n to deduplicate events
 }
 
 // Maximum number of webhook endpoints per user
@@ -114,7 +162,7 @@ const VALID_EVENT_TYPES: WebhookEventType[] = [
 ];
 
 // Valid channels
-const VALID_CHANNELS: WebhookChannel[] = ['whatsapp', 'instagram', 'all'];
+const VALID_CHANNELS: WebhookChannel[] = ['whatsapp', 'instagram', 'messenger', 'all'];
 
 // Test endpoint timeout (10 seconds as per requirements)
 const TEST_ENDPOINT_TIMEOUT_MS = 10000;
@@ -154,23 +202,6 @@ export class WebhookService {
       // Allow HTTP only in development
       if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
         throw new Error('Webhook URL must use HTTP or HTTPS protocol');
-      }
-
-      const hostname = parsedUrl.hostname.toLowerCase();
-      const isPrivate =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '::1' ||
-        hostname === '0.0.0.0' ||
-        hostname.endsWith('.localhost') ||
-        hostname.endsWith('.local') ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('192.168.') ||
-        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
-        hostname.startsWith('169.254.');
-
-      if (isPrivate && process.env.ALLOW_PRIVATE_WEBHOOKS !== 'true') {
-        throw new Error('Webhook URL cannot target loopback or private network addresses');
       }
     } catch (error) {
       if (error instanceof TypeError) {
@@ -259,6 +290,7 @@ export class WebhookService {
         secretTag: encryptedSecret.authTag,
         events,
         channels,
+        channelAccountIds: input.channelAccountIds ?? [],
         isActive: true,
         failureCount: 0,
       },
@@ -270,6 +302,7 @@ export class WebhookService {
       url: endpoint.url,
       events: endpoint.events,
       channels: endpoint.channels,
+      channelAccountIds: endpoint.channelAccountIds,
       isActive: endpoint.isActive,
       failureCount: endpoint.failureCount,
       lastFailedAt: endpoint.lastFailedAt,
@@ -339,6 +372,9 @@ export class WebhookService {
     if (input.channels !== undefined) {
       updateData.channels = input.channels;
     }
+    if (input.channelAccountIds !== undefined) {
+      updateData.channelAccountIds = input.channelAccountIds;
+    }
     if (input.isActive !== undefined) {
       updateData.isActive = input.isActive;
       // If re-enabling, reset failure count and clear disable info
@@ -361,6 +397,7 @@ export class WebhookService {
       url: endpoint.url,
       events: endpoint.events,
       channels: endpoint.channels,
+      channelAccountIds: endpoint.channelAccountIds,
       isActive: endpoint.isActive,
       failureCount: endpoint.failureCount,
       lastFailedAt: endpoint.lastFailedAt,
@@ -415,6 +452,7 @@ export class WebhookService {
       url: endpoint.url,
       events: endpoint.events,
       channels: endpoint.channels,
+      channelAccountIds: endpoint.channelAccountIds,
       isActive: endpoint.isActive,
       failureCount: endpoint.failureCount,
       lastFailedAt: endpoint.lastFailedAt,
@@ -459,7 +497,7 @@ export class WebhookService {
       event_id: `test_${Date.now()}`,
       timestamp: new Date().toISOString(),
       data: {
-        message: 'This is a test webhook from KirimChat',
+        message: `This is a test webhook from ${WEBHOOK_HEADER_PREFIX}`,
         endpoint_id: endpointId,
       },
     };
@@ -482,11 +520,13 @@ export class WebhookService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-KirimChat-Signature': signature,
-          'X-KirimChat-Event': 'test',
+          [`X-${WEBHOOK_HEADER_PREFIX}-Signature`]: signature,
+          [`X-${WEBHOOK_HEADER_PREFIX}-Event`]: 'test',
         },
         body: payloadString,
         signal: controller.signal,
+        // @ts-expect-error - dispatcher is valid for Node.js fetch with undici
+        dispatcher: ipv4Agent,
       });
 
       clearTimeout(timeoutId);
@@ -628,6 +668,7 @@ export class WebhookService {
       url: endpoint.url,
       events: endpoint.events,
       channels: endpoint.channels,
+      channelAccountIds: endpoint.channelAccountIds,
       isActive: endpoint.isActive,
       failureCount: endpoint.failureCount,
       lastFailedAt: endpoint.lastFailedAt,
@@ -639,18 +680,156 @@ export class WebhookService {
   }
 
   /**
+   * Sanitize raw WhatsApp message by removing sensitive fields
+   * Removes: media IDs (can be used to download), internal WhatsApp IDs
+   * Keeps: message structure, content, metadata useful for integrations
+   */
+  private sanitizeWhatsAppRaw(raw: any): SanitizedWhatsAppRaw | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+
+    const sanitized: SanitizedWhatsAppRaw = {
+      id: raw.id,
+      from: raw.from,
+      timestamp: raw.timestamp,
+      type: raw.type,
+    };
+
+    // Copy text content
+    if (raw.text?.body) {
+      sanitized.text = { body: raw.text.body };
+    }
+
+    // Copy media metadata (without media ID which can be used for unauthorized downloads)
+    if (raw.image) {
+      sanitized.image = {
+        caption: raw.image.caption,
+        mime_type: raw.image.mime_type,
+        sha256: raw.image.sha256,
+      };
+    }
+    if (raw.video) {
+      sanitized.video = {
+        caption: raw.video.caption,
+        mime_type: raw.video.mime_type,
+        sha256: raw.video.sha256,
+      };
+    }
+    if (raw.audio) {
+      sanitized.audio = {
+        mime_type: raw.audio.mime_type,
+        sha256: raw.audio.sha256,
+      };
+    }
+    if (raw.document) {
+      sanitized.document = {
+        caption: raw.document.caption,
+        filename: raw.document.filename,
+        mime_type: raw.document.mime_type,
+        sha256: raw.document.sha256,
+      };
+    }
+    if (raw.sticker) {
+      sanitized.sticker = {
+        mime_type: raw.sticker.mime_type,
+        sha256: raw.sticker.sha256,
+      };
+    }
+
+    // Copy location data
+    if (raw.location) {
+      sanitized.location = {
+        latitude: raw.location.latitude,
+        longitude: raw.location.longitude,
+        name: raw.location.name,
+        address: raw.location.address,
+      };
+    }
+
+    // Copy contacts (sanitized)
+    if (raw.contacts && Array.isArray(raw.contacts)) {
+      sanitized.contacts = raw.contacts.map((c: any) => ({
+        name: c.name ? { formatted_name: c.name.formatted_name } : undefined,
+        phones: c.phones?.map((p: any) => ({ phone: p.phone })),
+      }));
+    }
+
+    // Copy reaction data
+    if (raw.reaction) {
+      sanitized.reaction = {
+        emoji: raw.reaction.emoji,
+        message_id: raw.reaction.message_id,
+      };
+    }
+
+    // Copy interactive response data
+    if (raw.interactive) {
+      sanitized.interactive = {
+        type: raw.interactive.type,
+        button_reply: raw.interactive.button_reply ? {
+          id: raw.interactive.button_reply.id,
+          title: raw.interactive.button_reply.title,
+        } : undefined,
+        list_reply: raw.interactive.list_reply ? {
+          id: raw.interactive.list_reply.id,
+          title: raw.interactive.list_reply.title,
+        } : undefined,
+      };
+    }
+
+    // Copy button response
+    if (raw.button) {
+      sanitized.button = {
+        text: raw.button.text,
+        payload: raw.button.payload,
+      };
+    }
+
+    // Copy context (reply info) - exclude sensitive fields
+    if (raw.context) {
+      sanitized.context = {
+        from: raw.context.from,
+        id: raw.context.id,
+        referred_product: raw.context.referred_product,
+      };
+    }
+
+    // Copy referral data (for ads click-to-whatsapp)
+    if (raw.referral) {
+      const parsed = CtwaService.parseReferral(raw.referral);
+      sanitized.referral = parsed ? CtwaService.sanitizeReferral(parsed) : raw.referral;
+    }
+
+    // Copy error information if present
+    if (raw.errors && Array.isArray(raw.errors)) {
+      sanitized.errors = raw.errors.map((e: any) => ({
+        code: e.code,
+        title: e.title,
+        message: e.message,
+      }));
+    }
+
+    return sanitized;
+  }
+
+  /**
    * Emit a webhook event to all matching endpoints for a user
    * Queues webhook delivery jobs to BullMQ within 100ms (Requirement 3.1)
    * 
+   * DEDUPLICATION: Uses Redis SET with NX to prevent duplicate emissions
+   * for the same message_id + event_type combination within 24 hours.
+   * 
    * @param userId - The user ID
    * @param eventType - The type of event
-   * @param channel - The channel (whatsapp or instagram)
+   * @param channel - The channel (whatsapp, instagram, or messenger)
+   * @param channelAccountId - The channel account ID (WhatsApp account, Instagram account, etc.)
    * @param data - The event data
+   * @param rawWhatsApp - Optional raw WhatsApp message (only for WhatsApp channel)
    */
   async emitEvent(
     userId: string,
     eventType: WebhookEventType,
-    channel: 'whatsapp' | 'instagram',
+    channel: 'whatsapp' | 'instagram' | 'messenger',
+    channelAccountId: string,
     data: {
       message_id: string;
       customer_id: string;
@@ -660,18 +839,35 @@ export class WebhookService {
       message_type: string;
       content?: string;
       media_url?: string;
-    }
+      phone_number_id?: string; // WhatsApp phone number ID (internal)
+      business_phone?: string; // Business phone number that received/sent the message
+    },
+    rawWhatsApp?: any
   ): Promise<void> {
     const startTime = Date.now();
 
     try {
+      // DEDUPLICATION CHECK: Prevent duplicate webhook emissions for same message+event
+      // Key format: webhook:dedup:{userId}:{eventType}:{message_id}
+      const dedupKey = `${DEDUP_KEY_PREFIX}${userId}:${eventType}:${data.message_id}`;
+      
+      // Try to set the key with NX (only if not exists) and EX (expiry)
+      const wasSet = await redisConnection.set(dedupKey, Date.now().toString(), 'EX', DEDUP_TTL_SECONDS, 'NX');
+      
+      if (!wasSet) {
+        // Key already exists - this is a duplicate emission
+        console.log(`[Webhook Service] ⚠️ DUPLICATE PREVENTED: Event ${eventType} for message ${data.message_id} already emitted`);
+        return;
+      }
+
       console.log(`[Webhook Service] 🔔 emitEvent called:`);
       console.log(`  - userId: ${userId}`);
       console.log(`  - eventType: ${eventType}`);
       console.log(`  - channel: ${channel}`);
+      console.log(`  - channelAccountId: ${channelAccountId}`);
       console.log(`  - message_id: ${data.message_id}`);
 
-      // Find all active endpoints for this user that match the event type and channel
+      // Find all active endpoints for this user that match the event type, channel, and account
       const endpoints = await prisma.webhookEndpoint.findMany({
         where: {
           userId,
@@ -679,9 +875,21 @@ export class WebhookService {
           events: {
             has: eventType,
           },
-          OR: [
-            { channels: { has: channel } },
-            { channels: { has: 'all' } },
+          AND: [
+            // Channel filter
+            {
+              OR: [
+                { channels: { has: channel } },
+                { channels: { has: 'all' } },
+              ],
+            },
+            // Account filter: empty array means all accounts, otherwise must match
+            {
+              OR: [
+                { channelAccountIds: { isEmpty: true } },
+                { channelAccountIds: { has: channelAccountId } },
+              ],
+            },
           ],
         },
         select: {
@@ -693,15 +901,28 @@ export class WebhookService {
 
       if (endpoints.length === 0) {
         console.log(`[Webhook Service] ⚠️ No matching endpoints found for userId: ${userId}, event: ${eventType}, channel: ${channel}`);
-        return; // No matching endpoints
+        // Remove the dedup key since no webhook was actually queued
+        await redisConnection.del(dedupKey);
+        return;
       }
 
       console.log(`[Webhook Service] ✅ Queueing webhooks for ${endpoints.length} endpoint(s)...`);
 
       // Generate unique event_id (UUID) for idempotency (Requirement 8.3)
+      // Include message_id to create stable idempotency key for n8n
       const eventId = randomUUID();
+      
+      // Create idempotency key that n8n can use to deduplicate
+      // Format: {message_id}_{event_type}_{timestamp_minute}
+      // Using minute granularity to handle slight timing differences
+      const idempotencyKey = `${data.message_id}_${eventType}_${Math.floor(Date.now() / 60000)}`;
 
       // Create the webhook payload (Requirements 8.1, 8.2, 8.4)
+      // Include sanitized raw WhatsApp data if available (WhatsApp channel only)
+      const sanitizedRaw = channel === 'whatsapp' && rawWhatsApp 
+        ? this.sanitizeWhatsAppRaw(rawWhatsApp) 
+        : undefined;
+
       const payload: WebhookPayload = {
         event_type: eventType,
         event_id: eventId,
@@ -716,6 +937,9 @@ export class WebhookService {
           content: data.content,
           media_url: data.media_url,
           channel,
+          phone_number_id: data.phone_number_id,
+          business_phone: data.business_phone,
+          raw: sanitizedRaw,
         },
       };
 
@@ -728,6 +952,7 @@ export class WebhookService {
           payload,
           attempt: 1,
           maxAttempts: 5, // Initial + 4 retries
+          idempotencyKey, // Add idempotency key for n8n
         };
 
         return webhookOutboundQueue.add(
@@ -776,7 +1001,7 @@ export class WebhookService {
   async getMatchingEndpoints(
     userId: string,
     eventType: WebhookEventType,
-    channel: 'whatsapp' | 'instagram'
+    channel: 'whatsapp' | 'instagram' | 'messenger'
   ): Promise<string[]> {
     const endpoints = await prisma.webhookEndpoint.findMany({
       where: {

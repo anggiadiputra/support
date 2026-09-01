@@ -4,15 +4,13 @@
 
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
-import { PrismaClient } from '@prisma/client';
 import { WABAServiceError, WABAErrorCode } from './errors.js';
 import { wabaSettings, WABASettings } from './settings.js';
 import { metaApiQueue, criticalQueue } from '../../utils/requestQueue.js';
 import { parseMetaError, getRetryDelay } from '../../utils/wabaErrors.js';
-import { logger } from '../../utils/logger.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
+import { prisma } from '../../utils/database.js';
 import type { CoexistenceStatus, SyncStatus, SyncDetail, MetaAPIError, QueueOptions } from './types.js';
-
-const prisma = new PrismaClient();
 
 // Create HTTPS agent that forces IPv4
 const httpsAgent = new https.Agent({
@@ -269,8 +267,8 @@ export class WABACoexistence {
    */
   async getSyncStatus(userId: string): Promise<SyncStatus> {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
+      const account = await prisma.whatsAppAccount.findFirst({
+        where: { userId },
         select: {
           coexistenceSyncProgress: true,
           coexistenceSyncStatus: true,
@@ -284,18 +282,18 @@ export class WABACoexistence {
         },
       });
 
-      if (!user) {
-        throw new WABAServiceError(WABAErrorCode.USER_NOT_FOUND, 'User not found', { userId });
+      if (!account) {
+        throw new WABAServiceError(WABAErrorCode.USER_NOT_FOUND, 'WhatsApp account not found', { userId });
       }
 
       // Find latest contact and history sync logs
-      const contactSync = user.coexistenceSyncLogs.find((log) => log.syncType === 'contacts');
-      const historySync = user.coexistenceSyncLogs.find((log) => log.syncType === 'history');
+      const contactSync = account.coexistenceSyncLogs.find((log) => log.syncType === 'contacts');
+      const historySync = account.coexistenceSyncLogs.find((log) => log.syncType === 'history');
 
       const contacts: SyncDetail = {
         status: contactSync?.status || 'not_started',
         progress: contactSync?.progress || 0,
-        completedAt: user.contactSyncCompletedAt,
+        completedAt: account.contactSyncCompletedAt,
         error: contactSync?.errorMessage || undefined,
       };
 
@@ -303,22 +301,22 @@ export class WABACoexistence {
         status: historySync?.status || 'not_started',
         progress: historySync?.progress || 0,
         phase: historySync?.phase?.toString() || undefined,
-        completedAt: user.historySyncCompletedAt,
-        consentGiven: user.historySharingConsent || false,
+        completedAt: account.historySyncCompletedAt,
+        consentGiven: account.historySharingConsent || false,
         error: historySync?.errorMessage || undefined,
       };
 
       return {
         contacts,
         history,
-        overallProgress: user.coexistenceSyncProgress || 0,
+        overallProgress: account.coexistenceSyncProgress || 0,
       };
     } catch (error) {
       if (error instanceof WABAServiceError) {
         throw error;
       }
 
-      logger.error('Failed to get sync status', { userId, error });
+      logger.error('Failed to get sync status', { userId, error: extractAxiosError(error) });
       throw new WABAServiceError(
         WABAErrorCode.COEXISTENCE_ERROR,
         `Failed to get sync status: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -438,13 +436,15 @@ export class WABACoexistence {
         }
 
         // Unknown error - don't retry
-        logger.error(`${operationName} failed with unknown error:`, error);
+        logger.error(`${operationName} failed with unknown error`, {
+          error: extractAxiosError(error),
+        });
         throw error;
       }
     }
 
     // Max retries exceeded
-    logger.error(`${operationName} failed after ${maxRetries} attempts:`, attemptLog);
+    logger.error(`${operationName} failed after ${maxRetries} attempts`, { attemptLog });
 
     if (axios.isAxiosError(lastError)) {
       throw parseMetaError(lastError);

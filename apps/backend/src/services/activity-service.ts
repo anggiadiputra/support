@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../utils/database.js'
 
 export enum ActivityType {
     MESSAGE_SENT = 'MESSAGE_SENT',
@@ -10,6 +8,7 @@ export enum ActivityType {
     NOTE_ADDED = 'NOTE_ADDED',
     CUSTOMER_CREATED = 'CUSTOMER_CREATED',
     CONSENT_CHANGED = 'CONSENT_CHANGED',
+    CTWA_ATTRIBUTION = 'CTWA_ATTRIBUTION',
 }
 
 interface ActivityMetadata {

@@ -22,6 +22,9 @@ import { getEffectiveUserId, getActingAgentId } from '../../middleware/resolveCo
 import { resolveContext } from '../../middleware/resolveContext.js'
 import { auditLog } from '../../utils/auditLog.js'
 import { logger } from '../../utils/logger.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
+import { resolveCredentialsForSending } from '../../utils/whatsapp-account-helper.js'
+import { broadcastQueue } from '../../utils/queue.js'
 
 const app = new Hono()
 
@@ -79,42 +82,21 @@ app.post('/send', async (c: Context) => {
     const validation = createBulkSendSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data',
-          details: validation.error.issues
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { templateName, languageCode, csvData } = validation.data
 
     // Verify user has WABA connected
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        phoneNumberId: true,
-        wabaConnectionStatus: true
-      }
-    })
+    const credentials = await resolveCredentialsForSending(userId)
 
-    if (!user?.phoneNumberId) {
+    if (!credentials) {
       return c.json({
         error: {
           code: 'ConfigurationError',
-          message: 'WhatsApp Business Account not connected'
+          message: 'WhatsApp Business Account not connected or configuration incomplete'
         }
       }, 400)
-    }
-
-    if (user.wabaConnectionStatus === 'disconnected') {
-      return c.json({
-        error: {
-          code: 'ConnectionError',
-          message: 'WhatsApp Business Account is disconnected'
-        }
-      }, 403)
     }
 
     // Verify template exists and is approved
@@ -189,13 +171,20 @@ app.post('/send', async (c: Context) => {
       totalRecipients: job.totalRecipients
     })
 
-    // Start processing in background (non-blocking)
-    bulkTemplateSendService.processBulkSend(job.id, userId).catch(err => {
-      logger.error('Bulk send processing failed', {
+    // Add to queue for processing (supports concurrent broadcasts per account)
+    await broadcastQueue.add(
+      'new-broadcast',
+      {
+        type: 'new',
         jobId: job.id,
-        error: err.message
-      })
-    })
+        userId,
+        messageDelayMs: 1000,
+        senderPhoneNumberId: undefined, // Legacy API doesn't have phoneNumberId
+      },
+      {
+        jobId: `broadcast-${job.id}`,
+      }
+    )
 
     return c.json({
       success: true,

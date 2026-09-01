@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { webhookService, type WebhookEventType, type WebhookChannel } from '../../services/webhook-service.js';
 import { logger } from '../../utils/logger.js';
 import { requireFeature, checkUsageLimit } from '../../middleware/subscription.js';
+import { handleValidationError } from '../../middleware/errorHandler.js';
+import { auditLog } from '../../utils/auditLog.js';
+import { prisma } from '../../utils/database.js';
 
 const app = new Hono();
 
@@ -27,6 +30,7 @@ const createWebhookSchema = z.object({
     .min(1, 'At least one event type is required'),
   channels: z.array(z.enum(['whatsapp', 'instagram', 'all']))
     .min(1, 'At least one channel is required'),
+  channelAccountIds: z.array(z.string()).optional().default([]),
 });
 
 // Validation schema for updating webhook endpoint
@@ -39,8 +43,57 @@ const updateWebhookSchema = z.object({
   channels: z.array(z.enum(['whatsapp', 'instagram', 'all']))
     .min(1, 'At least one channel is required')
     .optional(),
+  channelAccountIds: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
 });
+
+/**
+ * Validate that channelAccountIds belong to the user
+ * Checks across PhoneNumber, InstagramAccount, and FacebookPage tables
+ * 
+ * @param userId - The user ID to validate against
+ * @param channelAccountIds - Array of channel account IDs to validate
+ * @returns Object with isValid flag and invalidIds array
+ */
+async function validateChannelAccountIds(
+  userId: string,
+  channelAccountIds: string[]
+): Promise<{ isValid: boolean; invalidIds: string[] }> {
+  if (!channelAccountIds || channelAccountIds.length === 0) {
+    return { isValid: true, invalidIds: [] };
+  }
+
+  // Query all user's channel accounts in parallel
+  const [phoneNumbers, instagramAccounts, facebookPages] = await Promise.all([
+    prisma.phoneNumber.findMany({
+      where: { userId, id: { in: channelAccountIds } },
+      select: { id: true },
+    }),
+    prisma.instagramAccount.findMany({
+      where: { userId, id: { in: channelAccountIds } },
+      select: { id: true },
+    }),
+    prisma.facebookPage.findMany({
+      where: { userId, id: { in: channelAccountIds } },
+      select: { id: true },
+    }),
+  ]);
+
+  // Collect all valid IDs
+  const validIds = new Set([
+    ...phoneNumbers.map((p) => p.id),
+    ...instagramAccounts.map((i) => i.id),
+    ...facebookPages.map((f) => f.id),
+  ]);
+
+  // Find invalid IDs
+  const invalidIds = channelAccountIds.filter((id) => !validIds.has(id));
+
+  return {
+    isValid: invalidIds.length === 0,
+    invalidIds,
+  };
+}
 
 /**
  * POST /api/v1/settings/webhooks
@@ -79,19 +132,24 @@ app.post('/', requireFeature('webhooksEnabled'), async (c: Context) => {
     const parseResult = createWebhookSchema.safeParse(body);
 
     if (!parseResult.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid request parameters',
-          details: parseResult.error.issues.map((e) => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-      }, 400);
+      return handleValidationError(parseResult.error, c);
     }
 
-    const { name, url, events, channels } = parseResult.data;
+    const { name, url, events, channels, channelAccountIds } = parseResult.data;
+
+    // Validate channelAccountIds belong to user
+    if (channelAccountIds && channelAccountIds.length > 0) {
+      const validation = await validateChannelAccountIds(c.user.id, channelAccountIds);
+      if (!validation.isValid) {
+        return c.json({
+          error: {
+            code: 'ValidationError',
+            message: 'Invalid channel account IDs provided',
+            invalidIds: validation.invalidIds,
+          },
+        }, 400);
+      }
+    }
 
     const endpoint = await webhookService.createEndpoint({
       userId: c.user.id,
@@ -99,7 +157,17 @@ app.post('/', requireFeature('webhooksEnabled'), async (c: Context) => {
       url,
       events: events as WebhookEventType[],
       channels: channels as WebhookChannel[],
+      channelAccountIds,
     });
+
+    // Audit log
+    await auditLog('WEBHOOK_ENDPOINT_CREATED', 'Webhook', endpoint.id, {
+      name,
+      url,
+      events,
+      channels,
+      channelAccountIds,
+    }, c.user.id);
 
     return c.json({
       success: true,
@@ -110,6 +178,7 @@ app.post('/', requireFeature('webhooksEnabled'), async (c: Context) => {
         secret: endpoint.secret, // Only shown once on creation
         events: endpoint.events,
         channels: endpoint.channels,
+        channelAccountIds: endpoint.channelAccountIds,
         isActive: endpoint.isActive,
         createdAt: endpoint.createdAt.toISOString(),
       },
@@ -174,6 +243,7 @@ app.get('/', async (c: Context) => {
         url: endpoint.url,
         events: endpoint.events,
         channels: endpoint.channels,
+        channelAccountIds: endpoint.channelAccountIds,
         isActive: endpoint.isActive,
         failureCount: endpoint.failureCount,
         lastFailedAt: endpoint.lastFailedAt?.toISOString() || null,
@@ -227,19 +297,24 @@ app.put('/:id', async (c: Context) => {
     const parseResult = updateWebhookSchema.safeParse(body);
 
     if (!parseResult.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid request parameters',
-          details: parseResult.error.issues.map((e) => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-      }, 400);
+      return handleValidationError(parseResult.error, c);
     }
 
     const updateData = parseResult.data;
+
+    // Validate channelAccountIds belong to user
+    if (updateData.channelAccountIds && updateData.channelAccountIds.length > 0) {
+      const validation = await validateChannelAccountIds(c.user.id, updateData.channelAccountIds);
+      if (!validation.isValid) {
+        return c.json({
+          error: {
+            code: 'ValidationError',
+            message: 'Invalid channel account IDs provided',
+            invalidIds: validation.invalidIds,
+          },
+        }, 400);
+      }
+    }
 
     const endpoint = await webhookService.updateEndpoint(
       c.user.id,
@@ -249,9 +324,15 @@ app.put('/:id', async (c: Context) => {
         url: updateData.url,
         events: updateData.events as WebhookEventType[] | undefined,
         channels: updateData.channels as WebhookChannel[] | undefined,
+        channelAccountIds: updateData.channelAccountIds,
         isActive: updateData.isActive,
       }
     );
+
+    // Audit log
+    await auditLog('WEBHOOK_ENDPOINT_UPDATED', 'Webhook', endpointId, {
+      updates: updateData
+    }, c.user.id);
 
     return c.json({
       success: true,
@@ -261,6 +342,7 @@ app.put('/:id', async (c: Context) => {
         url: endpoint.url,
         events: endpoint.events,
         channels: endpoint.channels,
+        channelAccountIds: endpoint.channelAccountIds,
         isActive: endpoint.isActive,
         failureCount: endpoint.failureCount,
         lastFailedAt: endpoint.lastFailedAt?.toISOString() || null,
@@ -331,6 +413,11 @@ app.delete('/:id', async (c: Context) => {
     }
 
     await webhookService.deleteEndpoint(c.user.id, endpointId);
+
+    // Audit log
+    await auditLog('WEBHOOK_ENDPOINT_DELETED', 'Webhook', endpointId, {
+      deletedBy: c.user.id
+    }, c.user.id);
 
     return c.json({
       success: true,

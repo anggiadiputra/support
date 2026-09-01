@@ -1,5 +1,9 @@
 {
   "title": "Pelanggan",
+  "description": "Kelola kontak WhatsApp dan preferensi persetujuan Anda",
+  "updating": "Memperbarui...",
+  "noCustomers": "Belum ada pelanggan",
+  "noCustomersDescription": "Tambahkan pelanggan pertama Anda untuk mulai mengirim pesan WhatsApp",
   "addCustomer": "Tambah Pelanggan",
   "editCustomer": "Edit Pelanggan",
   "deleteCustomer": "Hapus Pelanggan",
@@ -14,5 +18,27 @@
   "removeTag": "Hapus Tag",
   "lastContact": "Kontak Terakhir",
   "totalMessages": "Total Pesan",
-  "assignedTo": "Ditugaskan Ke"
+  "assignedTo": "Ditugaskan Ke",
+  "viewDetails": "Lihat Detail",
+  "sendMessage": "Kirim Pesan",
+  "deleting": "Menghapus...",
+  "deleteConfirmTitle": "Hapus Pelanggan?",
+  "deleteConfirmDescription": "Apakah Anda yakin ingin menghapus {name}? Tindakan ini tidak dapat dibatalkan.",
+  "deleteWarningTitle": "Data berikut akan dihapus secara permanen:",
+  "deleteWarningMessages": "Semua pesan chat",
+  "deleteWarningConsentLogs": "Riwayat persetujuan (consent)",
+  "deleteWarningNotes": "Catatan pelanggan",
+  "deleteWarningCustomFields": "Nilai custom field",
+  "deleteWarningActivities": "Riwayat aktivitas",
+  "deleteSuccess": "Pelanggan Dihapus",
+  "deleteSuccessDescription": "Pelanggan dan semua data terkait berhasil dihapus.",
+  "deleteError": "Gagal Menghapus",
+  "deleteErrorDescription": "Gagal menghapus pelanggan. Silakan coba lagi.",
+  "cancel": "Batal",
+  "stats": {
+    "total": "Total Pelanggan",
+    "consented": "Menyetujui",
+    "activeWindow": "Window Aktif",
+    "blacklisted": "Diblokir"
+  }
 }

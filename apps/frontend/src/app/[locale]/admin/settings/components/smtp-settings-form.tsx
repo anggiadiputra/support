@@ -1,31 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  RefreshCw,
-  Mail,
-  Save,
-  AlertCircle,
-  CircleCheck,
-  Info,
-  AlertTriangle,
-  SquarePen,
-} from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { useAdminSettings } from "../../hooks/use-admin-settings"
 import { SensitiveInput } from "./sensitive-input"
+import { useAdminSettings } from "../../hooks/use-admin-settings"
+import {
+  IconRefresh,
+  IconMail,
+  IconDeviceFloppy,
+  IconAlertCircle,
+  IconCircleCheck,
+  IconInfoCircle,
+  IconAlertTriangle,
+} from "@tabler/icons-react"
 
 interface SmtpSettings {
   host: string
@@ -62,36 +55,26 @@ export function SmtpSettingsForm() {
   } = useAdminSettings<SmtpSettings>("smtp")
 
   const [formData, setFormData] = useState<SmtpSettings>(defaultSettings)
-  const [isEditing, setIsEditing] = useState(false)
   const [testEmail, setTestEmail] = useState("")
-  const [testResult, setTestResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
-  const [saveResult, setSaveResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [saveResult, setSaveResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (settings) {
       setFormData({
         ...settings,
-        port:
-          typeof settings.port === "string"
-            ? parseInt(settings.port, 10)
-            : settings.port,
+        port: typeof settings.port === "string" ? parseInt(settings.port, 10) : settings.port,
       })
     }
   }, [settings])
 
-  const handleChange =
-    (field: keyof SmtpSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value =
-        field === "port" ? parseInt(e.target.value, 10) || 0 : e.target.value
-      setFormData((prev) => ({ ...prev, [field]: value }))
-      setSaveResult(null)
-    }
+  const handleChange = (field: keyof SmtpSettings) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = field === "port" ? parseInt(e.target.value, 10) || 0 : e.target.value
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    setSaveResult(null)
+  }
 
   const handleSecureChange = (checked: boolean) => {
     setFormData((prev) => ({ ...prev, secure: checked }))
@@ -103,17 +86,11 @@ export function SmtpSettingsForm() {
     setTestResult(null)
     const result = await updateSettings(formData)
     setSaveResult(result)
-    if (result.success) {
-      setIsEditing(false)
-    }
   }
 
   const handleTest = async () => {
     if (!testEmail) {
-      setTestResult({
-        success: false,
-        message: "Please enter a test email address",
-      })
+      setTestResult({ success: false, message: "Please enter a test email address" })
       return
     }
     setTestResult(null)
@@ -126,10 +103,7 @@ export function SmtpSettingsForm() {
     setTestResult(null)
     const result = await resetToDefault()
     if (result.success) {
-      setSaveResult({
-        success: true,
-        message: "Settings reset to .env defaults",
-      })
+      setSaveResult({ success: true, message: "Settings reset to .env defaults" })
     } else {
       setSaveResult(result)
     }
@@ -159,41 +133,26 @@ export function SmtpSettingsForm() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <div className="space-y-1">
-          <CardTitle>Email / SMTP Configuration</CardTitle>
-          <CardDescription>
-            Configure SMTP settings for sending emails
-          </CardDescription>
-        </div>
-        {!isEditing && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-            className="gap-1.5"
-          >
-            <SquarePen className="h-4 w-4" />
-            Edit
-          </Button>
-        )}
+      <CardHeader>
+        <CardTitle>Email / SMTP Configuration</CardTitle>
+        <CardDescription>
+          Configure SMTP settings for sending emails
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Warning banner when settings incomplete */}
         {isIncomplete && (
           <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
+            <IconAlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              SMTP settings are incomplete. Email functionality is disabled
-              until Host, Port, and From Email are configured.
+              SMTP settings are incomplete. Email functionality is disabled until Host, Port, and From Email are configured.
             </AlertDescription>
           </Alert>
         )}
 
         {source && (
           <Alert variant={source === "database" ? "default" : "destructive"}>
-            <Info className="h-4 w-4" />
+            <IconInfoCircle className="h-4 w-4" />
             <AlertDescription>
               {source === "database"
                 ? "Settings loaded from database"
@@ -204,7 +163,7 @@ export function SmtpSettingsForm() {
 
         {error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <IconAlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -212,9 +171,9 @@ export function SmtpSettingsForm() {
         {testResult && (
           <Alert variant={testResult.success ? "default" : "destructive"}>
             {testResult.success ? (
-              <CircleCheck className="h-4 w-4" />
+              <IconCircleCheck className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <IconAlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>{testResult.message}</AlertDescription>
           </Alert>
@@ -223,9 +182,9 @@ export function SmtpSettingsForm() {
         {saveResult && (
           <Alert variant={saveResult.success ? "default" : "destructive"}>
             {saveResult.success ? (
-              <CircleCheck className="h-4 w-4" />
+              <IconCircleCheck className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <IconAlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>{saveResult.message}</AlertDescription>
           </Alert>
@@ -240,7 +199,6 @@ export function SmtpSettingsForm() {
                 value={formData.host}
                 onChange={handleChange("host")}
                 placeholder="smtp.example.com"
-                disabled={!isEditing}
               />
             </div>
 
@@ -252,7 +210,6 @@ export function SmtpSettingsForm() {
                 value={formData.port}
                 onChange={handleChange("port")}
                 placeholder="587"
-                disabled={!isEditing}
               />
             </div>
           </div>
@@ -265,7 +222,6 @@ export function SmtpSettingsForm() {
                 value={formData.user}
                 onChange={handleChange("user")}
                 placeholder="smtp-user@example.com"
-                disabled={!isEditing}
               />
             </div>
 
@@ -277,7 +233,6 @@ export function SmtpSettingsForm() {
                 onChange={handleChange("password")}
                 placeholder="Enter SMTP password"
                 isMasked={formData.password?.includes("****")}
-                disabled={!isEditing}
               />
             </div>
           </div>
@@ -291,7 +246,6 @@ export function SmtpSettingsForm() {
                 value={formData.fromEmail}
                 onChange={handleChange("fromEmail")}
                 placeholder="noreply@example.com"
-                disabled={!isEditing}
               />
             </div>
 
@@ -302,7 +256,6 @@ export function SmtpSettingsForm() {
                 value={formData.fromName}
                 onChange={handleChange("fromName")}
                 placeholder="My App"
-                disabled={!isEditing}
               />
             </div>
           </div>
@@ -312,7 +265,6 @@ export function SmtpSettingsForm() {
               id="secure"
               checked={formData.secure}
               onCheckedChange={handleSecureChange}
-              disabled={!isEditing}
             />
             <Label htmlFor="secure">Use TLS/SSL (Secure)</Label>
           </div>
@@ -334,44 +286,25 @@ export function SmtpSettingsForm() {
               onClick={handleTest}
               disabled={isTesting || isUpdating || !testEmail}
             >
-              <Mail className="mr-2 h-4 w-4" />
+              <IconMail className="mr-2 h-4 w-4" />
               {isTesting ? "Sending..." : "Send Test"}
             </Button>
           </div>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          {isEditing && (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                disabled={isResetting || isUpdating}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {isResetting ? "Resetting..." : "Reset to Default"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isUpdating}
-                onClick={() => {
-                  setFormData(settings || defaultSettings)
-                  setIsEditing(false)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            disabled={isResetting || isUpdating}
+          >
+            <IconRefresh className="mr-2 h-4 w-4" />
+            {isResetting ? "Resetting..." : "Reset to Default"}
+          </Button>
+          <Button onClick={handleSave} disabled={isUpdating}>
+            <IconDeviceFloppy className="mr-2 h-4 w-4" />
+            {isUpdating ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </CardContent>
     </Card>

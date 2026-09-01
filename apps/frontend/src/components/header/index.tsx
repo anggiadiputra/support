@@ -4,8 +4,7 @@ import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./mobile-nav";
-
-import { useBrandingContext } from "@/components/branding-provider";
+import { useBranding } from "@/hooks/use-branding";
 
 export const links = [
 	{ href: "/", label: "Home" },
@@ -15,8 +14,7 @@ export const links = [
 
 export function Header() {
 	const scrolled = useScroll(10);
-	const { websiteName } = useBrandingContext();
-	const brand = websiteName || process.env.NEXT_PUBLIC_APP_NAME || "App";
+	const { websiteName } = useBranding();
 
 	return (
 		<header
@@ -30,8 +28,8 @@ export function Header() {
 				href="/"
 			>
 				<Logo className="h-4" />
-				<span className="ml-2 font-semibold">{brand}</span>
-				<span className="sr-only">{brand}</span>
+				<span className="ml-2 font-semibold">{websiteName}</span>
+				<span className="sr-only">{websiteName}</span>
 			</a>
 
 			<nav className="hidden md:flex items-center gap-1">

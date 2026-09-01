@@ -1,0 +1,412 @@
+{
+  "131026": {
+    "message": "Pesan tidak dapat dikirim. Nomor penerima mungkin tidak terdaftar di WhatsApp atau menggunakan versi WhatsApp yang lama.",
+    "recovery_action": "Pastikan nomor penerima aktif di WhatsApp dan menggunakan versi terbaru.",
+    "category": "recipient"
+  },
+  "131047": {
+    "message": "Jendela percakapan 24 jam sudah berakhir. Anda hanya bisa mengirim pesan template.",
+    "recovery_action": "Gunakan pesan template untuk memulai percakapan baru.",
+    "category": "window"
+  },
+  "130429": {
+    "message": "Terlalu banyak pesan dikirim. Silakan tunggu beberapa saat sebelum mencoba lagi.",
+    "recovery_action": "Tunggu beberapa menit sebelum mengirim pesan lagi.",
+    "category": "throttling"
+  },
+  "131048": {
+    "message": "Pengiriman pesan dibatasi karena terlalu banyak pesan yang ditandai spam.",
+    "recovery_action": "Periksa status kualitas nomor di WhatsApp Manager dan tingkatkan kualitas pesan.",
+    "category": "throttling"
+  },
+  "131056": {
+    "message": "Terlalu banyak pesan ke nomor ini. Silakan tunggu sebelum mencoba lagi.",
+    "recovery_action": "Tunggu beberapa menit sebelum mengirim pesan ke nomor ini lagi.",
+    "category": "throttling"
+  },
+  "131050": {
+    "message": "Penerima telah memilih untuk tidak menerima pesan marketing dari bisnis Anda.",
+    "recovery_action": "Hormati preferensi penerima dan jangan kirim pesan marketing ke nomor ini.",
+    "category": "recipient"
+  },
+  "131062": {
+    "message": "Template autentikasi (one-tap/zero-tap/copy-code) tidak dapat dikirim menggunakan BSUID sebagai penerima. Gunakan nomor telepon.",
+    "recovery_action": "Kirim ulang template autentikasi menggunakan nomor telepon penerima, bukan BSUID/username.",
+    "category": "recipient"
+  },
+  "132001": {
+    "message": "Template tidak ditemukan atau belum disetujui.",
+    "recovery_action": "Periksa nama template dan pastikan template sudah disetujui. Coba sinkronkan ulang template.",
+    "category": "template"
+  },
+  "132000": {
+    "message": "Jumlah parameter tidak sesuai dengan template. Periksa variabel yang dikirim.",
+    "recovery_action": "Pastikan jumlah dan format parameter sesuai dengan definisi template.",
+    "category": "template"
+  },
+  "132015": {
+    "message": "Template sedang dijeda karena masalah kualitas.",
+    "recovery_action": "Edit template untuk meningkatkan kualitasnya atau gunakan template lain.",
+    "category": "template"
+  },
+  "132016": {
+    "message": "Template telah dinonaktifkan secara permanen karena kualitas rendah.",
+    "recovery_action": "Buat template baru dengan konten yang lebih baik.",
+    "category": "template"
+  },
+  "132005": {
+    "message": "Teks template setelah digabung dengan parameter terlalu panjang.",
+    "recovery_action": "Kurangi panjang teks parameter yang dikirim.",
+    "category": "template"
+  },
+  "132007": {
+    "message": "Format karakter template melanggar kebijakan.",
+    "recovery_action": "Periksa format teks dan karakter khusus dalam parameter.",
+    "category": "template"
+  },
+  "132012": {
+    "message": "Format parameter tidak sesuai dengan yang diharapkan template.",
+    "recovery_action": "Pastikan format parameter (teks, gambar, dll) sesuai dengan definisi template.",
+    "category": "template"
+  },
+  "131031": {
+    "message": "Akun WhatsApp Business Anda dikunci karena melanggar kebijakan.",
+    "recovery_action": "Periksa status akun di WhatsApp Manager dan ajukan banding jika diperlukan.",
+    "category": "account"
+  },
+  "368": {
+    "message": "Akun WhatsApp Business Anda dibatasi sementara karena melanggar kebijakan.",
+    "recovery_action": "Periksa status akun di WhatsApp Manager dan ajukan banding jika diperlukan.",
+    "category": "account"
+  },
+  "190": {
+    "message": "Sesi WhatsApp Anda telah berakhir.",
+    "recovery_action": "Silakan hubungkan ulang akun WhatsApp Business Anda.",
+    "category": "authentication"
+  },
+  "2": {
+    "message": "Layanan WhatsApp sedang tidak tersedia. Silakan coba lagi dalam beberapa menit.",
+    "recovery_action": "Tunggu beberapa menit dan coba lagi.",
+    "category": "service"
+  },
+  "131016": {
+    "message": "Layanan WhatsApp sedang tidak tersedia. Silakan coba lagi dalam beberapa menit.",
+    "recovery_action": "Tunggu beberapa menit dan coba lagi.",
+    "category": "service"
+  },
+  "133004": {
+    "message": "Layanan WhatsApp sedang tidak tersedia. Silakan coba lagi dalam beberapa menit.",
+    "recovery_action": "Tunggu beberapa menit dan coba lagi.",
+    "category": "service"
+  },
+  "131052": {
+    "message": "Gagal mengunduh media yang dikirim pelanggan.",
+    "recovery_action": "Minta pelanggan mengirim ulang media.",
+    "category": "media"
+  },
+  "131053": {
+    "message": "Gagal mengunggah media. Pastikan file valid dan tidak terlalu besar.",
+    "recovery_action": "Periksa format dan ukuran file, lalu coba lagi.",
+    "category": "media"
+  },
+  "131042": {
+    "message": "Ada masalah dengan pembayaran akun WhatsApp Business Anda.",
+    "recovery_action": "Periksa status pembayaran di Meta Business Suite.",
+    "category": "billing"
+  },
+  "131005": {
+    "message": "Akses ditolak. Anda tidak memiliki izin untuk operasi ini.",
+    "recovery_action": "Periksa izin aplikasi dan konfigurasi akun.",
+    "category": "authorization"
+  },
+  "10": {
+    "message": "Izin ditolak untuk operasi ini.",
+    "recovery_action": "Periksa izin aplikasi di Meta Business Suite.",
+    "category": "authorization"
+  },
+  "4": {
+    "message": "Terlalu banyak permintaan API. Silakan kurangi frekuensi pengiriman.",
+    "recovery_action": "Tunggu beberapa saat dan kurangi frekuensi permintaan.",
+    "category": "throttling"
+  },
+  "80007": {
+    "message": "Batas pengiriman tercapai. Silakan tunggu sebelum mencoba lagi.",
+    "recovery_action": "Tunggu beberapa menit sebelum mengirim pesan lagi.",
+    "category": "throttling"
+  },
+  "131049": {
+    "message": "Meta memilih untuk tidak mengirimkan pesan ini.",
+    "recovery_action": "Periksa konten pesan dan pastikan sesuai dengan kebijakan WhatsApp.",
+    "category": "integrity"
+  },
+  "131000": {
+    "message": "Terjadi kesalahan. Silakan coba lagi.",
+    "recovery_action": "Tunggu beberapa saat dan coba lagi.",
+    "category": "other"
+  },
+  "100": {
+    "message": "Parameter tidak valid.",
+    "recovery_action": "Periksa parameter yang dikirim dan pastikan formatnya benar.",
+    "category": "validation"
+  },
+  "131008": {
+    "message": "Parameter yang diperlukan tidak ada.",
+    "recovery_action": "Pastikan semua parameter yang diperlukan sudah disertakan.",
+    "category": "validation"
+  },
+  "131009": {
+    "message": "Nilai parameter tidak valid.",
+    "recovery_action": "Periksa nilai parameter dan pastikan sesuai dengan format yang diharapkan.",
+    "category": "validation"
+  },
+  "131051": {
+    "message": "Jenis pesan tidak didukung.",
+    "recovery_action": "Gunakan jenis pesan yang didukung (text, template, image, dll).",
+    "category": "validation"
+  },
+  "131021": {
+    "message": "Penerima tidak boleh sama dengan pengirim.",
+    "recovery_action": "Gunakan nomor penerima yang berbeda dari nomor pengirim.",
+    "category": "validation"
+  },
+  "131057": {
+    "message": "Akun sedang dalam pemeliharaan. Silakan coba lagi nanti.",
+    "recovery_action": "Tunggu beberapa saat dan coba lagi.",
+    "category": "service"
+  },
+  "130497": {
+    "message": "Pengiriman ke negara ini dibatasi.",
+    "recovery_action": "Periksa pembatasan negara untuk akun Anda.",
+    "category": "restriction"
+  },
+  "132068": {
+    "message": "Flow dalam template diblokir.",
+    "recovery_action": "Periksa status flow di WhatsApp Manager.",
+    "category": "template"
+  },
+  "132069": {
+    "message": "Flow dalam template dibatasi sementara.",
+    "recovery_action": "Tunggu beberapa saat sebelum mencoba lagi.",
+    "category": "template"
+  },
+  "100_33": {
+    "message": "Nomor WhatsApp Business Anda sudah tidak terhubung. Nomor mungkin telah dihapus atau diputuskan dari WhatsApp.",
+    "recovery_action": "Silakan hubungkan ulang akun WhatsApp Business Anda di halaman pengaturan WABA.",
+    "category": "configuration"
+  },
+  "0": {
+    "message": "Tidak dapat mengautentikasi. Token akses mungkin kedaluwarsa atau tidak valid.",
+    "recovery_action": "Perbarui token akses Anda di pengaturan.",
+    "category": "authentication"
+  },
+  "200": {
+    "message": "Izin tidak diberikan atau telah dihapus.",
+    "recovery_action": "Gunakan debugger token akses untuk memverifikasi aplikasi Anda memiliki izin yang diperlukan.",
+    "category": "authorization"
+  },
+  "1": {
+    "message": "Kesalahan API tidak diketahui.",
+    "recovery_action": "Coba lagi nanti.",
+    "category": "other"
+  },
+  "3": {
+    "message": "Metode API tidak diizinkan.",
+    "recovery_action": "Periksa metode HTTP yang digunakan.",
+    "category": "other"
+  },
+  "33": {
+    "message": "Nilai parameter tidak valid.",
+    "recovery_action": "Periksa nilai parameter yang dikirim.",
+    "category": "validation"
+  },
+  "131037": {
+    "message": "Nama tampilan nomor telepon bisnis belum disetujui.",
+    "recovery_action": "Tunggu persetujuan nama tampilan atau ajukan ulang.",
+    "category": "configuration"
+  },
+  "131045": {
+    "message": "Sertifikat tidak benar.",
+    "recovery_action": "Periksa konfigurasi sertifikat.",
+    "category": "configuration"
+  },
+  "133000": {
+    "message": "Proses pembatalan pendaftaran tidak lengkap.",
+    "recovery_action": "Selesaikan proses pembatalan pendaftaran terlebih dahulu.",
+    "category": "registration"
+  },
+  "133005": {
+    "message": "PIN verifikasi dua langkah salah.",
+    "recovery_action": "Masukkan PIN yang benar.",
+    "category": "registration"
+  },
+  "133006": {
+    "message": "Nomor telepon harus diverifikasi ulang sebelum mendaftar.",
+    "recovery_action": "Lakukan verifikasi ulang nomor telepon.",
+    "category": "registration"
+  },
+  "133008": {
+    "message": "Terlalu banyak percobaan PIN.",
+    "recovery_action": "Coba lagi nanti.",
+    "category": "registration"
+  },
+  "133009": {
+    "message": "Percobaan PIN terlalu cepat.",
+    "recovery_action": "Tunggu sebentar sebelum mencoba lagi.",
+    "category": "registration"
+  },
+  "133010": {
+    "message": "Nomor telepon tidak terdaftar.",
+    "recovery_action": "Daftarkan nomor telepon terlebih dahulu.",
+    "category": "registration"
+  },
+  "133015": {
+    "message": "Tunggu sebelum mencoba mendaftarkan nomor ini.",
+    "recovery_action": "Tunggu 5 menit sebelum mencoba lagi.",
+    "category": "registration"
+  },
+  "133016": {
+    "message": "Batas percobaan pendaftaran tercapai.",
+    "recovery_action": "Coba lagi setelah nomor tidak diblokir.",
+    "category": "registration"
+  },
+  "135000": {
+    "message": "Kesalahan pengguna umum.",
+    "recovery_action": "Periksa permintaan Anda dan coba lagi.",
+    "category": "other"
+  },
+  "2388019": {
+    "message": "Jumlah template maksimum (250) telah tercapai.",
+    "recovery_action": "Hapus template yang tidak digunakan sebelum membuat yang baru.",
+    "category": "template"
+  },
+  "2388040": {
+    "message": "Template melebihi batas karakter maksimal.",
+    "recovery_action": "Kurangi panjang teks template.",
+    "category": "template"
+  },
+  "2388047": {
+    "message": "Format header pesan tidak benar.",
+    "recovery_action": "Periksa pemformatan header di template Anda.",
+    "category": "template"
+  },
+  "2388072": {
+    "message": "Format isi pesan tidak benar.",
+    "recovery_action": "Periksa pemformatan isi di template Anda.",
+    "category": "template"
+  },
+  "2388073": {
+    "message": "Format footer pesan tidak benar.",
+    "recovery_action": "Periksa pemformatan footer di template Anda.",
+    "category": "template"
+  },
+  "2388293": {
+    "message": "Template memiliki terlalu banyak variabel untuk panjangnya.",
+    "recovery_action": "Kurangi jumlah variabel atau panjangkan template.",
+    "category": "template"
+  },
+  "2388299": {
+    "message": "Variabel tidak boleh berada di awal atau akhir template.",
+    "recovery_action": "Tambahkan teks sebelum dan sesudah variabel.",
+    "category": "template"
+  },
+  "130472": {
+    "message": "Nomor pengguna ini adalah bagian dari eksperimen dan tidak dapat menerima pesan.",
+    "recovery_action": "Ini adalah eksperimen Meta - tunggu 24 jam sebelum mencoba lagi.",
+    "category": "recipient"
+  },
+  "134011": {
+    "message": "Ketentuan layanan WhatsApp Payments belum diterima.",
+    "recovery_action": "Terima ketentuan layanan WhatsApp Payments di Meta Business Suite.",
+    "category": "billing"
+  },
+  "131055": {
+    "message": "Hanya pesan template marketing yang didukung pada API ini.",
+    "recovery_action": "Gunakan template marketing, bukan template utilitas atau autentikasi.",
+    "category": "template"
+  },
+  "134100": {
+    "message": "Hanya pesan marketing yang didukung.",
+    "recovery_action": "Gunakan template marketing untuk API ini.",
+    "category": "template"
+  },
+  "134101": {
+    "message": "Template masih dalam proses sinkronisasi. Silakan tunggu beberapa menit.",
+    "recovery_action": "Tunggu hingga 10 menit untuk template disinkronkan, lalu coba lagi.",
+    "category": "template"
+  },
+  "134102": {
+    "message": "Template tidak tersedia untuk digunakan.",
+    "recovery_action": "Periksa status kelayakan Anda atau hubungi dukungan Meta.",
+    "category": "template"
+  },
+  "2388001": {
+    "message": "Silakan konfirmasi kepemilikan nomor telepon ini atau nonaktifkan verifikasi dua langkah.",
+    "recovery_action": "Verifikasi kepemilikan telepon atau nonaktifkan verifikasi dua langkah di WhatsApp Manager.",
+    "category": "migration"
+  },
+  "2388012": {
+    "message": "Nomor telepon ini sudah ada di akun Anda.",
+    "recovery_action": "Gunakan nomor telepon yang berbeda yang belum terdaftar.",
+    "category": "migration"
+  },
+  "2388091": {
+    "message": "Nomor telepon tidak memenuhi syarat untuk migrasi.",
+    "recovery_action": "Daftarkan dan verifikasi nomor telepon secara normal.",
+    "category": "migration"
+  },
+  "2388093": {
+    "message": "Nomor telepon tidak memenuhi syarat untuk migrasi.",
+    "recovery_action": "Daftarkan dan verifikasi nomor telepon secara normal.",
+    "category": "migration"
+  },
+  "2388103": {
+    "message": "Kesalahan saat migrasi nomor telepon.",
+    "recovery_action": "Periksa persyaratan migrasi dan hubungi dukungan jika diperlukan.",
+    "category": "migration"
+  },
+  "2494100": {
+    "message": "Akun sedang dalam mode pemeliharaan.",
+    "recovery_action": "Tunggu beberapa menit dan coba lagi.",
+    "category": "service"
+  },
+  "2593107": {
+    "message": "Batas permintaan sinkronisasi terlampaui.",
+    "recovery_action": "Anda hanya dapat menyinkronkan sekali per nomor telepon. Offboard dan onboard kembali jika diperlukan.",
+    "category": "sync"
+  },
+  "2593108": {
+    "message": "Permintaan sinkronisasi dilakukan di luar jendela waktu yang diizinkan.",
+    "recovery_action": "Sinkronisasi harus dilakukan dalam 24 jam setelah onboarding.",
+    "category": "sync"
+  },
+  "200005": {
+    "message": "Insight template tidak tersedia untuk akun ini.",
+    "recovery_action": "Insight template tidak dapat diaktifkan untuk akun ini saat ini.",
+    "category": "insights"
+  },
+  "200006": {
+    "message": "Tidak dapat menonaktifkan insight template setelah diaktifkan.",
+    "recovery_action": "Insight template tidak dapat dinonaktifkan setelah diaktifkan.",
+    "category": "insights"
+  },
+  "200007": {
+    "message": "Insight template belum diaktifkan untuk akun ini.",
+    "recovery_action": "Aktifkan insight template di pengaturan akun Anda.",
+    "category": "insights"
+  },
+  "2593079": {
+    "message": "Akun WhatsApp Business ini ditandai untuk migrasi.",
+    "recovery_action": "Model kepemilikan OBO sudah tidak digunakan. Hubungi dukungan.",
+    "category": "waba"
+  },
+  "2593085": {
+    "message": "Akun WhatsApp Business tidak valid untuk mobilitas OBO.",
+    "recovery_action": "Model kepemilikan OBO sudah tidak digunakan. Hubungi dukungan.",
+    "category": "waba"
+  },
+  "1752041": {
+    "message": "Permintaan onboarding duplikat.",
+    "recovery_action": "Klien hanya dapat diundang untuk onboard sekali. Tidak perlu tindakan lebih lanjut.",
+    "category": "onboarding"
+  }
+}

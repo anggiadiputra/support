@@ -4,6 +4,7 @@ import { useState } from "react"
 import { EllipsisVertical, Loader2 } from "lucide-react"
 import { useRouter } from "@/i18n/routing"
 import { toast } from "@/hooks/use-toast"
+import { useUpdateWebhook, useDeleteWebhook } from "@/hooks/use-webhooks"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,65 +14,62 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { webhooksApi, type WebhookEndpoint } from "@/lib/api/webhooks-api"
+import type { WebhookEndpoint } from "@/lib/api/webhooks-api"
 import { MutateWebhook } from "../../components/mutate-webhook"
 
 interface Props {
   webhook: WebhookEndpoint
-  onUpdated: (webhook: WebhookEndpoint) => void
   onDeleted: () => void
 }
 
-export function WebhookDetailActions({ webhook, onUpdated, onDeleted }: Props) {
+export function WebhookDetailActions({ webhook, onDeleted }: Props) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [disableOpen, setDisableOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [isDisabling, setIsDisabling] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDisable = async () => {
-    try {
-      setIsDisabling(true)
-      const updated = await webhooksApi.update(webhook.id, {
-        isActive: !webhook.isActive,
-      })
-      onUpdated(updated)
-      toast({
-        title: webhook.isActive ? "Webhook Disabled" : "Webhook Enabled",
-        description: `"${webhook.name}" has been ${webhook.isActive ? "disabled" : "enabled"}.`,
-      })
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update webhook",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDisabling(false)
-      setDisableOpen(false)
-    }
+  const updateWebhook = useUpdateWebhook()
+  const deleteWebhookMutation = useDeleteWebhook()
+
+  const handleDisable = () => {
+    updateWebhook.mutate(
+      { id: webhook.id, data: { isActive: !webhook.isActive } },
+      {
+        onSuccess: () => {
+          toast({
+            title: webhook.isActive ? "Webhook Disabled" : "Webhook Enabled",
+            description: `"${webhook.name}" has been ${webhook.isActive ? "disabled" : "enabled"}.`,
+          })
+          setDisableOpen(false)
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to update webhook",
+            variant: "destructive",
+          })
+        },
+      }
+    )
   }
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true)
-      await webhooksApi.delete(webhook.id)
-      toast({
-        title: "Webhook Deleted",
-        description: `"${webhook.name}" has been deleted successfully.`,
-      })
-      onDeleted()
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete webhook",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteOpen(false)
-    }
+  const handleDelete = () => {
+    deleteWebhookMutation.mutate(webhook.id, {
+      onSuccess: () => {
+        toast({
+          title: "Webhook Deleted",
+          description: `"${webhook.name}" has been deleted successfully.`,
+        })
+        onDeleted()
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete webhook",
+          variant: "destructive",
+        })
+      },
+    })
   }
 
   return (
@@ -104,7 +102,6 @@ export function WebhookDetailActions({ webhook, onUpdated, onDeleted }: Props) {
         open={editOpen}
         setOpen={setEditOpen}
         currentWebhook={webhook}
-        onSuccess={onUpdated}
       />
 
       <ConfirmDialog
@@ -113,11 +110,11 @@ export function WebhookDetailActions({ webhook, onUpdated, onDeleted }: Props) {
         open={disableOpen}
         onOpenChange={setDisableOpen}
         handleConfirm={handleDisable}
-        isLoading={isDisabling}
+        isLoading={updateWebhook.isPending}
         title={webhook.isActive ? "Disable Webhook" : "Enable Webhook"}
         desc={`Are you sure you want to ${webhook.isActive ? "disable" : "enable"} this webhook?`}
         confirmText={
-          isDisabling ? (
+          updateWebhook.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {webhook.isActive ? "Disabling..." : "Enabling..."}
@@ -135,11 +132,11 @@ export function WebhookDetailActions({ webhook, onUpdated, onDeleted }: Props) {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         handleConfirm={handleDelete}
-        isLoading={isDeleting}
+        isLoading={deleteWebhookMutation.isPending}
         title="Delete Webhook"
         desc="Are you sure you want to delete this webhook? This action cannot be undone, and no future webhooks will be sent to this URL."
         confirmText={
-          isDeleting ? (
+          deleteWebhookMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Deleting...

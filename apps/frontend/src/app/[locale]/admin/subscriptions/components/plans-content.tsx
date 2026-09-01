@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { RefreshCw, Zap, Sparkles, Crown, SquarePen, Check } from "lucide-react"
+import { RefreshCw, Zap, Sparkles, Crown, Pencil, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -32,6 +32,11 @@ const tierConfig = {
     icon: Zap,
     color: "text-gray-500",
     badgeClass: "bg-gray-100 text-gray-800 border-gray-200",
+  },
+  basic: {
+    icon: Zap,
+    color: "text-green-500",
+    badgeClass: "bg-green-100 text-green-800 border-green-200",
   },
   lite: {
     icon: Sparkles,
@@ -92,7 +97,7 @@ function PlanCard({ tier, plan, onEdit, translations }: PlanCardProps) {
             <CardTitle className="text-lg">{plan.name}</CardTitle>
           </div>
           <Button variant="ghost" size="icon" onClick={onEdit}>
-            <SquarePen className="h-4 w-4" />
+            <Pencil className="h-4 w-4" />
           </Button>
         </div>
         <CardDescription>{plan.description}</CardDescription>
@@ -203,9 +208,10 @@ export function SubscriptionPlansContent() {
         </Alert>
       )}
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           <>
+            <PlanCardSkeleton />
             <PlanCardSkeleton />
             <PlanCardSkeleton />
             <PlanCardSkeleton />
@@ -216,6 +222,12 @@ export function SubscriptionPlansContent() {
               tier="free"
               plan={plans.free}
               onEdit={() => setEditDialog({ tier: "free", plan: plans.free })}
+              translations={planCardTranslations}
+            />
+            <PlanCard
+              tier="basic"
+              plan={plans.basic}
+              onEdit={() => setEditDialog({ tier: "basic", plan: plans.basic })}
               translations={planCardTranslations}
             />
             <PlanCard

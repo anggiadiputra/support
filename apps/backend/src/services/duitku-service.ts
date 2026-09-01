@@ -24,6 +24,12 @@ export interface DuitkuConfig {
   enabled: boolean;
 }
 
+export interface CallbackValidationResult {
+  valid: boolean;
+  format: 'LEGACY' | 'SNAP' | 'UNKNOWN';
+  error?: string;
+}
+
 export interface CreateQRPaymentParams {
   orderId: string;
   amount: number;
@@ -397,59 +403,195 @@ export class DuitkuService {
   // Callback Validation Methods
   // ===========================================================================
 
+  /**
+   * Validate SNAP format callback signature using HMAC-SHA512
+   * SNAP format uses: timestamp|JSON.stringify(payload)
+   * 
+   * Requirements: 1.1
+   */
+  validateSnapSignature(
+    payload: DuitkuCallbackPayload,
+    signature: string,
+    timestamp: string,
+    apiKey: string
+  ): boolean {
+    try {
+      if (!signature || !timestamp || !apiKey) {
+        return false;
+      }
+
+      // Build string to sign: timestamp|payload
+      const stringToSign = `${timestamp}|${JSON.stringify(payload)}`;
+      
+      // Compute HMAC-SHA512
+      const expectedSignature = crypto
+        .createHmac('sha512', apiKey)
+        .update(stringToSign)
+        .digest('hex');
+
+      // Use constant-time comparison to prevent timing attacks
+      const signatureBuffer = Buffer.from(signature.toLowerCase(), 'utf8');
+      const expectedBuffer = Buffer.from(expectedSignature.toLowerCase(), 'utf8');
+
+      // Buffers must be same length for timingSafeEqual
+      if (signatureBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+    } catch (error) {
+      logger.error('Error validating SNAP signature', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Validate Legacy format callback signature using MD5
+   * Legacy format uses: MD5(merchantCode + amount + merchantOrderId + apiKey)
+   * 
+   * Requirements: 1.2
+   */
+  validateLegacySignature(
+    payload: DuitkuCallbackPayload,
+    apiKey: string
+  ): boolean {
+    try {
+      if (!payload.merchantCode || !payload.amount || !payload.merchantOrderId || !apiKey) {
+        return false;
+      }
+
+      // Build string to sign: merchantCode + amount + merchantOrderId + apiKey
+      const stringToSign = `${payload.merchantCode}${payload.amount}${payload.merchantOrderId}${apiKey}`;
+      
+      // Compute MD5 hash
+      const expectedSignature = crypto
+        .createHash('md5')
+        .update(stringToSign)
+        .digest('hex');
+
+      logger.debug('Duitku Signature Validation', {
+        received: payload.signature,
+        expected: expectedSignature,
+        stringToSign: stringToSign.replace(apiKey, '***'), // Mask API key
+        amount: payload.amount,
+        merchantOrderId: payload.merchantOrderId
+      });
+
+      // Use constant-time comparison to prevent timing attacks
+      const signatureBuffer = Buffer.from((payload.signature || '').toLowerCase(), 'utf8');
+      const expectedBuffer = Buffer.from(expectedSignature.toLowerCase(), 'utf8');
+
+      // Buffers must be same length for timingSafeEqual
+      if (signatureBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+    } catch (error) {
+      logger.error('Error validating Legacy signature', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Detect callback format based on payload structure and headers
+   * 
+   * Requirements: 1.5
+   */
+  detectCallbackFormat(
+    payload: DuitkuCallbackPayload,
+    hasTimestampHeader: boolean
+  ): 'LEGACY' | 'SNAP' | 'UNKNOWN' {
+    // SNAP format: has partnerReferenceNo and timestamp header
+    if (payload.partnerReferenceNo && hasTimestampHeader) {
+      return 'SNAP';
+    }
+
+    // Legacy format: has merchantCode, merchantOrderId, amount, and signature
+    if (payload.merchantCode && payload.merchantOrderId && payload.amount && payload.signature) {
+      return 'LEGACY';
+    }
+
+    return 'UNKNOWN';
+  }
+
+  /**
+   * Validate callback signature with format detection and routing
+   * Routes to appropriate validation function based on detected format
+   * 
+   * Requirements: 1.1, 1.2, 1.3, 1.5
+   */
   validateCallbackSignature(
     payload: DuitkuCallbackPayload,
-    _signature?: string,
-    _timestamp?: string
-  ): boolean {
+    signature?: string,
+    timestamp?: string
+  ): CallbackValidationResult {
     try {
       const config = this.config;
       
       if (!config) {
         logger.error('Duitku config not loaded for callback validation');
-        return false;
+        return {
+          valid: false,
+          format: 'UNKNOWN',
+          error: 'Configuration not loaded',
+        };
       }
 
-      // Legacy callback format
-      if (payload.merchantCode && payload.merchantOrderId && payload.amount) {
-        if (payload.merchantCode !== config.merchantCode || !payload.signature) {
-          return false;
-        }
+      // Detect callback format
+      const hasTimestampHeader = !!timestamp;
+      const format = this.detectCallbackFormat(payload, hasTimestampHeader);
 
-        const expectedSignature = this.generateCallbackSignature(
-          payload.merchantCode,
-          payload.amount,
-          payload.merchantOrderId,
+      if (format === 'UNKNOWN') {
+        logger.warn('Unknown callback format detected', {
+          orderId: payload.merchantOrderId || payload.partnerReferenceNo,
+          hasPartnerReferenceNo: !!payload.partnerReferenceNo,
+          hasMerchantCode: !!payload.merchantCode,
+          hasSignature: !!payload.signature,
+          hasTimestamp: hasTimestampHeader,
+        });
+        return {
+          valid: false,
+          format: 'UNKNOWN',
+          error: 'Unknown callback format',
+        };
+      }
+
+      // Route to appropriate validation function
+      if (format === 'SNAP') {
+        const isValid = this.validateSnapSignature(
+          payload,
+          signature || '',
+          timestamp || '',
           config.apiKey
         );
-
-        const provided = Buffer.from(payload.signature.toLowerCase());
-        const expected = Buffer.from(expectedSignature.toLowerCase());
-        if (provided.length === expected.length && crypto.timingSafeEqual(provided, expected)) {
-          return true;
-        }
+        return {
+          valid: isValid,
+          format: 'SNAP',
+          error: isValid ? undefined : 'Invalid SNAP signature',
+        };
       }
 
-      // SNAP callbacks require their own asymmetric signature verification.
-      // Until that verifier is configured, fail closed instead of trusting
-      // attacker-controlled structure such as partnerReferenceNo.
-      if (payload.partnerReferenceNo) {
-        logger.warn('Unsigned SNAP callback rejected', {
-          orderId: payload.partnerReferenceNo,
-        });
-        return false;
-      }
-
-      logger.warn('Duitku callback signature validation failed', {
-        orderId: payload.merchantOrderId || payload.partnerReferenceNo,
-      });
-
-      return false;
+      // Legacy format validation
+      const isValid = this.validateLegacySignature(payload, config.apiKey);
+      return {
+        valid: isValid,
+        format: 'LEGACY',
+        error: isValid ? undefined : 'Invalid Legacy signature',
+      };
     } catch (error) {
       logger.error('Error validating Duitku callback signature', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      return false;
+      return {
+        valid: false,
+        format: 'UNKNOWN',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 

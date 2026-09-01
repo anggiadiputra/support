@@ -16,6 +16,7 @@ export interface WebhookEndpoint {
   secret?: string // Only returned on creation
   events: WebhookEventType[]
   channels: WebhookChannel[]
+  channelAccountIds: string[]
   isActive: boolean
   failureCount: number
   lastFailedAt: string | null
@@ -43,6 +44,7 @@ export interface CreateWebhookInput {
   url: string
   events: WebhookEventType[]
   channels: WebhookChannel[]
+  channelAccountIds?: string[]
 }
 
 export interface UpdateWebhookInput {
@@ -50,6 +52,7 @@ export interface UpdateWebhookInput {
   url?: string
   events?: WebhookEventType[]
   channels?: WebhookChannel[]
+  channelAccountIds?: string[]
   isActive?: boolean
 }
 

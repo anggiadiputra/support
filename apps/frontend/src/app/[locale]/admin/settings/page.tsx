@@ -1,25 +1,33 @@
 "use client"
 
 import { useState } from "react"
-import { Instagram, Mail, Brain, CreditCard, ShieldCheck } from "lucide-react"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DuitkuSettingsForm } from "./components/duitku-settings-form"
-import { InstagramSettingsForm } from "./components/instagram-settings-form"
-import { OpenAISettingsForm } from "./components/openai-settings-form"
-import { SmtpSettingsForm } from "./components/smtp-settings-form"
+import {
+  IconBrandWhatsapp,
+  IconBrandInstagram,
+  IconBrandFacebook,
+  IconMail,
+  IconBrain,
+  IconCreditCard,
+} from "@tabler/icons-react"
 import { WhatsAppSettingsForm } from "./components/whatsapp-settings-form"
-import { TurnstileSettingsForm } from "./components/turnstile-settings-form"
+import { InstagramSettingsForm } from "./components/instagram-settings-form"
+import { MessengerSettingsForm } from "./components/messenger-settings-form"
+import { SmtpSettingsForm } from "./components/smtp-settings-form"
+import { OpenAISettingsForm } from "./components/openai-settings-form"
+import { DuitkuSettingsForm } from "./components/duitku-settings-form"
+import { XenditSettingsForm } from "./components/xendit-settings-form"
+import { PaymentGatewaySettings } from "./components/payment-gateway-settings"
 
-type SettingsTab = "whatsapp" | "instagram" | "smtp" | "openai" | "duitku" | "turnstile"
+type SettingsTab = "whatsapp" | "instagram" | "messenger" | "smtp" | "openai" | "payment"
 
 const tabs = [
-  { id: "whatsapp" as const, label: "WhatsApp", icon: WhatsAppIcon },
-  { id: "instagram" as const, label: "Instagram", icon: Instagram },
-  { id: "smtp" as const, label: "Email", icon: Mail },
-  { id: "openai" as const, label: "OpenAI", icon: Brain },
-  { id: "duitku" as const, label: "Payment", icon: CreditCard },
-  { id: "turnstile" as const, label: "Turnstile", icon: ShieldCheck },
+  { id: "whatsapp" as const, label: "WhatsApp", icon: IconBrandWhatsapp },
+  { id: "instagram" as const, label: "Instagram", icon: IconBrandInstagram },
+  { id: "messenger" as const, label: "Messenger", icon: IconBrandFacebook },
+  { id: "smtp" as const, label: "Email", icon: IconMail },
+  { id: "openai" as const, label: "OpenAI", icon: IconBrain },
+  { id: "payment" as const, label: "Payment", icon: IconCreditCard },
 ]
 
 export default function AdminSettingsPage() {
@@ -30,15 +38,12 @@ export default function AdminSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Configure channel integrations, bot protection and API credentials
+          Configure channel integrations and API credentials
         </p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as SettingsTab)}
-      >
-        <TabsList className="grid w-full grid-cols-6 lg:inline-flex lg:w-auto">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SettingsTab)}>
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
           {tabs.map((tab) => (
             <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
               <tab.icon className="h-4 w-4" />
@@ -55,6 +60,10 @@ export default function AdminSettingsPage() {
           <InstagramSettingsForm />
         </TabsContent>
 
+        <TabsContent value="messenger" className="mt-6">
+          <MessengerSettingsForm />
+        </TabsContent>
+
         <TabsContent value="smtp" className="mt-6">
           <SmtpSettingsForm />
         </TabsContent>
@@ -63,12 +72,26 @@ export default function AdminSettingsPage() {
           <OpenAISettingsForm />
         </TabsContent>
 
-        <TabsContent value="duitku" className="mt-6">
-          <DuitkuSettingsForm />
-        </TabsContent>
+        <TabsContent value="payment" className="mt-6">
+          <Tabs defaultValue="general">
+            <TabsList>
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="duitku">Duitku</TabsTrigger>
+              <TabsTrigger value="xendit">Xendit</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="turnstile" className="mt-6">
-          <TurnstileSettingsForm />
+            <TabsContent value="general" className="mt-6">
+              <PaymentGatewaySettings />
+            </TabsContent>
+
+            <TabsContent value="duitku" className="mt-6">
+              <DuitkuSettingsForm />
+            </TabsContent>
+
+            <TabsContent value="xendit" className="mt-6">
+              <XenditSettingsForm />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "terms": "Syarat Layanan",
+    "privacy": "Kebijakan Privasi",
+    "login": "Masuk",
+    "signup": "Daftar",
+    "menu": "Menu"
+  },
+  "footer": {
+    "rights": "Hak cipta dilindungi."
+  }
+}

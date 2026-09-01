@@ -13,11 +13,12 @@ const RESTRICTED_ROUTES = [
   "/templates",
   "/waba",
   "/instagram",
+  "/messenger",
   "/subscription",
   "/developers",
   "/ai",
   "/team",
-  "/crm/pipeline",
+  "/insights",
 ]
 
 interface RoleGuardProps {
@@ -29,7 +30,7 @@ interface RoleGuardProps {
  * Component to guard routes based on user role.
  * Redirects agents to /oneinbox if they try to access restricted routes.
  */
-export function RoleGuard({ children, allowedRoles = ["BUSINESS_OWNER", "ADMIN"] }: RoleGuardProps) {
+export function RoleGuard({ children, allowedRoles = ["BUSINESS_OWNER", "ADMIN", "AGENT"] }: RoleGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { userRole, isLoading } = useBusinessAccount()

@@ -1,11 +1,19 @@
 import { Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
+import { Agent } from 'undici';
 import { createHmac } from 'crypto';
 import { prisma } from '../utils/database.js';
 import { tokenEncryption } from '../utils/tokenEncryption.js';
 import { QUEUE_NAMES } from '../utils/queue.js';
 import { emailService } from '../services/email/index.js';
 import type { WebhookOutboundJobData, WebhookPayload } from '../services/webhook-service.js';
+
+// Create agent that forces IPv4 (fixes ETIMEDOUT/fetch failed on some servers)
+const ipv4Agent = new Agent({
+  connect: {
+    family: 4, // Force IPv4
+  },
+});
 
 // Redis connection for worker
 const redisConnection = new Redis({
@@ -25,6 +33,10 @@ const WEBHOOK_TIMEOUT_MS = 30000;
 
 // Max consecutive failures before auto-disable (Requirement 3.4)
 const MAX_CONSECUTIVE_FAILURES = 10;
+
+// Webhook header prefix - configurable for white-label (default: KirimChat)
+// Example: X-KirimChat-Signature, X-KirimChat-Event, etc.
+const WEBHOOK_HEADER_PREFIX = process.env.WEBHOOK_HEADER_PREFIX || 'KirimChat';
 
 /**
  * Calculate HMAC-SHA256 signature for webhook payload
@@ -63,8 +75,8 @@ async function createDeliveryLog(data: {
 }): Promise<void> {
   const requestHeaders = {
     'Content-Type': 'application/json',
-    'X-KirimChat-Signature': '[calculated]',
-    'X-KirimChat-Event': data.eventType,
+    [`X-${WEBHOOK_HEADER_PREFIX}-Signature`]: '[calculated]',
+    [`X-${WEBHOOK_HEADER_PREFIX}-Event`]: data.eventType,
   };
 
   // Encrypt sensitive data before storing (SECURITY)
@@ -185,7 +197,7 @@ async function resetFailureCount(endpointId: string): Promise<void> {
  * @param job - The BullMQ job containing webhook delivery data
  */
 async function processWebhookDelivery(job: Job<WebhookOutboundJobData>): Promise<void> {
-  const { webhookEndpointId, eventId, eventType, payload, maxAttempts } = job.data;
+  const { webhookEndpointId, eventId, eventType, payload, maxAttempts, idempotencyKey } = job.data;
   
   // Use BullMQ's attemptsMade + 1 for current attempt number (0-indexed)
   const currentAttempt = job.attemptsMade + 1;
@@ -206,16 +218,9 @@ async function processWebhookDelivery(job: Job<WebhookOutboundJobData>): Promise
   });
 
   if (!endpoint) {
-    console.error(`❌ Webhook endpoint ${webhookEndpointId} not found`);
-    await createDeliveryLog({
-      webhookEndpointId,
-      eventId,
-      eventType,
-      payload,
-      status: 'failed',
-      attemptNumber: currentAttempt,
-      errorMessage: 'Webhook endpoint not found',
-    });
+    // Endpoint was deleted - skip delivery without creating log
+    // (can't create delivery log due to foreign key constraint)
+    console.warn(`⏭️ Skipping webhook delivery - endpoint ${webhookEndpointId} was deleted`);
     return;
   }
 
@@ -260,12 +265,17 @@ async function processWebhookDelivery(job: Job<WebhookOutboundJobData>): Promise
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-KirimChat-Signature': signature,
-        'X-KirimChat-Event': eventType,
-        'X-KirimChat-Delivery': eventId,
+        [`X-${WEBHOOK_HEADER_PREFIX}-Signature`]: signature,
+        [`X-${WEBHOOK_HEADER_PREFIX}-Event`]: eventType,
+        [`X-${WEBHOOK_HEADER_PREFIX}-Delivery`]: eventId,
+        // Idempotency key for n8n to deduplicate events
+        // Format: {message_id}_{event_type}_{timestamp_minute}
+        ...(idempotencyKey && { [`X-${WEBHOOK_HEADER_PREFIX}-Idempotency-Key`]: idempotencyKey }),
       },
       body: payloadString,
       signal: controller.signal,
+      // @ts-expect-error - dispatcher is valid for Node.js fetch with undici
+      dispatcher: ipv4Agent,
     });
 
     clearTimeout(timeoutId);

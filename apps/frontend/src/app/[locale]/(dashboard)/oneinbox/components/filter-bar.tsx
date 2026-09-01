@@ -6,6 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, X, Tag, GitBranch } from "lucide-react"
 import type { ReadStatusFilter, PipelineStage } from "../types/unified-inbox"
+import { AccountFilter, type AccountFilterValue, type WhatsAppPhoneNumberOption } from "./account-filter"
+import type { InstagramAccount } from "@/lib/api/instagram"
+import type { FacebookPage } from "@/lib/api/messenger"
 
 interface FilterBarProps {
   readStatusFilter: ReadStatusFilter
@@ -18,6 +21,12 @@ interface FilterBarProps {
   availableStages: PipelineStage[]
   resultCount: number
   onClearFilters: () => void
+  // Account filter props
+  accountFilter: AccountFilterValue
+  onAccountFilterChange: (filter: AccountFilterValue) => void
+  instagramAccounts: InstagramAccount[]
+  facebookPages: FacebookPage[]
+  whatsappPhoneNumbers?: WhatsAppPhoneNumberOption[]
 }
 
 export function FilterBar({
@@ -31,9 +40,14 @@ export function FilterBar({
   availableStages,
   resultCount,
   onClearFilters,
+  accountFilter,
+  onAccountFilterChange,
+  instagramAccounts,
+  facebookPages,
+  whatsappPhoneNumbers = [],
 }: FilterBarProps) {
   const hasActiveFilters =
-    readStatusFilter !== "all" || tagsFilter.length > 0 || pipelineFilter.length > 0
+    readStatusFilter !== "all" || tagsFilter.length > 0 || pipelineFilter.length > 0 || accountFilter !== "all"
 
   const handleTagToggle = (tag: string) => {
     if (tagsFilter.includes(tag)) {
@@ -70,6 +84,21 @@ export function FilterBar({
           </Button>
         ))}
       </div>
+
+      {/* Account Filter - only show if multiple accounts/numbers connected */}
+      {(whatsappPhoneNumbers.length > 1 || instagramAccounts.length > 1 || facebookPages.length > 1 ||
+        (instagramAccounts.length > 0 && facebookPages.length > 0) ||
+        (whatsappPhoneNumbers.length > 1 && (instagramAccounts.length > 0 || facebookPages.length > 0))) && (
+        <div className="w-36">
+          <AccountFilter
+            value={accountFilter}
+            onChange={onAccountFilterChange}
+            instagramAccounts={instagramAccounts}
+            facebookPages={facebookPages}
+            whatsappPhoneNumbers={whatsappPhoneNumbers}
+          />
+        </div>
+      )}
 
       {/* Tags Multi-Select Dropdown */}
       {availableTags.length > 0 && (

@@ -1,14 +1,8 @@
 'use client'
 
-/**
- * PricingCards Component
- * Displays subscription tier cards with pricing, features, and duration selection
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5
- */
-
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Crown, Sparkles, Zap } from 'lucide-react'
+import { Check, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -20,41 +14,17 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DurationSelector, type DurationOption } from './duration-selector'
-import type { SubscriptionTier, PricingData, PricingDataWithDurations } from '../hooks/use-subscription'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { SubscriptionTier } from '@/lib/api/subscription-api'
+import type { PricingData, PricingDataWithDurations } from '@/lib/api/subscription-api'
+import { cn } from '@/lib/utils'
 
 interface PricingCardsProps {
   currentTier: SubscriptionTier
   pricing: PricingData | null
-  pricingWithDurations?: PricingDataWithDurations | null
+  pricingWithDurations: PricingDataWithDurations | null
   loading: boolean
   onUpgrade: (tier: SubscriptionTier, durationMonths: number) => void
-}
-
-// Default features for FREE tier
-const FREE_FEATURES = [
-  'WhatsApp Business API',
-  'Instagram DM Integration',
-  'Unlimited pesan',
-  'Analytics Dashboard',
-]
-
-// Filter out API Keys and Webhook features from display
-function filterFeatures(features: string[] | undefined): string[] | undefined {
-  if (!features) return undefined
-  return features.filter(
-    (f) => !f.toLowerCase().includes('api key') && !f.toLowerCase().includes('webhook')
-  )
-}
-
-// Format price to IDR
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price)
 }
 
 export function PricingCards({
@@ -65,226 +35,192 @@ export function PricingCards({
   onUpgrade,
 }: PricingCardsProps) {
   const t = useTranslations('subscription')
-  
-  // State for selected duration per tier
-  const [selectedDurations, setSelectedDurations] = useState<Record<string, number>>({
-    LITE: 1,
-    PRO: 1,
-  })
+  const [durationMonths, setDurationMonths] = useState<number>(1) // Default to monthly
 
-  const handleDurationSelect = (tier: string, months: number) => {
-    setSelectedDurations(prev => ({ ...prev, [tier]: months }))
-  }
-
-  // Get duration options for a tier
-  const getDurations = (tier: 'LITE' | 'PRO'): DurationOption[] => {
+  // Filter enabled tiers only - must be called before any conditional returns
+  const enabledTiers = useMemo(() => {
     if (!pricingWithDurations) return []
-    const tierData = tier === 'LITE' ? pricingWithDurations.lite : pricingWithDurations.pro
-    return tierData?.durations || []
-  }
-
-  // Get selected duration data for a tier
-  const getSelectedDuration = (tier: 'LITE' | 'PRO'): DurationOption | null => {
-    const durations = getDurations(tier)
-    const selectedMonths = selectedDurations[tier] || 1
-    return durations.find(d => d.months === selectedMonths) || durations[0] || null
-  }
+    
+    const allTiers: { key: 'basic' | 'lite' | 'pro'; tier: SubscriptionTier }[] = [
+      { key: 'basic', tier: 'BASIC' },
+      { key: 'lite', tier: 'LITE' },
+      { key: 'pro', tier: 'PRO' },
+    ]
+    
+    return allTiers.filter(({ key }) => {
+      const plan = pricingWithDurations[key]
+      return plan.enabled !== false // Show if enabled or undefined (backward compat)
+    })
+  }, [pricingWithDurations])
 
   if (loading) {
     return (
-      <div className="flex justify-center">
-        <div className="grid gap-5 md:grid-cols-3 max-w-5xl w-full">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="relative">
-              <CardHeader className="pb-3">
-                <Skeleton className="h-5 w-16" />
-                <Skeleton className="h-7 w-28 mt-2" />
-              </CardHeader>
-              <CardContent className="space-y-2 py-3">
-                {[1, 2, 3, 4, 5].map((j) => (
+      <div className="grid gap-6 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="flex flex-col">
+            <CardHeader>
+              <Skeleton className="h-6 w-24 mb-2" />
+              <Skeleton className="h-4 w-full" />
+            </CardHeader>
+            <CardContent className="flex-1">
+              <Skeleton className="h-8 w-32 mb-4" />
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((j) => (
                   <Skeleton key={j} className="h-4 w-full" />
                 ))}
-              </CardContent>
-              <CardFooter className="pt-3">
-                <Skeleton className="h-9 w-full" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Skeleton className="h-10 w-full" />
+            </CardFooter>
+          </Card>
+        ))}
       </div>
     )
   }
 
-  // Get base prices from pricing data
-  const liteBasePrice = pricingWithDurations?.lite.basePrice || pricing?.lite.price || 99000
-  const proBasePrice = pricingWithDurations?.pro.basePrice || pricing?.pro.price || 299000
+  if (!pricing || !pricingWithDurations) return null
 
-  const tiers = [
-    {
-      name: 'FREE',
-      tier: 'FREE' as SubscriptionTier,
-      basePrice: 0,
-      description: t('freeDescription'),
-      features: FREE_FEATURES,
-      icon: Zap,
-      popular: false,
-      hasDurations: false,
-    },
-    {
-      name: 'LITE',
-      tier: 'LITE' as SubscriptionTier,
-      basePrice: liteBasePrice,
-      description: t('liteDescription'),
-      features: filterFeatures(pricingWithDurations?.lite.features || pricing?.lite.features) || [
-        'Semua fitur FREE',
-        'Unlimited pesan',
-        '1 AI Agent',
-        '5 Knowledge Documents',
-        'n8n Integration',
-      ],
-      icon: Sparkles,
-      popular: true,
-      hasDurations: true,
-    },
-    {
-      name: 'PRO',
-      tier: 'PRO' as SubscriptionTier,
-      basePrice: proBasePrice,
-      description: t('proDescription'),
-      features: filterFeatures(pricingWithDurations?.pro.features || pricing?.pro.features) || [
-        'Semua fitur LITE',
-        '10 AI Agents',
-        '50 Knowledge Documents',
-      ],
-      icon: Crown,
-      popular: false,
-      hasDurations: true,
-    },
-  ]
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price)
+  }
+
+  // Available duration options (from first enabled plan)
+  const firstEnabledPlan = enabledTiers.length > 0 ? pricingWithDurations[enabledTiers[0].key] : null
+  const durationOptions = firstEnabledPlan?.durations || []
+  
+  // If no enabled plans, show message
+  if (enabledTiers.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">{t('noPlansAvailable') || 'No plans available at the moment.'}</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex justify-center">
-      <div className="grid gap-5 md:grid-cols-3 max-w-5xl w-full">
-        {tiers.map((tier) => {
-          const isCurrent = currentTier === tier.tier
-          const canUpgrade =
-            (currentTier === 'FREE' && tier.tier !== 'FREE') ||
-            (currentTier === 'LITE' && tier.tier === 'PRO')
+    <div className="space-y-6">
+      {/* Duration Selector */}
+      {durationOptions.length > 0 && (
+        <div className="flex justify-center">
+          <Tabs
+            value={durationMonths.toString()}
+            onValueChange={(v) => setDurationMonths(parseInt(v))}
+            className="w-full max-w-md"
+          >
+            <TabsList className="grid w-full grid-cols-4">
+              {durationOptions.map((option) => (
+                <TabsTrigger key={option.months} value={option.months.toString()}>
+                  {option.label}
+                  {option.discountPercent > 0 && (
+                    <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0 h-4">
+                      -{option.discountPercent}%
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
 
-          const durations = tier.hasDurations ? getDurations(tier.tier as 'LITE' | 'PRO') : []
-          const selectedDuration = tier.hasDurations ? getSelectedDuration(tier.tier as 'LITE' | 'PRO') : null
-          const displayPrice = selectedDuration?.totalPrice || tier.basePrice
-          const effectiveMonthlyPrice = selectedDuration?.effectiveMonthlyPrice || tier.basePrice
-          const savings = selectedDuration?.savings || 0
-          const hasDiscount = savings > 0
+      <div className={cn(
+        "grid gap-6",
+        enabledTiers.length === 1 && "lg:grid-cols-1 max-w-md mx-auto",
+        enabledTiers.length === 2 && "lg:grid-cols-2 max-w-2xl mx-auto",
+        enabledTiers.length >= 3 && "lg:grid-cols-3"
+      )}>
+        {enabledTiers.map(({ key, tier }) => {
+          const plan = pricingWithDurations[key]
+          const isContactUs = plan.isContactUs === true
+          const durationData = plan.durations.find((d: { months: number }) => d.months === durationMonths)
+
+          // For Contact Us plans, we don't need duration data
+          if (!isContactUs && !durationData) return null
+
+          // Logic for disabled: 
+          // Disable if current tier is "higher" or equal
+          const tierOrder: Record<SubscriptionTier, number> = { FREE: 0, BASIC: 1, LITE: 2, PRO: 3 }
+          const isDowngradeOrSame = tierOrder[currentTier] >= tierOrder[tier]
+          const isCurrent = currentTier === tier
+
+          // Handle Contact Us click
+          const handleContactUs = () => {
+            if (plan.contactUrl) {
+              window.open(plan.contactUrl, '_blank', 'noopener,noreferrer')
+            }
+          }
 
           return (
-            <Card
-              key={tier.tier}
-              className={`relative flex flex-col ${
-                tier.popular
-                  ? 'border-primary shadow-md'
-                  : 'border-border'
-              } ${isCurrent ? 'ring-2 ring-primary' : ''}`}
-            >
-              {tier.popular && (
-                <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs px-2 py-0.5">
-                  {t('popular')}
-                </Badge>
-              )}
-              {isCurrent && (
-                <Badge
-                  variant="secondary"
-                  className="absolute -top-2.5 right-3 text-xs px-2 py-0.5"
-                >
-                  {t('currentPlanBadge')}
-                </Badge>
+            <Card key={tier} className={cn("flex flex-col relative", tier === 'PRO' && !isContactUs && "border-primary shadow-lg")}>
+              {tier === 'PRO' && !isContactUs && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-primary text-primary-foreground">{t('recommended')}</Badge>
+                </div>
               )}
 
-              <CardHeader className="pb-3 pt-5">
-                <div className="flex items-center gap-2">
-                  <tier.icon className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-base">{tier.name}</CardTitle>
-                </div>
-                <CardDescription className="text-xs">{tier.description}</CardDescription>
-                
-                {/* Price display */}
-                <div className="mt-3">
-                  {tier.basePrice === 0 ? (
-                    <span className="text-2xl font-bold">{t('free')}</span>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold">
-                          {formatPrice(displayPrice)}
-                        </span>
-                        {selectedDuration && selectedDuration.months > 1 && (
-                          <span className="text-muted-foreground text-sm">
-                            /{selectedDuration.months} {t('months')}
-                          </span>
-                        )}
-                        {selectedDuration && selectedDuration.months === 1 && (
-                          <span className="text-muted-foreground text-sm">{t('perMonth')}</span>
-                        )}
-                      </div>
-                      
-                      {/* Effective monthly price for multi-month plans */}
-                      {selectedDuration && selectedDuration.months > 1 && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatPrice(effectiveMonthlyPrice)}{t('perMonth')} {t('effective')}
-                        </p>
-                      )}
-                      
-                      {/* Savings badge */}
-                      {hasDiscount && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                          {t('save')} {formatPrice(savings)}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
+              <CardHeader>
+                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                <CardDescription className="min-h-[40px]">{t(`${key}Description`) || `${key} Plan`}</CardDescription>
               </CardHeader>
 
-              <CardContent className="flex-1 py-3 space-y-4">
-                {/* Duration selector for paid tiers */}
-                {tier.hasDurations && durations.length > 0 && canUpgrade && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">{t('selectDuration')}</p>
-                    <DurationSelector
-                      durations={durations}
-                      selectedMonths={selectedDurations[tier.tier] || 1}
-                      onSelect={(months) => handleDurationSelect(tier.tier, months)}
-                    />
-                  </div>
-                )}
+              <CardContent className="flex-1 space-y-6">
+                <div>
+                  {isContactUs ? (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-6 w-6 text-primary" />
+                      <span className="text-2xl font-bold text-primary">{t('contactUs') || 'Contact Us'}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold">
+                          {formatPrice(durationData!.effectiveMonthlyPrice)}
+                        </span>
+                        <span className="text-muted-foreground">/ {t('month')}</span>
+                      </div>
+                      {durationMonths > 1 && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {t('billedAs', { price: formatPrice(durationData!.totalPrice), period: durationData!.label })}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
 
-                {/* Features list */}
-                <ul className="space-y-2">
-                  {tier.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <Check className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                      <span className="text-xs text-muted-foreground">{feature}</span>
-                    </li>
+                <div className="space-y-2">
+                  {plan.features.map((feature: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-green-500 mt-1 shrink-0" />
+                      <span className="text-sm">{feature}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </CardContent>
 
-              <CardFooter className="pt-3 pb-4">
-                {isCurrent ? (
-                  <Button className="w-full h-9 text-sm" variant="secondary" disabled>
-                    {t('activePlan')}
-                  </Button>
-                ) : canUpgrade ? (
+              <CardFooter>
+                {isContactUs ? (
                   <Button
-                    className="w-full h-9 text-sm"
-                    onClick={() => onUpgrade(tier.tier, selectedDurations[tier.tier] || 1)}
+                    className="w-full"
+                    variant="default"
+                    onClick={handleContactUs}
                   >
-                    {t('upgradeTo', { tier: tier.name })}
+                    <Phone className="h-4 w-4 mr-2" />
+                    {t('contactUs') || 'Contact Us'}
                   </Button>
                 ) : (
-                  <Button className="w-full h-9 text-sm" variant="outline" disabled>
-                    {tier.tier === 'FREE' ? t('basicPlan') : t('notAvailable')}
+                  <Button
+                    className="w-full"
+                    variant={isCurrent ? "outline" : "default"}
+                    disabled={isDowngradeOrSame}
+                    onClick={() => onUpgrade(tier, durationMonths)}
+                  >
+                    {isCurrent ? t('currentPlan') : t('upgrade')}
                   </Button>
                 )}
               </CardFooter>

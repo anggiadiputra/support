@@ -9,17 +9,7 @@
 // Setting Categories
 // =============================================================================
 
-export type SettingCategory = 'whatsapp' | 'instagram' | 'smtp' | 'openai' | 'duitku' | 'branding' | 'turnstile';
-
-export const VALID_SETTINGS_CATEGORIES: SettingCategory[] = [
-  'whatsapp',
-  'instagram',
-  'smtp',
-  'openai',
-  'duitku',
-  'branding',
-  'turnstile',
-];
+export type SettingCategory = 'whatsapp' | 'instagram' | 'messenger' | 'smtp' | 'openai' | 'duitku' | 'xendit' | 'branding';
 
 // =============================================================================
 // Category Settings Interfaces
@@ -28,11 +18,13 @@ export const VALID_SETTINGS_CATEGORIES: SettingCategory[] = [
 /**
  * WhatsApp/Meta API Settings
  * Requirements: 1.1
+ * 
+ * NOTE: accessToken is NOT stored here - each WABA uses its own OAuth token
+ * stored encrypted in WhatsAppAccount table (per Meta policy).
  */
 export interface WhatsAppSettings {
   appId: string;
   appSecret: string;      // sensitive
-  accessToken: string;    // sensitive
   verifyToken: string;    // sensitive
   configId: string;
   webhookBaseUrl: string;
@@ -48,6 +40,18 @@ export interface InstagramSettings {
   appSecret: string;           // sensitive
   redirectUri: string;
   webhookVerifyToken: string;  // sensitive
+  enabled: boolean;
+}
+
+/**
+ * Facebook Messenger Settings
+ * Uses same Meta App as WhatsApp but with Messenger-specific tokens
+ */
+export interface MessengerSettings {
+  appId: string;
+  appSecret: string;           // sensitive
+  webhookVerifyToken: string;  // sensitive
+  enabled: boolean;
 }
 
 /**
@@ -67,9 +71,13 @@ export interface SmtpSettings {
 /**
  * OpenAI Settings
  * Requirements: 5.1
+ * Supports OpenAI-compatible endpoints (LM Studio, Ollama, Azure, etc.)
  */
 export interface OpenAISettings {
-  apiKey: string;         // sensitive
+  apiKey: string;            // sensitive
+  baseUrl: string;           // OpenAI-compatible endpoint URL (optional, defaults to OpenAI)
+  defaultChatModel: string;  // Default chat model for all users (default: gpt-4.1-nano-2025-04-14)
+  embeddingModel: string;    // Embedding model name (default: text-embedding-3-small)
   enabled: boolean;
 }
 
@@ -82,8 +90,38 @@ export interface DuitkuSettings {
   apiKey: string;         // sensitive
   enabled: boolean;
   environment: 'sandbox' | 'production';
+  basicPriceMonthly: number;
   litePriceMonthly: number;
   proPriceMonthly: number;
+  defaultProvider: 'duitku' | 'xendit';
+}
+
+/**
+ * Xendit Payment Gateway Settings
+ * Requirements: 6.1, 6.4, 6.5
+ */
+export interface XenditSettings {
+  enabled: boolean;
+  secretKey: string;      // sensitive
+  publicKey: string;      // sensitive
+  webhookToken: string;   // sensitive
+  environment: 'sandbox' | 'production';
+}
+
+/**
+ * Payment Gateway Settings (Multi-Provider)
+ * Requirements: 6.5
+ */
+export interface PaymentGatewaySettings {
+  defaultProvider: 'duitku' | 'xendit';
+}
+
+/**
+ * External Link for sidebar
+ */
+export interface ExternalLink {
+  label: string;
+  url: string;
 }
 
 /**
@@ -95,15 +133,10 @@ export interface BrandingSettings {
   logoUrl: string;
   supportEmail: string;
   supportWhatsapp: string;
-}
-
-/**
- * Cloudflare Turnstile Settings
- */
-export interface TurnstileSettings {
-  siteKey: string;
-  secretKey: string;     // sensitive
-  enabled: boolean;
+  termsUrl: string;
+  privacyUrl: string;
+  n8nPackageName: string;
+  externalLinks: ExternalLink[];
 }
 
 // =============================================================================
@@ -122,7 +155,7 @@ export interface SettingKeyConfig {
 export const WHATSAPP_SETTINGS_KEYS: SettingKeyConfig[] = [
   { key: 'app_id', envKey: 'META_APP_ID', sensitive: false },
   { key: 'app_secret', envKey: 'META_APP_SECRET', sensitive: true },
-  { key: 'access_token', envKey: 'META_ACCESS_TOKEN', sensitive: true },
+  // NOTE: access_token REMOVED - each WABA uses its own OAuth token stored in WhatsAppAccount (per Meta policy)
   { key: 'verify_token', envKey: 'META_VERIFY_TOKEN', sensitive: true },
   { key: 'config_id', envKey: 'META_CONFIG_ID', sensitive: false },
   { key: 'webhook_base_url', envKey: 'WEBHOOK_BASE_URL', sensitive: false },
@@ -134,6 +167,14 @@ export const INSTAGRAM_SETTINGS_KEYS: SettingKeyConfig[] = [
   { key: 'app_secret', envKey: 'INSTAGRAM_APP_SECRET', sensitive: true },
   { key: 'redirect_uri', envKey: 'INSTAGRAM_REDIRECT_URI', sensitive: false },
   { key: 'webhook_verify_token', envKey: 'INSTAGRAM_WEBHOOK_VERIFY_TOKEN', sensitive: true },
+  { key: 'enabled', envKey: '', sensitive: false },
+];
+
+export const MESSENGER_SETTINGS_KEYS: SettingKeyConfig[] = [
+  { key: 'app_id', envKey: 'MESSENGER_APP_ID', sensitive: false },
+  { key: 'app_secret', envKey: 'MESSENGER_APP_SECRET', sensitive: true },
+  { key: 'webhook_verify_token', envKey: 'MESSENGER_WEBHOOK_VERIFY_TOKEN', sensitive: true },
+  { key: 'enabled', envKey: '', sensitive: false },
 ];
 
 export const SMTP_SETTINGS_KEYS: SettingKeyConfig[] = [
@@ -148,6 +189,9 @@ export const SMTP_SETTINGS_KEYS: SettingKeyConfig[] = [
 
 export const OPENAI_SETTINGS_KEYS: SettingKeyConfig[] = [
   { key: 'api_key', envKey: 'OPENAI_API_KEY', sensitive: true },
+  { key: 'base_url', envKey: 'OPENAI_BASE_URL', sensitive: false },
+  { key: 'default_chat_model', envKey: 'OPENAI_DEFAULT_CHAT_MODEL', sensitive: false },
+  { key: 'embedding_model', envKey: 'OPENAI_EMBEDDING_MODEL', sensitive: false },
   { key: 'enabled', envKey: '', sensitive: false }, // No env fallback
 ];
 
@@ -156,8 +200,18 @@ export const DUITKU_SETTINGS_KEYS: SettingKeyConfig[] = [
   { key: 'api_key', envKey: 'DUITKU_API_KEY', sensitive: true },
   { key: 'enabled', envKey: '', sensitive: false },
   { key: 'environment', envKey: 'DUITKU_ENVIRONMENT', sensitive: false },
+  { key: 'basic_price_monthly', envKey: 'DUITKU_BASIC_PRICE_MONTHLY', sensitive: false },
   { key: 'lite_price_monthly', envKey: 'DUITKU_LITE_PRICE_MONTHLY', sensitive: false },
   { key: 'pro_price_monthly', envKey: 'DUITKU_PRO_PRICE_MONTHLY', sensitive: false },
+  { key: 'default_provider', envKey: 'DEFAULT_PAYMENT_PROVIDER', sensitive: false },
+];
+
+export const XENDIT_SETTINGS_KEYS: SettingKeyConfig[] = [
+  { key: 'enabled', envKey: '', sensitive: false },
+  { key: 'secret_key', envKey: 'XENDIT_SECRET_KEY', sensitive: true },
+  { key: 'public_key', envKey: 'XENDIT_PUBLIC_KEY', sensitive: true },
+  { key: 'webhook_token', envKey: 'XENDIT_WEBHOOK_TOKEN', sensitive: true },
+  { key: 'environment', envKey: 'XENDIT_ENVIRONMENT', sensitive: false },
 ];
 
 export const BRANDING_SETTINGS_KEYS: SettingKeyConfig[] = [
@@ -165,12 +219,10 @@ export const BRANDING_SETTINGS_KEYS: SettingKeyConfig[] = [
   { key: 'logo_url', envKey: 'LOGO_URL', sensitive: false },
   { key: 'support_email', envKey: 'SUPPORT_EMAIL', sensitive: false },
   { key: 'support_whatsapp', envKey: 'SUPPORT_WHATSAPP', sensitive: false },
-];
-
-export const TURNSTILE_SETTINGS_KEYS: SettingKeyConfig[] = [
-  { key: 'site_key', envKey: 'TURNSTILE_SITE_KEY', sensitive: false },
-  { key: 'secret_key', envKey: 'TURNSTILE_SECRET_KEY', sensitive: true },
-  { key: 'enabled', envKey: 'TURNSTILE_ENABLED', sensitive: false },
+  { key: 'terms_url', envKey: 'TERMS_URL', sensitive: false },
+  { key: 'privacy_url', envKey: 'PRIVACY_URL', sensitive: false },
+  { key: 'n8n_package_name', envKey: 'N8N_PACKAGE_NAME', sensitive: false },
+  { key: 'external_links', envKey: '', sensitive: false },
 ];
 
 /**
@@ -178,19 +230,14 @@ export const TURNSTILE_SETTINGS_KEYS: SettingKeyConfig[] = [
  * Requirements: 1.5, 2.4, 2.5
  */
 export const DEFAULT_BRANDING: BrandingSettings = {
-  websiteName: 'KirimChat',
+  websiteName: 'Messaging Platform',
   logoUrl: '',
-  supportEmail: 'support@kirim.chat',
-  supportWhatsapp: '+6281295648580',
-};
-
-/**
- * Default Turnstile values
- */
-export const DEFAULT_TURNSTILE: TurnstileSettings = {
-  siteKey: '',
-  secretKey: '',
-  enabled: false,
+  supportEmail: 'support@yourdomain.com',
+  supportWhatsapp: '+6281234567890',
+  termsUrl: 'https://yourdomain.com/terms',
+  privacyUrl: 'https://yourdomain.com/privacy',
+  n8nPackageName: '@kichat/n8n-nodes-kirimchat',
+  externalLinks: [],
 };
 
 /**
@@ -202,16 +249,18 @@ export function getSettingsKeyConfig(category: SettingCategory): SettingKeyConfi
       return WHATSAPP_SETTINGS_KEYS;
     case 'instagram':
       return INSTAGRAM_SETTINGS_KEYS;
+    case 'messenger':
+      return MESSENGER_SETTINGS_KEYS;
     case 'smtp':
       return SMTP_SETTINGS_KEYS;
     case 'openai':
       return OPENAI_SETTINGS_KEYS;
     case 'duitku':
       return DUITKU_SETTINGS_KEYS;
+    case 'xendit':
+      return XENDIT_SETTINGS_KEYS;
     case 'branding':
       return BRANDING_SETTINGS_KEYS;
-    case 'turnstile':
-      return TURNSTILE_SETTINGS_KEYS;
     default:
       throw new Error(`Unknown settings category: ${category}`);
   }
@@ -253,13 +302,8 @@ export interface UpdateSettingsResult {
 /**
  * Check if a category is valid
  */
-export function normalizeSettingCategory(category: string): string {
-  return category.trim().toLowerCase();
-}
-
 export function isValidCategory(category: string): category is SettingCategory {
-  const normalizedCategory = normalizeSettingCategory(category);
-  return VALID_SETTINGS_CATEGORIES.includes(normalizedCategory as SettingCategory);
+  return ['whatsapp', 'instagram', 'messenger', 'smtp', 'openai', 'duitku', 'xendit', 'branding'].includes(category);
 }
 
 /**
@@ -282,8 +326,10 @@ export function camelCaseToDbKey(prop: string): string {
 export type CategorySettings = 
   | WhatsAppSettings 
   | InstagramSettings 
+  | MessengerSettings
   | SmtpSettings 
   | OpenAISettings
   | DuitkuSettings
-  | BrandingSettings
-  | TurnstileSettings;
+  | XenditSettings
+  | PaymentGatewaySettings
+  | BrandingSettings;

@@ -1,15 +1,7 @@
 "use client"
 
-import { PieChart as ChartPieIcon } from "lucide-react"
 import { Cell, Pie, PieChart, Legend } from "recharts"
-import type { ConversationAnalyticsData } from "@/lib/api/insights-api"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
@@ -17,6 +9,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
+import { IconChartPie } from "@tabler/icons-react"
+import type { ConversationAnalyticsData } from "@/lib/api/insights-api"
 
 interface ConversationCategoryChartProps {
   data: ConversationAnalyticsData | null
@@ -54,10 +48,7 @@ const chartConfig = {
  * Displays pie chart showing conversation distribution by category
  * Requirements: 5.2, 5.4
  */
-export function ConversationCategoryChart({
-  data,
-  isLoading,
-}: ConversationCategoryChartProps) {
+export function ConversationCategoryChart({ data, isLoading }: ConversationCategoryChartProps) {
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -83,26 +74,10 @@ export function ConversationCategoryChart({
 
   // Transform data for pie chart
   const chartData = [
-    {
-      name: "Marketing",
-      value: byCategory.marketing,
-      fill: CATEGORY_COLORS.marketing,
-    },
-    {
-      name: "Utility",
-      value: byCategory.utility,
-      fill: CATEGORY_COLORS.utility,
-    },
-    {
-      name: "Authentication",
-      value: byCategory.authentication,
-      fill: CATEGORY_COLORS.authentication,
-    },
-    {
-      name: "Service",
-      value: byCategory.service,
-      fill: CATEGORY_COLORS.service,
-    },
+    { name: "Marketing", value: byCategory.marketing, fill: CATEGORY_COLORS.marketing },
+    { name: "Utility", value: byCategory.utility, fill: CATEGORY_COLORS.utility },
+    { name: "Authentication", value: byCategory.authentication, fill: CATEGORY_COLORS.authentication },
+    { name: "Service", value: byCategory.service, fill: CATEGORY_COLORS.service },
   ].filter((item) => item.value > 0)
 
   const isEmpty = chartData.length === 0
@@ -111,20 +86,18 @@ export function ConversationCategoryChart({
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-medium">
-          <ChartPieIcon className="h-4 w-4" />
+          <IconChartPie className="h-4 w-4" />
           Conversation Categories
         </CardTitle>
         <CardDescription>
-          {total > 0
-            ? `${total.toLocaleString()} total conversations`
-            : "Distribution by category"}
+          {total > 0 ? `${total.toLocaleString()} total conversations` : "Distribution by category"}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {isEmpty ? (
-          <div className="text-muted-foreground flex h-[250px] items-center justify-center">
+          <div className="flex h-[250px] items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <ChartPieIcon className="mx-auto h-12 w-12 opacity-50" />
+              <IconChartPie className="mx-auto h-12 w-12 opacity-50" />
               <p className="mt-2">No conversation data available</p>
             </div>
           </div>
@@ -164,21 +137,18 @@ export function ConversationCategoryChart({
             {/* Category breakdown */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               {Object.entries(byCategory).map(([category, count]) => {
-                const percentage =
-                  total > 0 ? ((count / total) * 100).toFixed(1) : "0"
-                const color =
-                  CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS]
-                const label =
-                  category.charAt(0).toUpperCase() + category.slice(1)
-
+                const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : "0"
+                const color = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS]
+                const label = category.charAt(0).toUpperCase() + category.slice(1)
+                
                 return (
                   <div key={category} className="flex items-center gap-2">
                     <div
-                      className="h-3 w-3 shrink-0 rounded-full"
+                      className="h-3 w-3 rounded-full shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">{label}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium truncate">{label}</span>
                       <span className="text-muted-foreground text-xs">
                         {count.toLocaleString()} ({percentage}%)
                       </span>

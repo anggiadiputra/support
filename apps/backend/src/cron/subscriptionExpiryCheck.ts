@@ -14,6 +14,7 @@ import { prisma } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { emailService } from '../services/email/index.js';
 import { auditLog } from '../utils/auditLog.js';
+import { notificationService } from '../services/notification-service.js';
 
 /**
  * Get subscriptions expiring within a specific number of days
@@ -78,7 +79,7 @@ async function getExpiredSubscriptions() {
 }
 
 /**
- * Send expiry reminder email
+ * Send expiry reminder email and create notification
  */
 async function sendExpiryReminder(
   subscription: {
@@ -99,6 +100,12 @@ async function sendExpiryReminder(
       expiryDate: subscription.endDate,
       daysUntilExpiry,
     });
+
+    // Create in-app notification alongside email
+    await notificationService.createSubscriptionExpiryWarning(
+      subscription.user.id,
+      daysUntilExpiry
+    );
 
     if (result.success) {
       logger.info('Subscription expiry reminder sent', {

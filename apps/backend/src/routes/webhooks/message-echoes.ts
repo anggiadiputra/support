@@ -6,6 +6,10 @@
 
 import { prisma } from '../../utils/database.js'
 import type { MessageType, MessageDirection, MessageStatus, MessageSource } from '@prisma/client'
+import { memoryQueue } from '../../utils/queue.js'
+import { createMemoryVectorStore } from '../../services/ai/memory/index.js'
+import { OpenAIProvider } from '../../services/ai/providers/OpenAIProvider.js'
+import { logger } from '../../utils/logger.js'
 
 interface MessageEchoPayload {
   messaging_product: string
@@ -24,6 +28,17 @@ interface MessageEchoPayload {
 }
 
 /**
+ * Check if user has AI chatbot feature (non-FREE subscription tier)
+ */
+async function hasAIChatbotFeature(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionTier: true }
+  });
+  return user?.subscriptionTier !== 'FREE';
+}
+
+/**
  * Handle message echoes webhook (smb_message_echoes)
  * Processes messages sent by business via WhatsApp Business App
  */
@@ -33,11 +48,11 @@ export async function handleMessageEchoes(
 ): Promise<void> {
   try {
     if (!user) {
-      console.warn('⚠️ Message echoes webhook received but user not found')
+      logger.warn('Message echoes webhook received but user not found')
       return
     }
 
-    console.log(`💬 Processing message echoes for user ${user.id}`)
+    logger.debug('Processing message echoes', { userId: user.id, count: payload.message_echoes?.length ?? 0 })
 
     for (const echoMessage of payload.message_echoes) {
       try {
@@ -46,7 +61,7 @@ export async function handleMessageEchoes(
           where: { wamId: echoMessage.id }
         })
         if (existing) {
-          console.log(`⏭️ Message ${echoMessage.id} already exists, skipping`)
+          logger.debug('Echo message already exists, skipping', { messageId: echoMessage.id })
           continue
         }
 
@@ -67,7 +82,8 @@ export async function handleMessageEchoes(
               consentStatus: false
             }
           })
-          console.log(`📞 Created customer: ${customerPhoneNumber}`)
+          // phoneNumber key gets masked by the serializer (PII_PHONE_KEYS).
+          logger.info('Created customer from message echo', { customerId: customer.id, phoneNumber: customerPhoneNumber })
         }
 
         // Map message type
@@ -97,15 +113,69 @@ export async function handleMessageEchoes(
           }
         })
 
-        console.log(`✅ Mirrored WhatsApp Business App message ${message.id} (wamId: ${echoMessage.id})`)
+        logger.debug('Mirrored WhatsApp Business App message', { messageId: message.id, wamId: echoMessage.id })
+
+        // Queue memory for SMB echo if user has AI chatbot feature
+        if (await hasAIChatbotFeature(user.id) && content) {
+          try {
+            // Get last customer inbound message
+            const lastInboundMessage = await prisma.message.findFirst({
+              where: {
+                customerId: customer.id,
+                direction: 'INBOUND',
+                messageType: 'TEXT',
+                content: { not: null },
+              },
+              orderBy: { timestamp: 'desc' },
+            });
+
+            // Get WhatsApp account for this phone number
+            const phoneNumber = await prisma.phoneNumber.findFirst({
+              where: { phoneNumberId: payload.metadata.phone_number_id },
+              select: { whatsappAccountId: true }
+            });
+
+            if (lastInboundMessage?.content && phoneNumber?.whatsappAccountId) {
+              const openaiProvider = new OpenAIProvider(process.env.OPENAI_API_KEY || '');
+              const memoryStore = createMemoryVectorStore(openaiProvider);
+
+              const memory = await memoryStore.createMemory({
+                userId: user.id,
+                customerId: customer.id,
+                whatsappAccountId: phoneNumber.whatsappAccountId,
+                memoryType: 'SMB_ECHO',
+                customerMessage: lastInboundMessage.content,
+                responseMessage: content,
+                inboundMessageId: lastInboundMessage.id,
+                outboundMessageId: message.id,
+              });
+
+              await memoryQueue.add('embed-memory', {
+                type: 'embed-memory',
+                memoryId: memory.id
+              });
+              logger.debug('Memory queued for SMB echo embedding', { memoryId: memory.id })
+            }
+          } catch (memoryError) {
+            logger.error('Failed to queue SMB echo memory', {
+              error: memoryError instanceof Error ? memoryError.message : String(memoryError),
+            })
+            // Don't throw - memory failure shouldn't affect main flow
+          }
+        }
       } catch (msgError) {
-        console.error(`❌ Failed to process message echo ${echoMessage.id}:`, msgError)
+        logger.error('Failed to process message echo', {
+          messageId: echoMessage.id,
+          error: msgError instanceof Error ? msgError.message : String(msgError),
+        })
       }
     }
 
-    console.log(`✅ Message echoes processed for user ${user.id}`)
+    logger.debug('Message echoes processed', { userId: user.id })
   } catch (error) {
-    console.error('❌ Message echoes webhook error:', error)
+    logger.error('Message echoes webhook error', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     throw error
   }
 }

@@ -1,11 +1,12 @@
 "use client"
 
-import { Link } from "@/i18n/routing"
-import { RefreshCw, User, Instagram } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
-import { IGConversationList, IGChatArea, IGEmptyState } from "./components"
+import { RefreshCw, User } from "lucide-react"
+import { IconBrandInstagram } from "@tabler/icons-react"
+import { Button } from "@/components/ui/button"
+import { Link } from "@/i18n/routing"
 import { useInstagramChat } from "./hooks/use-instagram-chat"
+import { IGConversationList, IGChatArea, IGEmptyState } from "./components"
 
 export default function InstagramInboxPage() {
   const {
@@ -34,7 +35,7 @@ export default function InstagramInboxPage() {
       <>
         <Header />
         <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-          <RefreshCw className="text-muted-foreground h-8 w-8 animate-spin" />
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </>
     )
@@ -47,11 +48,11 @@ export default function InstagramInboxPage() {
         <Header />
         <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
           <div className="text-center">
-            <User className="text-muted-foreground/50 mx-auto mb-4 h-16 w-16" />
-            <h3 className="mb-2 text-lg font-semibold">
+            <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold mb-2">
               Authentication Required
             </h3>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               Please log in to access Instagram messages
             </p>
           </div>
@@ -66,17 +67,18 @@ export default function InstagramInboxPage() {
       <>
         <Header />
         <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-          <div className="max-w-md px-4 text-center">
-            <Instagram className="text-muted-foreground/50 mx-auto mb-4 h-16 w-16" />
-            <h3 className="mb-2 text-lg font-semibold">
+          <div className="text-center max-w-md px-4">
+            <IconBrandInstagram className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold mb-2">
               Instagram Not Connected
             </h3>
-            <p className="text-muted-foreground mb-6 text-sm">
-              Connect your Instagram Professional account to start managing your
-              DMs
+            <p className="text-sm text-muted-foreground mb-6">
+              Connect your Instagram Professional account to start managing your DMs
             </p>
             <Button asChild>
-              <Link href="/instagram">Connect Instagram</Link>
+              <Link href="/instagram">
+                Connect Instagram
+              </Link>
             </Button>
           </div>
         </div>
@@ -87,7 +89,7 @@ export default function InstagramInboxPage() {
   return (
     <>
       <Header />
-      <div className="bg-background flex h-[calc(100vh-4rem)]">
+      <div className="flex h-[calc(100vh-4rem)] bg-background">
         {/* Conversations Sidebar */}
         <IGConversationList
           conversations={conversations}
@@ -103,9 +105,7 @@ export default function InstagramInboxPage() {
 
         {/* Chat Area */}
         {selectedConversation ? (
-          <div
-            className={`bg-background flex h-full flex-1 flex-col ${!selectedConversation ? "hidden md:flex" : "flex"}`}
-          >
+          <div className={`flex-1 flex flex-col bg-background h-full ${!selectedConversation ? "hidden md:flex" : "flex"}`}>
             <IGChatArea
               conversation={selectedConversation}
               messages={messages}

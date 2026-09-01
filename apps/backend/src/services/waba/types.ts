@@ -13,6 +13,8 @@ export interface SignupUrlResponse {
   signupUrl: string;
   state: string;
   expiresAt: string;
+  appId?: string;
+  configId?: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export interface WABAResources {
   timezone: string;
   currency: string;
   messageTemplateNamespace: string;
+  messagingLimitTier?: string;
   phoneNumbers: PhoneNumberDetails[];
 }
 
@@ -70,9 +73,13 @@ export interface PhoneNumberDetails {
   id: string;
   displayPhoneNumber: string;
   verifiedName: string;
-  qualityRating: string;
-  codeVerificationStatus: string;
-  messagingLimitTier?: string;
+  qualityRating: string | null;
+  codeVerificationStatus: string | null;
+  messagingLimitTier?: string | null;
+  // Additional status fields
+  accountMode?: string | null;
+  nameStatus?: string | null;
+  status?: string | null;
 }
 
 /**
@@ -85,6 +92,7 @@ export interface WABADetails {
   currency: string;
   message_template_namespace: string;
   account_review_status?: string;
+  whatsapp_business_manager_messaging_limit?: string;
 }
 
 // ============================================================================

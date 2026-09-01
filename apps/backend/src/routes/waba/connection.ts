@@ -8,8 +8,8 @@ import type { Context } from 'hono'
 import { requireRole } from '../../middleware/auth.js'
 import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
-import { TokenEncryptionService } from '../../utils/tokenEncryption.js'
 import { getUserByWabaId } from './helpers.js'
+import { decryptAccountToken } from '../../utils/whatsapp-account-helper.js'
 import { disconnectService, type DisconnectMode, type WabaDeletedCounts } from '../../services/disconnect-service.js'
 
 const app = new Hono()
@@ -29,10 +29,10 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
     const wabaId = c.req.param('wabaId')
     const body = await c.req.json().catch(() => ({}))
     const reason = body.reason || 'User requested disconnection'
-    
+
     // Get mode parameter with validation (Req 6.1, 6.2)
     const mode: DisconnectMode = body.mode === 'hard' ? 'hard' : 'soft'
-    
+
     // Validate mode parameter
     if (body.mode && body.mode !== 'soft' && body.mode !== 'hard') {
       return c.json({
@@ -43,17 +43,17 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
       }, 400)
     }
 
-    // Get user and check access
+    // Get WhatsApp account and check access
     const result = await getUserByWabaId(wabaId, c.user.id, c.user.role)
 
     if ('error' in result) {
-      return c.json({ error: result.error }, result.status as any)
+      return c.json(result.error, result.status as any)
     }
 
-    const { user } = result
+    const { account, user } = result
 
     // Check if already disconnected (no token means truly disconnected)
-    if (!user.wabaAccessToken && user.wabaConnectionStatus === 'disconnected') {
+    if (!account.accessToken && account.connectionStatus === 'disconnected') {
       return c.json({
         error: {
           code: 'ALREADY_DISCONNECTED',
@@ -63,11 +63,11 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
     }
 
     // If status is disconnected but token exists, allow disconnect to clean up the token
-    if (!user.wabaAccessToken && user.wabaConnectionStatus !== 'disconnected') {
+    if (!account.accessToken && account.connectionStatus !== 'disconnected') {
       // Update status to disconnected if no token exists
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { wabaConnectionStatus: 'disconnected' }
+      await prisma.whatsAppAccount.update({
+        where: { id: account.id },
+        data: { connectionStatus: 'disconnected' }
       })
 
       return c.json({
@@ -79,14 +79,9 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
 
     // Revoke access token with Meta API (optional - token will expire anyway)
     try {
-      if (user.wabaAccessToken && user.wabaAccessTokenIV && user.wabaAccessTokenTag) {
-        const tokenEncryption = new TokenEncryptionService()
-        const accessToken = tokenEncryption.decrypt({
-          ciphertext: user.wabaAccessToken,
-          iv: user.wabaAccessTokenIV,
-          authTag: user.wabaAccessTokenTag,
-          algorithm: 'aes-256-gcm'
-        })
+      if (account.accessToken && account.accessTokenIV && account.accessTokenTag) {
+        const accessToken = decryptAccountToken(account)
+        // Token revocation could be done here if needed
       }
     } catch (revokeError) {
       // Token revocation error - continue with disconnect anyway
@@ -95,9 +90,9 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
     // Call DisconnectService based on mode (Req 6.3)
     let disconnectResult
     if (mode === 'hard') {
-      disconnectResult = await disconnectService.hardDisconnectWaba(user.id)
+      disconnectResult = await disconnectService.hardDisconnectWaba(account.id, user.id)
     } else {
-      disconnectResult = await disconnectService.softDisconnectWaba(user.id)
+      disconnectResult = await disconnectService.softDisconnectWaba(account.id, user.id)
     }
 
     const deletedCounts = disconnectResult.deletedCounts as WabaDeletedCounts
@@ -106,6 +101,7 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
     await prisma.wABAConnectionLog.create({
       data: {
         userId: user.id,
+        whatsappAccountId: account.id,
         action: 'disconnected',
         details: {
           wabaId,
@@ -121,8 +117,8 @@ app.post('/disconnect', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Cont
     // Audit log with mode information (Req 6.4)
     await auditLog(
       'WABA_DISCONNECTED',
-      'User',
-      user.id,
+      'WhatsAppAccount',
+      account.id,
       {
         wabaId,
         reason,

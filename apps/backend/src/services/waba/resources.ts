@@ -42,11 +42,12 @@ export class WABAResourceDiscovery {
    * then fetches WABA details and associated phone numbers.
    *
    * @param accessToken - Meta access token
+   * @param excludeWabaIds - WABA IDs already connected (to pick the new one from target_ids)
    * @returns WABA resources including phone numbers
    *
    * Requirements: 5.1, 5.2, 5.3
    */
-  async discoverWABAResources(accessToken: string): Promise<WABAResources> {
+  async discoverWABAResources(accessToken: string, excludeWabaIds?: string[], providedWabaId?: string): Promise<WABAResources> {
     // Ensure settings are loaded
     await this.settings.ensureLoaded();
     const apiVersion = this.settings.getApiVersion();
@@ -79,21 +80,45 @@ export class WABAResourceDiscovery {
 
       const debugInfo = debugResponse.data.data;
 
-      // Extract WABA ID from granular scopes
+      // Extract WABA ID from granular scopes for fallback/diagnostic only.
       const wabaScope = debugInfo.granular_scopes?.find(
         (scope: any) => scope.scope === 'whatsapp_business_management'
       );
 
-      if (!wabaScope || !wabaScope.target_ids || wabaScope.target_ids.length === 0) {
+      // Pick the WABA ID that is NOT already connected (multi-WABA support)
+      // When a user connects a second WABA, the token may have access to all WABAs.
+      // We need to find the NEW one, not re-discover the already-connected one.
+      let wabaId: string;
+      if (providedWabaId) {
+        wabaId = providedWabaId;
+        logger.info('Using provided WABA ID from embedded signup session event', {
+          wabaId,
+        });
+      } else if (wabaScope?.target_ids?.length && excludeWabaIds && excludeWabaIds.length > 0) {
+        const excludeSet = new Set(excludeWabaIds);
+        const newWabaId = wabaScope.target_ids.find((id: string) => !excludeSet.has(id));
+        // Use new WABA if found, otherwise fallback to last target_id (most recently added)
+        wabaId = newWabaId || wabaScope.target_ids[wabaScope.target_ids.length - 1];
+        logger.warn('Using granular scopes fallback for WABA discovery', {
+          selectedWabaId: wabaId,
+          excludeWabaIds,
+          granularScopes: debugInfo.granular_scopes,
+        });
+        console.log('Found WABA IDs:', wabaScope.target_ids, '| Excluded:', excludeWabaIds, '| Selected:', wabaId);
+      } else if (wabaScope?.target_ids?.length) {
+        wabaId = wabaScope.target_ids[0];
+        logger.warn('Using granular scopes fallback for WABA discovery', {
+          selectedWabaId: wabaId,
+          granularScopes: debugInfo.granular_scopes,
+        });
+        console.log('Found WABA ID:', wabaId);
+      } else {
         throw new WABAServiceError(
           WABAErrorCode.NO_WABA_FOUND,
           'No WABA found in token permissions',
           { granularScopes: debugInfo.granular_scopes }
         );
       }
-
-      const wabaId = wabaScope.target_ids[0];
-      console.log('Found WABA ID:', wabaId);
 
       // Fetch WABA details
       const wabaDetails = await this.getWABADetails(wabaId, accessToken);
@@ -107,6 +132,7 @@ export class WABAResourceDiscovery {
         timezone: wabaDetails.timezone_id || 'UTC',
         currency: wabaDetails.currency || 'USD',
         messageTemplateNamespace: wabaDetails.message_template_namespace || '',
+        messagingLimitTier: wabaDetails.whatsapp_business_manager_messaging_limit || null,
         phoneNumbers,
       };
     } catch (error) {
@@ -143,7 +169,7 @@ export class WABAResourceDiscovery {
         `https://graph.facebook.com/${apiVersion}/${wabaId}/phone_numbers`,
         {
           params: {
-            fields: 'id,display_phone_number,verified_name,quality_rating,code_verification_status,messaging_limit_tier',
+            fields: 'id,display_phone_number,verified_name,quality_rating,code_verification_status,messaging_limit_tier,account_mode,name_status,status',
             access_token: accessToken,
           },
           timeout: 60000,
@@ -161,13 +187,25 @@ export class WABAResourceDiscovery {
 
       const phoneNumbersData = response.data.data || [];
 
+      // Bounded summary only — full payload would leak business display phone
+      // numbers and verified names across customers. Use ID + count.
+      logger.debug('Fetched phone numbers from Meta', {
+        wabaId,
+        count: phoneNumbersData.length,
+        ids: phoneNumbersData.map((pn: { id: string }) => pn.id),
+      });
+
       const phoneNumbers: PhoneNumberDetails[] = phoneNumbersData.map((pn: any) => ({
         id: pn.id,
         displayPhoneNumber: pn.display_phone_number,
         verifiedName: pn.verified_name || '',
-        qualityRating: pn.quality_rating || 'UNKNOWN',
-        codeVerificationStatus: pn.code_verification_status || 'NOT_VERIFIED',
-        messagingLimitTier: pn.messaging_limit_tier,
+        // Pass through actual values from Meta - don't override with defaults
+        qualityRating: pn.quality_rating || null,
+        codeVerificationStatus: pn.code_verification_status || null,
+        messagingLimitTier: pn.messaging_limit_tier || null,
+        accountMode: pn.account_mode || null,
+        nameStatus: pn.name_status || null,
+        status: pn.status || null,
       }));
 
       if (phoneNumbers.length === 0) {
@@ -210,7 +248,7 @@ export class WABAResourceDiscovery {
         `https://graph.facebook.com/${apiVersion}/${wabaId}`,
         {
           params: {
-            fields: 'id,name,timezone_id,currency,message_template_namespace,account_review_status',
+            fields: 'id,name,timezone_id,currency,message_template_namespace,account_review_status,whatsapp_business_manager_messaging_limit',
             access_token: accessToken,
           },
           timeout: 60000,
@@ -226,7 +264,10 @@ export class WABAResourceDiscovery {
         );
       }
 
-      console.log('WABA details fetched:', response.data.name);
+      logger.debug('WABA details fetched', {
+        name: response.data.name,
+        messagingLimit: response.data.whatsapp_business_manager_messaging_limit,
+      });
       return response.data;
     } catch (error) {
       if (error instanceof WABAServiceError) {

@@ -163,3 +163,16 @@ export const paymentStatusRateLimiter = rateLimiter({
     return `payment-status:${userId || ip}`
   }
 })
+
+// AI Test Chat rate limiter - prevent abuse of OpenAI API credits
+// Allows 20 requests per minute per user (generous but prevents abuse)
+export const aiTestChatRateLimiter = rateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 test chats per minute per user
+  message: 'Too many AI test chat requests, please wait before testing again',
+  keyGenerator: (c: Context) => {
+    const userId = (c as any).user?.id
+    const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown'
+    return `ai-test-chat:${userId || ip}`
+  }
+})

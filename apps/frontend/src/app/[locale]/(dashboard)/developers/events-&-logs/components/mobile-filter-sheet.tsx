@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Filter } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { IconFilter } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -17,13 +17,13 @@ import {
 import Filters from "./filters"
 
 export default function MobileFilterSheet() {
-  const t = useTranslations("common")
-
+  const t = useTranslations('common')
+  
   return (
     <Drawer>
       <DrawerTrigger asChild>
         <Button className="block lg:hidden" size="icon" variant="outline">
-          <Filter className="m-auto" />
+          <IconFilter className="m-auto" />
         </Button>
       </DrawerTrigger>
       <DrawerContent>
@@ -33,9 +33,9 @@ export default function MobileFilterSheet() {
         </DrawerHeader>
         <Filters />
         <DrawerFooter>
-          <Button>{t("submit")}</Button>
+          <Button>{t('submit')}</Button>
           <DrawerClose asChild>
-            <Button variant="outline">{t("cancel")}</Button>
+            <Button variant="outline">{t('cancel')}</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

@@ -1,5 +1,9 @@
 import { Dispatch, SetStateAction } from "react"
-import { Filter, Triangle, RefreshCw } from "lucide-react"
+import {
+  IconFilter,
+  IconPlaystationTriangle,
+  IconRefresh,
+} from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -33,7 +37,7 @@ export default function LogsToolbar({
               variant="outline"
               size="icon"
             >
-              <Filter className="m-auto" size={20} strokeWidth={1.5} />
+              <IconFilter className="m-auto" size={20} strokeWidth={1.5} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -53,7 +57,7 @@ export default function LogsToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button className="shrink-0" variant="outline" size="icon">
-              <RefreshCw size={20} strokeWidth={1.5} />
+              <IconRefresh size={20} strokeWidth={1.5} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -63,7 +67,11 @@ export default function LogsToolbar({
       </TooltipProvider>
 
       <Button variant="outline" className="shrink-0 px-3">
-        <Triangle className="rotate-90" size={20} strokeWidth={1.5} />
+        <IconPlaystationTriangle
+          className="rotate-90"
+          size={20}
+          strokeWidth={1.5}
+        />
         <p className="text-sm">Live</p>
       </Button>
       <LogsAction />

@@ -1,8 +1,8 @@
 import { cookies } from "next/headers"
-import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { BottomNav } from "@/components/layout/bottom-nav"
+import { BottomNavProvider, ContentWrapper } from "@/components/layout/bottom-nav-context"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 
 interface Props {
@@ -16,19 +16,13 @@ export default async function DashboardLayout({ children }: Props) {
     <ProtectedRoute>
       <div className="border-grid flex flex-1 flex-col">
         <SidebarProvider defaultOpen={!defaultClose}>
-          <AppSidebar />
-          <div
-            id="content"
-            className={cn(
-              "flex h-full w-full flex-col pb-16 md:pb-0",
-              "has-[div[data-layout=fixed]]:h-svh",
-              "group-data-[scroll-locked=1]/body:h-full",
-              "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
-            )}
-          >
-            {children}
-          </div>
-          <BottomNav />
+          <BottomNavProvider>
+            <AppSidebar />
+            <ContentWrapper className="has-[div[data-layout=fixed]]:h-svh group-data-[scroll-locked=1]/body:h-full has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh">
+              {children}
+            </ContentWrapper>
+            <BottomNav />
+          </BottomNavProvider>
         </SidebarProvider>
       </div>
     </ProtectedRoute>

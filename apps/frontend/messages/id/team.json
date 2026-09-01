@@ -29,7 +29,9 @@
     "linkedSuccessDesc": "Akun Anda telah dihubungkan ke tim. Silakan login untuk melanjutkan.",
     "goToLogin": "Ke Halaman Login",
     "error": "Gagal menerima undangan",
-    "alreadyAgent": "Anda sudah menjadi anggota tim lain. Silakan hubungi dukungan jika Anda perlu berganti tim."
+    "alreadyAgent": "Anda sudah menjadi anggota tim lain. Silakan hubungi dukungan jika Anda perlu berganti tim.",
+    "oauthAccountDesc": "Anda mendaftar menggunakan Google. Silakan lanjutkan dengan Google untuk menghubungkan akun Anda ke tim ini.",
+    "continueWithGoogle": "Lanjutkan dengan Google"
   },
   "members": {
     "title": "Anggota Tim",

@@ -38,7 +38,7 @@ export default async function LocaleLayout({ children, params }: Props) {
   const messages = await getMessages();
 
   // Get base URL from environment or default
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com';
   
   // Get current path without locale prefix for hreflang generation
   const headersList = await headers();

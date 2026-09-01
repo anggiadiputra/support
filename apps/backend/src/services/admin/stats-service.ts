@@ -24,6 +24,7 @@ export interface MessageStats {
   byChannel: {
     whatsapp: number
     instagram: number
+    messenger: number
   }
   deliveryRate: number
 }
@@ -35,6 +36,7 @@ export interface ConnectionStats {
   wabaDisconnected: number
   wabaPending: number
   instagramConnected: number
+  messengerConnected: number
 }
 
 export interface AdminStats {
@@ -176,6 +178,9 @@ export class AdminStatsService {
 
     // Instagram messages count
     const instagramCount = await prisma.iGMessage.count()
+    
+    // Messenger messages count
+    const messengerCount = await prisma.messengerMessage.count()
 
     // Calculate delivery rate
     const deliveryRate = sentCount > 0 
@@ -183,20 +188,21 @@ export class AdminStatsService {
       : 0
 
     return {
-      total: total + instagramCount,
+      total: total + instagramCount + messengerCount,
       today,
       thisWeek,
       thisMonth,
       byChannel: {
         whatsapp: whatsappCount,
-        instagram: instagramCount
+        instagram: instagramCount,
+        messenger: messengerCount
       },
       deliveryRate
     }
   }
 
   /**
-   * Get connection statistics - websocket, WABA, Instagram
+   * Get connection statistics - websocket, WABA, Instagram, Messenger
    * Requirements: 2.4, 2.5, 2.6
    */
   static async getConnectionStats(): Promise<ConnectionStats> {
@@ -208,30 +214,33 @@ export class AdminStatsService {
       wabaConnected,
       wabaDisconnected,
       wabaPending,
-      instagramConnected
+      instagramConnected,
+      messengerConnected
     ] = await Promise.all([
-      // WABA connected users
-      prisma.user.count({
-        where: { wabaConnectionStatus: 'connected' }
+      // WABA connected accounts
+      prisma.whatsAppAccount.count({
+        where: { connectionStatus: 'connected' }
       }),
-      
-      // WABA disconnected users
-      prisma.user.count({
-        where: { wabaConnectionStatus: 'disconnected' }
+
+      // WABA disconnected accounts
+      prisma.whatsAppAccount.count({
+        where: { connectionStatus: 'disconnected' }
       }),
-      
-      // WABA pending users
-      prisma.user.count({
+
+      // WABA pending accounts
+      prisma.whatsAppAccount.count({
         where: {
-          OR: [
-            { wabaConnectionStatus: 'pending' },
-            { wabaConnectionStatus: null, wabaId: { not: null } }
-          ]
+          connectionStatus: 'pending'
         }
       }),
-      
+
       // Instagram connected accounts
       prisma.instagramAccount.count({
+        where: { connectionStatus: 'connected' }
+      }),
+
+      // Facebook/Messenger connected pages
+      prisma.facebookPage.count({
         where: { connectionStatus: 'connected' }
       })
     ])
@@ -242,7 +251,8 @@ export class AdminStatsService {
       wabaConnected,
       wabaDisconnected,
       wabaPending,
-      instagramConnected
+      instagramConnected,
+      messengerConnected
     }
   }
 

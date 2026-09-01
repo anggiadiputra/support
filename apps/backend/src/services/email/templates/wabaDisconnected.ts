@@ -8,7 +8,9 @@ interface WABADisconnectedParams {
 
 export const wabaDisconnectedTemplate: EmailTemplate = (params: WABADisconnectedParams) => {
   const { wabaId, businessName, reason } = params;
-  
+  const appName = process.env.APP_NAME || 'Messaging Platform';
+  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${process.env.DEFAULT_LOCALE || 'en'}/dashboard`;
+
   return {
     subject: `[URGENT] WhatsApp Account Disconnected - ${businessName}`,
     body: `
@@ -34,7 +36,7 @@ export const wabaDisconnectedTemplate: EmailTemplate = (params: WABADisconnected
       <h3>Action Required:</h3>
       <p>To restore your messaging services, please reconnect your WhatsApp Business Account:</p>
       <ol>
-        <li>Log in to your dashboard at https://kirim.chat/dashboard</li>
+        <li>Log in to your dashboard at ${dashboardUrl}</li>
         <li>Navigate to WhatsApp Settings</li>
         <li>Click "Reconnect WhatsApp"</li>
         <li>Complete the authorization flow</li>
@@ -42,7 +44,7 @@ export const wabaDisconnectedTemplate: EmailTemplate = (params: WABADisconnected
       
       <p>If you did not request this disconnection or need assistance, please contact support immediately.</p>
       
-      <p>Best regards,<br>Kirim.Chat Team</p>
+      <p>Best regards,<br>${appName} Team</p>
     `
   };
 };

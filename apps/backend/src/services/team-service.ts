@@ -105,13 +105,37 @@ export class TeamService {
       throw new Error('AGENT_NOT_FOUND');
     }
 
-    // Update status to REMOVED
-    await prisma.teamMember.update({
-      where: { id: teamMemberId },
-      data: {
-        status: 'REMOVED',
-        removedAt: new Date(),
-      },
+    // Update status to REMOVED and restore the user's role atomically.
+    // Without restoring the role, a removed agent keeps role=AGENT with no
+    // ACTIVE membership, which locks them out of all data/WebSocket routes
+    // (resolveContext returns 403 "Agent not associated with any business").
+    await prisma.$transaction(async (tx) => {
+      await tx.teamMember.update({
+        where: { id: teamMemberId },
+        data: {
+          status: 'REMOVED',
+          removedAt: new Date(),
+        },
+      });
+
+      if (teamMember.agentUserId) {
+        // Only revert to BUSINESS_OWNER if the user is not still an ACTIVE
+        // agent of some other team (defensive guard for future multi-team).
+        const stillActive = await tx.teamMember.findFirst({
+          where: {
+            agentUserId: teamMember.agentUserId,
+            status: 'ACTIVE',
+          },
+          select: { id: true },
+        });
+
+        if (!stillActive) {
+          await tx.user.update({
+            where: { id: teamMember.agentUserId },
+            data: { role: 'BUSINESS_OWNER' },
+          });
+        }
+      }
     });
 
     // Invalidate all sessions for the removed agent

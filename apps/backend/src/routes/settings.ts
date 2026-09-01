@@ -5,6 +5,7 @@ import { prisma } from '../utils/database.js'
 import { auditLog } from '../utils/auditLog.js'
 import { auth } from '../lib/auth.js'
 import { invalidateUserCache } from '../utils/cache.js'
+import { handleValidationError, logDetailedError } from '../middleware/errorHandler.js'
 
 // Import settings sub-routes
 import settingsSubRoutes from './settings/index.js'
@@ -73,7 +74,7 @@ app.get('/profile', async (c: Context) => {
       data: user
     })
   } catch (error) {
-    console.error('Get profile error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -136,7 +137,7 @@ app.post('/profile', async (c: Context) => {
     await auditLog('PROFILE_UPDATED', 'User', c.user.id, {
       changes: data,
       updatedBy: c.user.id
-    })
+    }, c.user.id)
 
     // Invalidate user cache (OPTIMIZATION)
     await invalidateUserCache(c.user.id)
@@ -150,16 +151,10 @@ app.post('/profile', async (c: Context) => {
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid input data',
-          details: error.issues
-        }
-      }, 400)
+      return handleValidationError(error, c)
     }
 
-    console.error('Update profile error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -168,6 +163,17 @@ app.post('/profile', async (c: Context) => {
     }, 500)
   }
 })
+
+// Helper to map Better Auth errors to validation errors
+function mapBetterAuthError(error: any): string {
+  const message = error.body?.message || error.message || 'Failed to change password'
+
+  if (message.includes('Incorrect') || message.includes('Invalid')) {
+    return 'Current password is incorrect'
+  }
+
+  return message
+}
 
 // POST /api/v1/settings/password - Change password
 app.post('/password', async (c: Context) => {
@@ -216,7 +222,7 @@ app.post('/password', async (c: Context) => {
       await auditLog('PASSWORD_CHANGED', 'User', c.user.id, {
         changedBy: c.user.id,
         timestamp: new Date()
-      })
+      }, c.user.id)
 
       return c.json({
         success: true,
@@ -224,11 +230,11 @@ app.post('/password', async (c: Context) => {
       })
     } catch (error: any) {
        // Map Better Auth errors
-       console.error('Better Auth password change error:', error)
-       
-       const message = error.body?.message || error.message || 'Failed to change password'
-       
-       if (message.includes('Incorrect') || message.includes('Invalid')) {
+       logDetailedError(error, { path: c.req.path, method: c.req.method })
+
+       const message = mapBetterAuthError(error)
+
+       if (message === 'Current password is incorrect') {
            return c.json({
              error: {
                code: 'Unauthorized',
@@ -246,16 +252,10 @@ app.post('/password', async (c: Context) => {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid input data',
-          details: error.issues
-        }
-      }, 400)
+      return handleValidationError(error, c)
     }
 
-    console.error('Change password error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',

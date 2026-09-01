@@ -30,8 +30,8 @@ export const CACHE_TIMES = {
     gcTime: 30 * 60 * 1000, // 30 minutes
   },
   subscription: {
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 0, // Always fetch fresh data to reflect payment status immediately
+    gcTime: 10 * 60 * 1000, // 10 minutes
   },
 
   // Dynamic data - changes frequently
@@ -58,6 +58,18 @@ export const CACHE_TIMES = {
   team: {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+  },
+
+  // Session/Auth data - keep session cached to avoid blocking navigation
+  session: {
+    staleTime: 2 * 60 * 1000, // 2 minutes - session considered fresh
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
+  },
+
+  // Notifications - check frequently for new notifications
+  notifications: {
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
   },
 } as const
 

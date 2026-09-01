@@ -1,4 +1,4 @@
-import { Ellipsis, SquarePen, Trash2 } from "lucide-react"
+import { IconDots } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import {
@@ -91,18 +91,14 @@ export default function RouteView() {
                     className="rounded-full"
                     size="icon"
                   >
-                    <Ellipsis />
+                    <IconDots />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2">
-                    <SquarePen className="h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-red-500 gap-2">
-                    <Trash2 className="h-4 w-4" />
+                  <DropdownMenuItem>Edit</DropdownMenuItem>
+                  <DropdownMenuItem className="text-red-500">
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>

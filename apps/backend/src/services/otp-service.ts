@@ -16,6 +16,7 @@ export interface PendingRegistration {
   resendCount: number;
   lastResendAt: number;
   createdAt: number;
+  referralCode?: string; // Optional referral code for affiliate tracking
 }
 
 /**
@@ -116,13 +117,15 @@ export class OTPService {
    * @param name - User name
    * @param passwordHash - Pre-hashed password
    * @param otp - Plain OTP (will be hashed before storage)
+   * @param referralCode - Optional referral code for affiliate tracking
    * @returns OTP generation result with expiration time
    */
   async storePendingRegistration(
     email: string,
     name: string,
     passwordHash: string,
-    otp: string
+    otp: string,
+    referralCode?: string
   ): Promise<OTPGenerationResult> {
     const otpHash = await this.hashOTP(otp);
     const now = Date.now();
@@ -138,6 +141,7 @@ export class OTPService {
       resendCount: 0,
       lastResendAt: now,
       createdAt: now,
+      referralCode,
     };
 
     const key = REDIS_KEYS.pendingRegistration(email);

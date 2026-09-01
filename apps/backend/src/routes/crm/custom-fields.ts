@@ -2,16 +2,18 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
+import { resolveContext, getEffectiveUserId } from '../../middleware/resolveContext.js'
 
 const app = new Hono()
 
 // GET /api/v1/crm/custom-fields - List definitions
-app.get('/custom-fields', async (c: Context) => {
+app.get('/custom-fields', resolveContext, async (c: Context) => {
     try {
         if (!c.user) return c.json({ error: { code: 'Unauthorized', message: 'Authentication required' } }, 401)
 
+        const effectiveUserId = getEffectiveUserId(c)
         const fields = await prisma.customFieldDefinition.findMany({
-            where: { userId: c.user.id },
+            where: { userId: effectiveUserId },
             orderBy: { order: 'asc' }
         })
 
@@ -23,16 +25,17 @@ app.get('/custom-fields', async (c: Context) => {
 })
 
 // POST /api/v1/crm/custom-fields - Create definition
-app.post('/custom-fields', async (c: Context) => {
+app.post('/custom-fields', resolveContext, async (c: Context) => {
     try {
         if (!c.user) return c.json({ error: { code: 'Unauthorized', message: 'Authentication required' } }, 401)
 
         const body = await c.req.json()
         const { name, key, type, description, options, required, order } = body
 
+        const effectiveUserId = getEffectiveUserId(c)
         const field = await prisma.customFieldDefinition.create({
             data: {
-                userId: c.user.id,
+                userId: effectiveUserId,
                 name,
                 key,
                 type,
@@ -53,15 +56,16 @@ app.post('/custom-fields', async (c: Context) => {
 })
 
 // PUT /api/v1/crm/custom-fields/:id - Update definition
-app.put('/custom-fields/:id', async (c: Context) => {
+app.put('/custom-fields/:id', resolveContext, async (c: Context) => {
     try {
         if (!c.user) return c.json({ error: { code: 'Unauthorized', message: 'Authentication required' } }, 401)
         const id = c.req.param('id')
         const body = await c.req.json()
         const { name, description, options, required, order } = body
 
+        const effectiveUserId = getEffectiveUserId(c)
         const field = await prisma.customFieldDefinition.update({
-            where: { id, userId: c.user.id },
+            where: { id, userId: effectiveUserId },
             data: { name, description, options, required, order }
         })
 
@@ -73,13 +77,14 @@ app.put('/custom-fields/:id', async (c: Context) => {
 })
 
 // DELETE /api/v1/crm/custom-fields/:id - Delete definition
-app.delete('/custom-fields/:id', async (c: Context) => {
+app.delete('/custom-fields/:id', resolveContext, async (c: Context) => {
     try {
         if (!c.user) return c.json({ error: { code: 'Unauthorized', message: 'Authentication required' } }, 401)
         const id = c.req.param('id')
 
+        const effectiveUserId = getEffectiveUserId(c)
         await prisma.customFieldDefinition.delete({
-            where: { id, userId: c.user.id }
+            where: { id, userId: effectiveUserId }
         })
 
         await auditLog('CUSTOM_FIELD_DELETED', 'CustomField', id, {}, c.user.id)

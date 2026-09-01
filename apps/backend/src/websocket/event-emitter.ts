@@ -7,6 +7,7 @@ import {
   type MessageStatusEvent,
   type TypingIndicatorEvent,
   type AssignmentChangedEvent,
+  type OutboundMessageEvent,
   validateWebSocketEvent,
   getValidationErrors
 } from './types.js'
@@ -157,6 +158,87 @@ class EventEmitter {
 
     console.log(`[EventEmitter] Broadcast assignment_changed to ${sent} users (${failed} offline/failed)`)
     return { sent, failed }
+  }
+
+  /**
+   * Emit an event to a business room (all team members of a business)
+   * Broadcasts to all connections in the business:${businessOwnerId} room
+   */
+  emitToBusinessRoom(businessOwnerId: string, event: WebSocketEvent): boolean {
+    // Check if WebSocket server is initialized
+    if (!isWebSocketInitialized()) {
+      console.warn('[EventEmitter] WebSocket server not initialized, skipping emit')
+      return false
+    }
+
+    // Validate event payload
+    const validatedEvent = validateWebSocketEvent(event)
+    if (!validatedEvent) {
+      const errors = getValidationErrors(event)
+      console.error(`[EventEmitter] Invalid event payload for business room ${businessOwnerId}:`, errors)
+      return false
+    }
+
+    try {
+      const io = getIO()
+      // Emit to business-specific room
+      io.to(`business:${businessOwnerId}`).emit(event.type, validatedEvent)
+      
+      console.log(`[EventEmitter] Emitted ${event.type} to business room ${businessOwnerId}`)
+      return true
+    } catch (error) {
+      console.error(`[EventEmitter] Failed to emit ${event.type} to business room ${businessOwnerId}:`, error)
+      return false
+    }
+  }
+
+  /**
+   * Emit a new message event to a business room
+   */
+  emitNewMessageToBusinessRoom(
+    businessOwnerId: string,
+    payload: NewMessageEvent['payload']
+  ): boolean {
+    const event: NewMessageEvent = {
+      type: 'new_message',
+      timestamp: new Date().toISOString(),
+      userId: businessOwnerId,
+      payload
+    }
+    return this.emitToBusinessRoom(businessOwnerId, event)
+  }
+
+  /**
+   * Emit an assignment changed event to a business room
+   */
+  emitAssignmentChangedToBusinessRoom(
+    businessOwnerId: string,
+    payload: AssignmentChangedEvent['payload']
+  ): boolean {
+    const event: AssignmentChangedEvent = {
+      type: 'assignment_changed',
+      timestamp: new Date().toISOString(),
+      userId: businessOwnerId,
+      payload
+    }
+    return this.emitToBusinessRoom(businessOwnerId, event)
+  }
+
+  /**
+   * Emit an outbound message event to a business room
+   * Used to broadcast sent messages (by human or AI agent) to all team members
+   */
+  emitOutboundMessageToBusinessRoom(
+    businessOwnerId: string,
+    payload: OutboundMessageEvent['payload']
+  ): boolean {
+    const event: OutboundMessageEvent = {
+      type: 'outbound_message',
+      timestamp: new Date().toISOString(),
+      userId: businessOwnerId,
+      payload
+    }
+    return this.emitToBusinessRoom(businessOwnerId, event)
   }
 
   /**

@@ -1,28 +1,13 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { format } from "date-fns"
-import {
-  Image,
-  Video,
-  File,
-  CaseSensitive,
-  Link,
-  DollarSign,
-  Calendar as CalendarIcon,
-  Loader2,
-  Check,
-  X,
-  Send,
-  AlertCircle,
-  ExternalLink,
-  MessageSquare,
-} from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
-import { Badge } from "@/components/ui/badge"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
@@ -32,21 +17,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Template } from "../data/schema"
 import {
-  MediaUploadInput,
-  type MediaUploadResult,
-  type MediaType,
-} from "./media-upload-input"
+  IconPhoto,
+  IconVideo,
+  IconFile,
+  IconLetterCase,
+  IconLink,
+  IconCurrencyDollar,
+  IconCalendar,
+  IconLoader2,
+  IconCheck,
+  IconX,
+  IconSend,
+  IconAlertCircle,
+  IconExternalLink,
+  IconMessage,
+} from "@tabler/icons-react"
+import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
+import { Template } from "../data/schema"
 import type { TemplateVariable } from "./variable-library"
+import { MediaUploadInput, type MediaUploadResult, type MediaType } from "./media-upload-input"
+
 
 interface TemplateSendDialogProps {
   open: boolean
@@ -99,13 +96,13 @@ interface FormErrors {
 }
 
 const typeIcons: Record<TemplateVariable["type"], React.ElementType> = {
-  TEXT: CaseSensitive,
-  URL: Link,
-  CURRENCY: DollarSign,
-  DATE: CalendarIcon,
-  IMAGE: Image,
-  VIDEO: Video,
-  DOCUMENT: File,
+  TEXT: IconLetterCase,
+  URL: IconLink,
+  CURRENCY: IconCurrencyDollar,
+  DATE: IconCalendar,
+  IMAGE: IconPhoto,
+  VIDEO: IconVideo,
+  DOCUMENT: IconFile,
 }
 
 const typeColors: Record<TemplateVariable["type"], string> = {
@@ -133,10 +130,7 @@ const validateCurrency = (value: string): boolean => {
   if (!value) return false
   const numberOnlyPattern = /^[\d,]+(?:\.\d{1,2})?$/
   const currencyWithCodePattern = /^[A-Z]{3}\s+[\d,]+(?:\.\d{1,2})?$/
-  return (
-    numberOnlyPattern.test(value.trim()) ||
-    currencyWithCodePattern.test(value.trim())
-  )
+  return numberOnlyPattern.test(value.trim()) || currencyWithCodePattern.test(value.trim())
 }
 
 const validateDate = (value: string): boolean => {
@@ -188,10 +182,7 @@ function extractVariablePositions(template: Template): VariablePosition[] {
   }
 
   // Media header (IMAGE, VIDEO, DOCUMENT)
-  if (
-    template.headerType &&
-    ["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType)
-  ) {
+  if (template.headerType && ["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType)) {
     positions.push({
       componentType: "header",
       componentIndex: 0,
@@ -221,11 +212,7 @@ function extractVariablePositions(template: Template): VariablePosition[] {
     template.components.forEach((component) => {
       if (component.type === "BUTTONS" && component.buttons) {
         component.buttons.forEach((button, buttonIndex) => {
-          if (
-            button.type === "URL" &&
-            button.example &&
-            button.example.length > 0
-          ) {
+          if (button.type === "URL" && button.example && button.example.length > 0) {
             button.example.forEach((_, exampleIndex) => {
               positions.push({
                 componentType: "button",
@@ -243,6 +230,7 @@ function extractVariablePositions(template: Template): VariablePosition[] {
   return positions
 }
 
+
 export function TemplateSendDialog({
   open,
   onOpenChange,
@@ -255,12 +243,8 @@ export function TemplateSendDialog({
   const tCommon = useTranslations("common")
   const { toast } = useToast()
 
-  const [variableValues, setVariableValues] = useState<Record<string, string>>(
-    {}
-  )
-  const [mediaUploads, setMediaUploads] = useState<
-    Record<string, MediaUploadResult>
-  >({})
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({})
+  const [mediaUploads, setMediaUploads] = useState<Record<string, MediaUploadResult>>({})
   const [mappings, setMappings] = useState<VariableMapping[]>([])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
@@ -277,11 +261,7 @@ export function TemplateSendDialog({
   // Merge positions with mappings to get variable info
   const positionsWithVariables = useMemo(() => {
     return variablePositions.map((pos) => {
-      const key = getPositionKey(
-        pos.componentType,
-        pos.componentIndex,
-        pos.parameterIndex
-      )
+      const key = getPositionKey(pos.componentType, pos.componentIndex, pos.parameterIndex)
       const mapping = mappings.find(
         (m) =>
           m.componentType === pos.componentType &&
@@ -305,7 +285,7 @@ export function TemplateSendDialog({
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
       const response = await fetch(
-        `${apiUrl}/api/v1/template-variables/mappings/${encodeURIComponent(template.name)}`,
+        `${apiUrl}/api/v1/template-variables/mappings/${encodeURIComponent(template.templateName)}`,
         { credentials: "include" }
       )
 
@@ -340,19 +320,16 @@ export function TemplateSendDialog({
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
-      const response = await fetch(
-        `${apiUrl}/api/v1/templates/render-preview`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            templateName: template.name,
-            languageCode: template.language,
-            variableValues,
-          }),
-        }
-      )
+      const response = await fetch(`${apiUrl}/api/v1/templates/render-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          templateName: template.templateName,
+          languageCode: template.language,
+          variableValues,
+        }),
+      })
 
       if (response.ok) {
         const result = await response.json()
@@ -388,10 +365,7 @@ export function TemplateSendDialog({
   }
 
   // Handle media upload change
-  const handleMediaChange = (
-    variableId: string,
-    result: MediaUploadResult | null
-  ) => {
+  const handleMediaChange = (variableId: string, result: MediaUploadResult | null) => {
     if (result) {
       // Store the media upload result
       setMediaUploads((prev) => ({
@@ -435,17 +409,9 @@ export function TemplateSendDialog({
   }
 
   // Validate a single variable value
-  const validateValue = (
-    variable: TemplateVariable,
-    value: string,
-    variableId: string
-  ): string | null => {
+  const validateValue = (variable: TemplateVariable, value: string, variableId: string): string | null => {
     // For media types, check if we have a media upload
-    if (
-      variable.type === "IMAGE" ||
-      variable.type === "VIDEO" ||
-      variable.type === "DOCUMENT"
-    ) {
+    if (variable.type === "IMAGE" || variable.type === "VIDEO" || variable.type === "DOCUMENT") {
       const hasMediaUpload = mediaUploads[variableId]
       if (!hasMediaUpload && (!value || value.trim() === "")) {
         return t("validation.required")
@@ -527,7 +493,7 @@ export function TemplateSendDialog({
         credentials: "include",
         body: JSON.stringify({
           customerId: customer.id,
-          templateName: template.name,
+          templateName: template.templateName,
           languageCode: template.language,
           variableValues,
         }),
@@ -569,8 +535,9 @@ export function TemplateSendDialog({
     setDatePickerOpen(null)
   }
 
+
   // Render type-specific input
-  const renderVariableInput = (pos: (typeof positionsWithVariables)[0]) => {
+  const renderVariableInput = (pos: typeof positionsWithVariables[0]) => {
     if (!pos.variableId || !pos.variable) {
       return (
         <div className="text-muted-foreground text-sm italic">
@@ -599,25 +566,16 @@ export function TemplateSendDialog({
             <div className="flex gap-2">
               <Input
                 {...baseInputProps}
-                onChange={(e) =>
-                  handleValueChange(pos.variableId!, e.target.value)
-                }
+                onChange={(e) => handleValueChange(pos.variableId!, e.target.value)}
                 className={cn(baseInputProps.className, "flex-1")}
               />
               <Popover
                 open={datePickerOpen === pos.variableId}
-                onOpenChange={(open) =>
-                  setDatePickerOpen(open ? pos.variableId! : null)
-                }
+                onOpenChange={(open) => setDatePickerOpen(open ? pos.variableId! : null)}
               >
                 <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                  >
-                    <CalendarIcon className="h-4 w-4" />
+                  <Button type="button" variant="outline" size="icon" className="shrink-0">
+                    <IconCalendar className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
@@ -640,12 +598,10 @@ export function TemplateSendDialog({
             <div className="relative">
               <Input
                 {...baseInputProps}
-                onChange={(e) =>
-                  handleValueChange(pos.variableId!, e.target.value)
-                }
+                onChange={(e) => handleValueChange(pos.variableId!, e.target.value)}
                 className={cn(baseInputProps.className, "pl-10")}
               />
-              <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              <IconCurrencyDollar className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             </div>
             {error && <p className="text-destructive text-xs">{error}</p>}
           </div>
@@ -658,18 +614,16 @@ export function TemplateSendDialog({
               <Input
                 {...baseInputProps}
                 type="url"
-                onChange={(e) =>
-                  handleValueChange(pos.variableId!, e.target.value)
-                }
-                className={cn(baseInputProps.className, "pr-10 pl-10")}
+                onChange={(e) => handleValueChange(pos.variableId!, e.target.value)}
+                className={cn(baseInputProps.className, "pl-10 pr-10")}
               />
-              <TypeIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              <TypeIcon className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
               {value && (
-                <div className="absolute top-1/2 right-3 -translate-y-1/2">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   {!error ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <IconCheck className="h-4 w-4 text-green-500" />
                   ) : (
-                    <X className="text-destructive h-4 w-4" />
+                    <IconX className="h-4 w-4 text-destructive" />
                   )}
                 </div>
               )}
@@ -700,17 +654,15 @@ export function TemplateSendDialog({
             <div className="relative">
               <Input
                 {...baseInputProps}
-                onChange={(e) =>
-                  handleValueChange(pos.variableId!, e.target.value)
-                }
+                onChange={(e) => handleValueChange(pos.variableId!, e.target.value)}
                 className={cn(baseInputProps.className, "pr-10")}
               />
               {value && (
-                <div className="absolute top-1/2 right-3 -translate-y-1/2">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   {!error ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <IconCheck className="h-4 w-4 text-green-500" />
                   ) : (
-                    <X className="text-destructive h-4 w-4" />
+                    <IconX className="h-4 w-4 text-destructive" />
                   )}
                 </div>
               )}
@@ -744,74 +696,75 @@ export function TemplateSendDialog({
     const headerMediaUpload = getHeaderMediaUpload()
 
     return (
-      <div className="min-h-[200px] rounded-lg bg-[#e5ddd5] p-4 dark:bg-gray-800">
-        <div className="ml-auto max-w-[280px]">
+      <div className="bg-[#e5ddd5] dark:bg-gray-800 rounded-lg p-4 min-h-[200px]">
+        <div className="max-w-[280px] ml-auto">
           {/* Message bubble */}
-          <div className="relative rounded-lg bg-[#dcf8c6] p-3 shadow-sm dark:bg-green-900">
+          <div className="bg-[#dcf8c6] dark:bg-green-900 rounded-lg p-3 shadow-sm relative">
             {/* Header */}
             {template.headerType && (
               <div className="mb-2">
                 {template.headerType === "TEXT" && headerContent && (
-                  <p className="text-sm font-semibold">{headerContent}</p>
+                  <p className="font-semibold text-sm">{headerContent}</p>
                 )}
-                {template.headerType === "IMAGE" &&
-                  (headerMediaUpload?.previewUrl ? (
-                    <div className="overflow-hidden rounded">
+                {template.headerType === "IMAGE" && (
+                  headerMediaUpload?.previewUrl ? (
+                    <div className="rounded overflow-hidden">
                       <img
                         src={headerMediaUpload.previewUrl}
                         alt="Header"
-                        className="h-auto max-h-48 w-full object-contain"
+                        className="w-full h-auto max-h-48 object-contain"
                       />
                     </div>
                   ) : (
-                    <div className="flex h-32 items-center justify-center rounded bg-gray-200 dark:bg-gray-700">
-                      <Image className="h-8 w-8 text-gray-400" />
+                    <div className="bg-gray-200 dark:bg-gray-700 rounded h-32 flex items-center justify-center">
+                      <IconPhoto className="h-8 w-8 text-gray-400" />
                     </div>
-                  ))}
-                {template.headerType === "VIDEO" &&
-                  (headerMediaUpload?.previewUrl ? (
-                    <div className="overflow-hidden rounded bg-black">
+                  )
+                )}
+                {template.headerType === "VIDEO" && (
+                  headerMediaUpload?.previewUrl ? (
+                    <div className="rounded overflow-hidden bg-black">
                       <video
                         src={headerMediaUpload.previewUrl}
-                        className="h-auto max-h-48 w-full object-contain"
+                        className="w-full h-auto max-h-48 object-contain"
                         controls
                         muted
                       />
                     </div>
                   ) : (
-                    <div className="flex h-32 items-center justify-center rounded bg-gray-200 dark:bg-gray-700">
-                      <Video className="h-8 w-8 text-gray-400" />
+                    <div className="bg-gray-200 dark:bg-gray-700 rounded h-32 flex items-center justify-center">
+                      <IconVideo className="h-8 w-8 text-gray-400" />
                     </div>
-                  ))}
-                {template.headerType === "DOCUMENT" &&
-                  (headerMediaUpload ? (
-                    <div className="flex items-center gap-2 rounded bg-gray-200 p-3 dark:bg-gray-700">
-                      <File className="h-6 w-6 text-gray-400" />
-                      <span className="truncate text-sm text-gray-600 dark:text-gray-300">
+                  )
+                )}
+                {template.headerType === "DOCUMENT" && (
+                  headerMediaUpload ? (
+                    <div className="bg-gray-200 dark:bg-gray-700 rounded p-3 flex items-center gap-2">
+                      <IconFile className="h-6 w-6 text-gray-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                         {headerMediaUpload.filename}
                       </span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 rounded bg-gray-200 p-3 dark:bg-gray-700">
-                      <File className="h-6 w-6 text-gray-400" />
+                    <div className="bg-gray-200 dark:bg-gray-700 rounded p-3 flex items-center gap-2">
+                      <IconFile className="h-6 w-6 text-gray-400" />
                       <span className="text-sm text-gray-500">Document</span>
                     </div>
-                  ))}
+                  )
+                )}
               </div>
             )}
 
             {/* Body */}
-            <p className="text-sm break-words whitespace-pre-wrap">
-              {bodyContent}
-            </p>
+            <p className="text-sm whitespace-pre-wrap break-words">{bodyContent}</p>
 
             {/* Footer */}
             {footerContent && (
-              <p className="mt-2 text-xs text-gray-500">{footerContent}</p>
+              <p className="text-xs text-gray-500 mt-2">{footerContent}</p>
             )}
 
             {/* Timestamp */}
-            <div className="mt-1 flex justify-end">
+            <div className="flex justify-end mt-1">
               <span className="text-[10px] text-gray-500">
                 {format(new Date(), "HH:mm")}
               </span>
@@ -824,11 +777,9 @@ export function TemplateSendDialog({
               {preview.buttons.map((button, index) => (
                 <button
                   key={index}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg bg-white px-3 py-2 text-sm text-blue-500 shadow-sm dark:bg-gray-700 dark:text-blue-400"
+                  className="w-full bg-white dark:bg-gray-700 rounded-lg py-2 px-3 text-sm text-blue-500 dark:text-blue-400 flex items-center justify-center gap-1 shadow-sm"
                 >
-                  {button.type === "url" && (
-                    <ExternalLink className="h-4 w-4" />
-                  )}
+                  {button.type === "url" && <IconExternalLink className="h-4 w-4" />}
                   {button.text}
                 </button>
               ))}
@@ -836,29 +787,27 @@ export function TemplateSendDialog({
           )}
 
           {/* Show template buttons if no preview */}
-          {!preview?.buttons &&
-            template.components?.some((c) => c.type === "BUTTONS") && (
-              <div className="mt-1 space-y-1">
-                {template.components
-                  .filter((c) => c.type === "BUTTONS")
-                  .flatMap((c) => c.buttons || [])
-                  .map((button, index) => (
-                    <button
-                      key={index}
-                      className="flex w-full items-center justify-center gap-1 rounded-lg bg-white px-3 py-2 text-sm text-blue-500 shadow-sm dark:bg-gray-700 dark:text-blue-400"
-                    >
-                      {button.type === "URL" && (
-                        <ExternalLink className="h-4 w-4" />
-                      )}
-                      {button.text}
-                    </button>
-                  ))}
-              </div>
-            )}
+          {!preview?.buttons && template.components?.some((c) => c.type === "BUTTONS") && (
+            <div className="mt-1 space-y-1">
+              {template.components
+                .filter((c) => c.type === "BUTTONS")
+                .flatMap((c) => c.buttons || [])
+                .map((button, index) => (
+                  <button
+                    key={index}
+                    className="w-full bg-white dark:bg-gray-700 rounded-lg py-2 px-3 text-sm text-blue-500 dark:text-blue-400 flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    {button.type === "URL" && <IconExternalLink className="h-4 w-4" />}
+                    {button.text}
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
       </div>
     )
   }
+
 
   if (!template || !customer) return null
 
@@ -867,53 +816,44 @@ export function TemplateSendDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[800px]">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
+            <IconSend className="h-5 w-5" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>
-            {t("description", {
-              templateName: template.name,
-              customer: customer.name,
-            })}
+            {t("description", { templateName: template.templateName, customer: customer.name })}
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            <IconLoader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="flex-1 overflow-hidden">
-            <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
               {/* Left side: Variable inputs */}
               <div className="flex flex-col">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
-                  <MessageSquare className="h-4 w-4" />
+                <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <IconMessage className="h-4 w-4" />
                   {t("variableInputs")}
                 </h3>
 
                 {!hasVariables ? (
-                  <div className="bg-muted/50 flex flex-col items-center justify-center rounded-lg py-8 text-center">
-                    <Check className="mb-2 h-8 w-8 text-green-500" />
-                    <p className="text-muted-foreground text-sm">
-                      {t("noVariablesNeeded")}
-                    </p>
+                  <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-lg">
+                    <IconCheck className="h-8 w-8 text-green-500 mb-2" />
+                    <p className="text-sm text-muted-foreground">{t("noVariablesNeeded")}</p>
                   </div>
                 ) : !hasMappings ? (
-                  <div className="flex flex-col items-center justify-center rounded-lg bg-amber-50 py-8 text-center dark:bg-amber-900/20">
-                    <AlertCircle className="mb-2 h-8 w-8 text-amber-500" />
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      {t("noMappingsConfigured")}
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {t("configureMappingsHint")}
-                    </p>
+                  <div className="flex flex-col items-center justify-center py-8 text-center bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <IconAlertCircle className="h-8 w-8 text-amber-500 mb-2" />
+                    <p className="text-sm text-amber-700 dark:text-amber-300">{t("noMappingsConfigured")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("configureMappingsHint")}</p>
                   </div>
                 ) : (
-                  <ScrollArea className="-mr-4 max-h-[400px] flex-1 pr-4">
+                  <ScrollArea className="flex-1 pr-4 -mr-4 max-h-[400px]">
                     <div className="space-y-4">
                       {positionsWithVariables.map((pos) => {
                         if (!pos.variableId || !pos.variable) return null
@@ -927,16 +867,13 @@ export function TemplateSendDialog({
                               <span>{pos.variable.name}</span>
                               <Badge
                                 variant="secondary"
-                                className={cn(
-                                  "text-xs",
-                                  typeColors[pos.variable.type]
-                                )}
+                                className={cn("text-xs", typeColors[pos.variable.type])}
                               >
                                 {tVariables(`types.${pos.variable.type}`)}
                               </Badge>
                             </Label>
                             {pos.variable.description && (
-                              <p className="text-muted-foreground text-xs">
+                              <p className="text-xs text-muted-foreground">
                                 {pos.variable.description}
                               </p>
                             )}
@@ -951,8 +888,8 @@ export function TemplateSendDialog({
 
               {/* Right side: Preview */}
               <div className="flex flex-col">
-                <h3 className="mb-3 text-sm font-medium">{t("preview")}</h3>
-                <ScrollArea className="max-h-[400px] flex-1">
+                <h3 className="text-sm font-medium mb-3">{t("preview")}</h3>
+                <ScrollArea className="flex-1 max-h-[400px]">
                   {renderPreviewContent()}
                 </ScrollArea>
               </div>
@@ -973,8 +910,8 @@ export function TemplateSendDialog({
             onClick={handleSubmit}
             disabled={sending || loading || (hasVariables && !hasMappings)}
           >
-            {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Send className="mr-2 h-4 w-4" />
+            {sending && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <IconSend className="mr-2 h-4 w-4" />
             {t("send")}
           </Button>
         </DialogFooter>

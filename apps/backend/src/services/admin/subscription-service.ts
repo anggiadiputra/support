@@ -248,7 +248,7 @@ export class AdminSubscriptionService {
           }
         }
       }),
-      // Also update the user's subscriptionTier field for quick access
+// Also update the user's subscriptionTier field for quick access
       ...(data.tier ? [
         prisma.user.update({
           where: { id: userId },
@@ -256,6 +256,10 @@ export class AdminSubscriptionService {
         })
       ] : [])
     ])
+
+    // IMPORTANT: Invalidate subscription cache so API returns fresh data immediately
+    const { invalidateSubscriptionCache } = await import('../../middleware/subscription.js');
+    await invalidateSubscriptionCache(userId);
 
     return { success: true, subscription }
   }

@@ -28,17 +28,17 @@ app.post('/refresh-token', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: C
 
     const wabaId = c.req.param('wabaId')
 
-    // Get user and check access
+    // Get WhatsApp account and check access
     const result = await getUserByWabaId(wabaId, c.user.id, c.user.role)
 
     if ('error' in result) {
-      return c.json({ error: result.error }, result.status as any)
+      return c.json(result.error, result.status as any)
     }
 
-    const { user } = result
+    const { account, user } = result
 
     // Check if WABA is connected
-    if (user.wabaConnectionStatus !== 'connected') {
+    if (account.connectionStatus !== 'connected') {
       return c.json({
         error: {
           code: 'BadRequest',
@@ -47,8 +47,8 @@ app.post('/refresh-token', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: C
       }, 400)
     }
 
-    // Check if token exists
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
+    // Check if token exists on the WhatsAppAccount
+    if (!account.accessToken || !account.accessTokenIV || !account.accessTokenTag) {
       return c.json({
         error: {
           code: 'BadRequest',
@@ -73,6 +73,7 @@ app.post('/refresh-token', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: C
       await prisma.wABAConnectionLog.create({
         data: {
           userId: user.id,
+          whatsappAccountId: account.id,
           action: 'token_refresh_failed',
           errorMessage: wabaError.message,
           details: {
@@ -90,8 +91,8 @@ app.post('/refresh-token', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: C
     // Audit log
     await auditLog(
       'WABA_TOKEN_REFRESHED',
-      'User',
-      user.id,
+      'WhatsAppAccount',
+      account.id,
       {
         wabaId,
         expiresAt: tokenResponse.expiresAt.toISOString(),

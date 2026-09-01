@@ -1,33 +1,34 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Settings, Instagram, Webhook } from "lucide-react"
-import {
-  instagramApi,
-  type InstagramAccount,
-  type TokenStatus,
-} from "@/lib/api/instagram"
-import { useBusinessAccount } from "@/hooks/use-business-account"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RoleGuard } from "@/components/auth/role-guard"
-import { DisconnectModal } from "@/components/disconnect-modal"
 import { Header } from "@/components/layout/header"
-import {
-  InstagramConnectionCard,
-  InstagramAccountCard,
-  InstagramConnectCard,
-  InstagramWebhookCard,
-} from "./components"
+import { useBusinessAccount } from "@/hooks/use-business-account"
+import { instagramApi, type InstagramAccount } from "@/lib/api/instagram"
+import { DisconnectModal } from "@/components/disconnect-modal"
+import { RoleGuard } from "@/components/auth/role-guard"
+import { InstagramConnectionCard, InstagramConnectCard } from "./components"
+import { IconBrandInstagram, IconPlus } from "@tabler/icons-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { useSubscription } from "@/hooks/use-subscription"
 
 export default function InstagramPage() {
   const { userId, isLoading: sessionLoading } = useBusinessAccount()
-  const [account, setAccount] = useState<InstagramAccount | null>(null)
+  const { getChannelUsageText, canAddChannel, refetch: refetchSubscription } = useSubscription()
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
 
-  const isConnected = account?.connectionStatus === "connected"
+  // Filter only connected accounts for display
+  const connectedAccounts = accounts.filter(a => a.connectionStatus === "connected")
+  const hasConnectedAccounts = connectedAccounts.length > 0
+  const hasReauthAccounts = accounts.some(a => a.connectionStatus === "requires_reauth")
+  
+  // Get selected account for disconnect modal
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId) || null
 
   useEffect(() => {
     if (userId) {
@@ -40,7 +41,9 @@ export default function InstagramPage() {
     setError(null)
     try {
       const status = await instagramApi.getConnectionStatus()
-      setAccount(status.account)
+      setAccounts(status.accounts || [])
+      // Refetch subscription to update channel usage
+      refetchSubscription()
     } catch (err: any) {
       console.error("Error loading Instagram data:", err)
       setError(err.message)
@@ -66,9 +69,7 @@ export default function InstagramPage() {
       )
 
       if (!popup) {
-        setError(
-          "Pop-up was blocked. Please allow pop-ups for this site and try again."
-        )
+        setError("Pop-up was blocked. Please allow pop-ups for this site and try again.")
         return
       }
 
@@ -107,16 +108,20 @@ export default function InstagramPage() {
     }
   }
 
-  const handleOpenDisconnectModal = () => {
+  const handleOpenDisconnectModal = (accountId: string) => {
+    setSelectedAccountId(accountId)
     setDisconnectModalOpen(true)
   }
 
   const handleDisconnect = async (mode: "soft" | "hard") => {
+    if (!selectedAccountId) return
     try {
       setDisconnecting(true)
-      await instagramApi.disconnect(mode)
+      await instagramApi.disconnect(mode, selectedAccountId)
       setDisconnectModalOpen(false)
-      setAccount(null)
+      setSelectedAccountId(null)
+      // Reload accounts after disconnect
+      loadInstagramData()
     } catch (err: any) {
       console.error("Error disconnecting:", err)
       setError(err.message)
@@ -144,14 +149,27 @@ export default function InstagramPage() {
       <Header />
       <div className="space-y-6 p-4">
         {/* Header */}
-        <div>
-          <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Instagram className="h-7 w-7" />
-            Instagram Direct Messages
-          </h2>
-          <p className="text-muted-foreground">
-            Connect your Instagram Professional account to manage DMs
-          </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <IconBrandInstagram className="h-7 w-7" />
+              Instagram Direct Messages
+            </h2>
+            <p className="text-muted-foreground">
+              Connect your Instagram Professional account to manage DMs
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-sm">
+              {getChannelUsageText("instagramAccounts")}
+            </Badge>
+            {hasConnectedAccounts && canAddChannel("instagramAccounts") && (
+              <Button size="sm" onClick={handleConnect}>
+                <IconPlus className="h-4 w-4" />
+                Add Account
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -160,45 +178,32 @@ export default function InstagramPage() {
           </div>
         )}
 
-        {/* Connect Card (if not connected) */}
-        {!isConnected && (
+        {/* Connect Card (if no connected accounts) */}
+        {!hasConnectedAccounts && (
           <div className="max-w-2xl">
-            <InstagramConnectCard
+            <InstagramConnectCard 
               onConnect={handleConnect}
-              requiresReauth={account?.connectionStatus === "requires_reauth"}
+              requiresReauth={hasReauthAccounts}
+              disabled={!canAddChannel("instagramAccounts")}
             />
           </div>
         )}
 
-        {/* Instagram Management (if connected) */}
-        {isConnected && account && (
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="w-full justify-start overflow-x-auto md:w-auto">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Settings size={14} />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="webhooks" className="flex items-center gap-2">
-                <Webhook size={16} />
-                Webhooks
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-4">
-              <InstagramConnectionCard
-                account={account}
-                onRefresh={loadInstagramData}
-                onDisconnect={handleOpenDisconnectModal}
-              />
-              <InstagramAccountCard account={account} />
-            </TabsContent>
-
-            <TabsContent value="webhooks" className="space-y-4">
-              <div className="max-w-2xl">
-                <InstagramWebhookCard />
-              </div>
-            </TabsContent>
-          </Tabs>
+        {/* Connected Accounts */}
+        {connectedAccounts.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Connected Accounts</h3>
+            <div className="grid gap-4">
+              {connectedAccounts.map((account) => (
+                <InstagramConnectionCard
+                  key={account.id}
+                  account={account}
+                  onRefresh={loadInstagramData}
+                  onDisconnect={() => handleOpenDisconnectModal(account.id)}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Disconnect Modal */}

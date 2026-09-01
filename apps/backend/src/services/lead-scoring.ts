@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../utils/database.js'
 
 export class LeadScoringService {
     static async calculateScore(customerId: string): Promise<number> {

@@ -34,6 +34,12 @@ export interface IGConversation {
   lastMessagePreview: string | null
   folder: "primary" | "requests" | "general"
   customerId: string | null
+  // Multi-account fields
+  instagramAccountId?: string | null
+  instagramAccount?: {
+    id: string
+    username: string
+  } | null
 }
 
 export interface IGMessage {
@@ -98,29 +104,47 @@ export const instagramApi = {
     return { url: response.data?.authUrl || response.authUrl }
   },
 
-  async getConnectionStatus(): Promise<{ connected: boolean; account: InstagramAccount | null }> {
+  async getConnectionStatus(): Promise<{ connected: boolean; account: InstagramAccount | null; accounts: InstagramAccount[] }> {
     const response = await fetchWithAuth(`${API_URL}/api/v1/ig/connection/status`)
     const data = response.data || response
+    
+    // Map accounts array from backend response
+    const accounts: InstagramAccount[] = (data.accounts || []).map((acc: any) => ({
+      id: acc.id,
+      igId: acc.igId,
+      igUserId: acc.igUserId || acc.igId,
+      username: acc.username,
+      profilePicUrl: acc.profilePicUrl,
+      connectionStatus: acc.connectionStatus,
+      connectedAt: acc.connectedAt,
+      tokenExpiresAt: acc.tokenExpiresAt,
+      lastSyncAt: acc.lastSyncAt,
+    }))
+    
+    // For backward compatibility, also return primary account
+    const primaryAccount = data.connected ? {
+      id: data.id,
+      igId: data.igId,
+      igUserId: data.igUserId || data.igId,
+      username: data.username,
+      profilePicUrl: data.profilePicUrl,
+      connectionStatus: data.connectionStatus,
+      connectedAt: data.connectedAt,
+      tokenExpiresAt: data.tokenExpiresAt,
+      lastSyncAt: data.lastSyncAt,
+    } : null
+    
     return { 
       connected: data.connected || false, 
-      account: data.connected ? {
-        id: data.id,
-        igId: data.igId,
-        igUserId: data.igUserId || data.igId,
-        username: data.username,
-        profilePicUrl: data.profilePicUrl,
-        connectionStatus: data.connectionStatus,
-        connectedAt: data.connectedAt,
-        tokenExpiresAt: data.tokenExpiresAt,
-        lastSyncAt: data.lastSyncAt,
-      } : null 
+      account: primaryAccount,
+      accounts: accounts.length > 0 ? accounts : (primaryAccount ? [primaryAccount] : [])
     }
   },
 
-  async disconnect(mode: "soft" | "hard" = "soft"): Promise<{ success: boolean }> {
+  async disconnect(mode: "soft" | "hard" = "soft", accountId?: string): Promise<{ success: boolean }> {
     return fetchWithAuth(`${API_URL}/api/v1/ig/connection`, {
       method: "DELETE",
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, accountId }),
     })
   },
 

@@ -1,0 +1,231 @@
+{
+  "131000": {
+    "message": "Pesan gagal dikirim karena kesalahan tidak diketahui.",
+    "recovery": "Silakan coba lagi. Jika masalah berlanjut, hubungi dukungan."
+  },
+  "131048": {
+    "message": "Pesan gagal dikirim karena pembatasan spam.",
+    "recovery": "Periksa status kualitas di WhatsApp Manager."
+  },
+  "131049": {
+    "message": "Pesan tidak tersampaikan untuk menjaga ekosistem yang sehat.",
+    "recovery": "Tunggu 24 jam sebelum mengirim ulang."
+  },
+  "131050": {
+    "message": "Penerima telah berhenti menerima pesan marketing dari bisnis Anda.",
+    "recovery": "Hormati preferensi pengguna dan jangan kirim pesan marketing lagi."
+  },
+  "368": {
+    "message": "Akun WhatsApp Business diblokir sementara karena melanggar kebijakan.",
+    "recovery": "Tinjau kebijakan WhatsApp Business dan ajukan banding jika diperlukan."
+  },
+  "0": {
+    "message": "Tidak dapat mengautentikasi. Token akses mungkin kedaluwarsa atau tidak valid.",
+    "recovery": "Perbarui token akses Anda di pengaturan."
+  },
+  "131005": {
+    "message": "Akses ditolak. Izin tidak diberikan atau sudah dihapus.",
+    "recovery": "Periksa izin aplikasi di Meta Business Suite."
+  },
+  "131016": {
+    "message": "Layanan WhatsApp sementara tidak tersedia.",
+    "recovery": "Silakan coba lagi nanti."
+  },
+  "131021": {
+    "message": "Nomor pengirim dan penerima tidak boleh sama.",
+    "recovery": "Gunakan nomor penerima yang berbeda."
+  },
+  "131037": {
+    "message": "Nama tampilan nomor telepon bisnis belum disetujui.",
+    "recovery": "Tunggu persetujuan nama tampilan atau ajukan ulang."
+  },
+  "131056": {
+    "message": "Terlalu banyak pesan ke nomor yang sama.",
+    "recovery": "Tunggu sebelum mengirim lagi ke nomor ini."
+  },
+  "131057": {
+    "message": "Akun WhatsApp Business dalam mode pemeliharaan.",
+    "recovery": "Coba lagi setelah pemeliharaan selesai."
+  },
+  "130497": {
+    "message": "Akun dibatasi untuk mengirim pesan ke negara tertentu.",
+    "recovery": "Hubungi dukungan Meta untuk informasi lebih lanjut."
+  },
+  "132016": {
+    "message": "Template telah dinonaktifkan permanen karena kualitas rendah.",
+    "recovery": "Buat template baru dengan konten yang lebih baik."
+  },
+  "132068": {
+    "message": "Alur WhatsApp dalam keadaan diblokir.",
+    "recovery": "Perbaiki alur terlebih dahulu di WhatsApp Manager."
+  },
+  "132069": {
+    "message": "Alur WhatsApp dibatasi. Maksimal 10 pesan per jam untuk alur ini.",
+    "recovery": "Tunggu sebelum mengirim pesan alur lagi."
+  },
+  "2388040": {
+    "message": "Template melebihi batas karakter maksimal.",
+    "recovery": "Kurangi panjang teks template."
+  },
+  "2388019": {
+    "message": "Jumlah template maksimum (250) telah tercapai.",
+    "recovery": "Hapus template yang tidak digunakan sebelum membuat yang baru."
+  },
+  "132000": {
+    "message": "Jumlah parameter template tidak sesuai.",
+    "recovery": "Pastikan jumlah parameter sesuai dengan template."
+  },
+  "132001": {
+    "message": "Template tidak ditemukan.",
+    "recovery": "Periksa nama template dan sinkronkan ulang dari WhatsApp Manager."
+  },
+  "132005": {
+    "message": "Teks template setelah diisi terlalu panjang.",
+    "recovery": "Gunakan nilai parameter yang lebih pendek."
+  },
+  "132007": {
+    "message": "Format karakter template melanggar kebijakan.",
+    "recovery": "Hapus karakter khusus yang tidak diizinkan dari template."
+  },
+  "132012": {
+    "message": "Format parameter template tidak sesuai.",
+    "recovery": "Periksa format parameter (teks, gambar, dll)."
+  },
+  "132015": {
+    "message": "Template sedang dijeda karena masalah kualitas.",
+    "recovery": "Perbaiki kualitas template atau tunggu hingga dijeda berakhir."
+  },
+  "133005": {
+    "message": "PIN verifikasi dua langkah salah.",
+    "recovery": "Masukkan PIN yang benar."
+  },
+  "133006": {
+    "message": "Nomor telepon harus diverifikasi ulang sebelum mendaftar.",
+    "recovery": "Lakukan verifikasi ulang nomor telepon."
+  },
+  "133008": {
+    "message": "Terlalu banyak percobaan PIN.",
+    "recovery": "Coba lagi nanti."
+  },
+  "133015": {
+    "message": "Tunggu sebelum mencoba mendaftarkan nomor ini.",
+    "recovery": "Tunggu 5 menit sebelum mencoba lagi."
+  },
+  "133016": {
+    "message": "Batas percobaan pendaftaran tercapai.",
+    "recovery": "Coba lagi setelah nomor tidak diblokir."
+  },
+  "133000": {
+    "message": "Proses pembatalan pendaftaran tidak lengkap.",
+    "recovery": "Selesaikan proses pembatalan pendaftaran terlebih dahulu."
+  },
+  "133004": {
+    "message": "Server sementara tidak tersedia.",
+    "recovery": "Coba lagi dalam beberapa menit."
+  },
+  "133009": {
+    "message": "Percobaan PIN terlalu cepat.",
+    "recovery": "Tunggu sebentar sebelum mencoba lagi."
+  },
+  "133010": {
+    "message": "Nomor telepon tidak terdaftar.",
+    "recovery": "Daftarkan nomor telepon terlebih dahulu."
+  },
+  "4": {
+    "message": "Terlalu banyak panggilan API.",
+    "recovery": "Kurangi frekuensi permintaan API."
+  },
+  "80007": {
+    "message": "Masalah batas rate.",
+    "recovery": "Tunggu sebelum mengirim permintaan lagi."
+  },
+  "130429": {
+    "message": "Batas rate tercapai.",
+    "recovery": "Tunggu sebelum mengirim pesan lagi."
+  },
+  "1": {
+    "message": "Kesalahan API tidak diketahui.",
+    "recovery": "Coba lagi nanti."
+  },
+  "2": {
+    "message": "Layanan API tidak tersedia.",
+    "recovery": "Coba lagi dalam beberapa menit."
+  },
+  "3": {
+    "message": "Metode API tidak diizinkan.",
+    "recovery": "Periksa metode HTTP yang digunakan."
+  },
+  "10": {
+    "message": "Izin ditolak.",
+    "recovery": "Periksa izin aplikasi Anda."
+  },
+  "33": {
+    "message": "Nilai parameter tidak valid.",
+    "recovery": "Periksa nilai parameter yang dikirim."
+  },
+  "100": {
+    "message": "Parameter tidak valid.",
+    "recovery": "Periksa parameter permintaan Anda."
+  },
+  "190": {
+    "message": "Token akses telah kedaluwarsa.",
+    "recovery": "Perbarui token akses Anda."
+  },
+  "131008": {
+    "message": "Parameter yang diperlukan tidak ada.",
+    "recovery": "Tambahkan parameter yang diperlukan."
+  },
+  "131009": {
+    "message": "Nilai parameter tidak valid.",
+    "recovery": "Periksa nilai parameter yang dikirim."
+  },
+  "131026": {
+    "message": "Pesan tidak dapat dikirim.",
+    "recovery": "Pastikan nomor penerima valid dan dapat menerima pesan."
+  },
+  "131042": {
+    "message": "Masalah pembayaran kelayakan bisnis.",
+    "recovery": "Periksa status pembayaran di Meta Business Suite."
+  },
+  "131045": {
+    "message": "Sertifikat tidak benar.",
+    "recovery": "Periksa konfigurasi sertifikat."
+  },
+  "131047": {
+    "message": "Pesan re-engagement diperlukan.",
+    "recovery": "Kirim template pesan terlebih dahulu untuk membuka jendela percakapan."
+  },
+  "131051": {
+    "message": "Jenis pesan tidak didukung.",
+    "recovery": "Gunakan jenis pesan yang didukung."
+  },
+  "131052": {
+    "message": "Kesalahan unduh media.",
+    "recovery": "Periksa URL media dan coba lagi."
+  },
+  "131053": {
+    "message": "Kesalahan unggah media.",
+    "recovery": "Periksa file media dan coba lagi."
+  },
+  "135000": {
+    "message": "Kesalahan pengguna umum.",
+    "recovery": "Periksa permintaan Anda dan coba lagi."
+  },
+  "131031": {
+    "message": "Akun telah dikunci.",
+    "recovery": "Hubungi dukungan Meta untuk membuka kunci akun."
+  },
+  "unknown": {
+    "message": "Terjadi kesalahan yang tidak diketahui.",
+    "recovery": "Silakan coba lagi atau hubungi dukungan."
+  },
+  "categories": {
+    "AUTHORIZATION": "Kesalahan Otorisasi",
+    "INTEGRITY": "Kesalahan Integritas",
+    "TEMPLATE_CREATION": "Kesalahan Pembuatan Template",
+    "TEMPLATE_SEND": "Kesalahan Pengiriman Template",
+    "THROTTLING": "Pembatasan Rate",
+    "REGISTRATION": "Kesalahan Pendaftaran",
+    "OTHER": "Kesalahan Lainnya"
+  }
+}

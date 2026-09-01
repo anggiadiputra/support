@@ -1,12 +1,17 @@
-import { Wrench } from "lucide-react"
+import { IconTool, IconBell } from "@tabler/icons-react"
 import { Header } from "@/components/layout/header"
 import SidebarNav from "./components/sidebar-nav"
 
 const sidebarNavItems = [
   {
     title: "General",
-    icon: <Wrench />,
+    icon: <IconTool />,
     href: "/settings",
+  },
+  {
+    title: "Notifications",
+    icon: <IconBell />,
+    href: "/settings/notifications",
   },
 ]
 

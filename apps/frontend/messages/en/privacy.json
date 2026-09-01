@@ -3,86 +3,86 @@
   "lastUpdated": "Last Updated",
   "sections": {
     "introduction": {
-      "title": "Introduction",
-      "content": "Welcome to {appName}. We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our messaging platform."
+      "title": "1. Introduction",
+      "content": "Welcome to {appName}. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, store, and protect your information when you use our platform. By using {appName} services, you agree to the data practices described in this policy in accordance with applicable Personal Data Protection (PDP) laws."
     },
     "dataCollection": {
-      "title": "Information We Collect",
-      "intro": "We collect information that you provide directly to us and information that is automatically collected when you use our services:",
+      "title": "2. Information We Collect",
+      "intro": "We collect information necessary to provide optimal business messaging services:",
       "items": {
         "account": {
-          "title": "Account Information",
-          "description": "Name, email address, phone number, and business information when you create an account."
+          "title": "Identity and Account Data",
+          "description": "Including full name, business email address, WhatsApp phone number, business profile information, and access credentials."
         },
         "usage": {
-          "title": "Usage Data",
-          "description": "Information about how you interact with our platform, including features used and time spent."
+          "title": "Technical and Usage Data",
+          "description": "Information about IP addresses, device types, operating systems, platform activity logs, and message performance statistics."
         },
         "messages": {
-          "title": "Message Data",
-          "description": "Content of messages sent through our platform to provide our messaging services."
+          "title": "Communication Content (Message Data)",
+          "description": "We process message content, media, and metadata you submit through our API to be forwarded to the designated service provider (such as WhatsApp/Meta)."
         },
         "device": {
-          "title": "Device Information",
-          "description": "Browser type, IP address, device identifiers, and operating system information."
+          "title": "Metadata Data",
+          "description": "Information regarding delivery status (sent, read), timestamps, and sender/recipient identities."
         }
       }
     },
     "dataUsage": {
-      "title": "How We Use Your Information",
-      "intro": "We use the collected information for the following purposes:",
+      "title": "3. How We Use Your Information",
+      "intro": "Your information is used strictly for the following purposes:",
       "items": {
-        "provide": "To provide, maintain, and improve our services",
-        "improve": "To personalize your experience and deliver relevant content",
-        "communicate": "To communicate with you about updates, security alerts, and support",
-        "security": "To detect, prevent, and address technical issues and security threats",
-        "legal": "To comply with legal obligations and enforce our terms of service"
+        "provide": "To provide platform features, process transactions, and manage your subscription.",
+        "improve": "To perform technical analysis to improve system stability and feature development.",
+        "communicate": "To send important service notifications, security updates, and technical support.",
+        "security": "To prevent illegal activities, spam, fraud, or platform abuse that violates our terms of service.",
+        "legal": "To comply with legal obligations, court orders, or official requests from government authorities."
       }
     },
     "dataSharing": {
-      "title": "Information Sharing",
-      "intro": "We do not sell your personal information. We may share your information in the following circumstances:",
+      "title": "4. Disclosure of Information to Third Parties",
+      "intro": "We do not sell or rent your personal data to third parties. However, we share your data with trusted partners for service operations:",
       "items": {
         "providers": {
-          "title": "Service Providers",
-          "description": "Third-party vendors who assist us in providing our services (e.g., cloud hosting, analytics)."
+          "title": "Infrastructure Providers (Meta/WhatsApp)",
+          "description": "Message data is sent to Meta Platforms, Inc. via the WhatsApp Business API according to your delivery instructions."
         },
         "legal": {
-          "title": "Legal Requirements",
-          "description": "When required by law or to respond to legal process."
+          "title": "Legal Compliance",
+          "description": "We may disclose your information if required by law or to protect our legal rights."
         },
         "business": {
-          "title": "Business Transfers",
-          "description": "In connection with a merger, acquisition, or sale of assets."
+          "title": "Third-Party Services",
+          "description": "Cloud hosting vendors (such as AWS/Google Cloud) and payment service providers that maintain high security standards."
         }
       }
     },
     "dataSecurity": {
-      "title": "Data Security",
-      "content": "We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. This includes encryption, secure servers, and regular security assessments."
+      "title": "5. Data Security and Storage",
+      "content": "We implement industry security standards, including TLS/SSL encryption for data transmission and encryption at rest for our databases. Data is stored on secure servers with restricted access. While we exercise maximum effort, please understand that no method of internet transmission is 100% secure; therefore, you are also responsible for maintaining the security of your API Keys and passwords."
     },
     "userRights": {
-      "title": "Your Rights",
-      "intro": "Depending on your location, you may have the following rights regarding your personal information:",
+      "title": "6. Your Rights",
+      "intro": "In accordance with data protection regulations, you have the right to:",
       "items": {
-        "access": "Right to access your personal data",
-        "correction": "Right to correct inaccurate data",
-        "deletion": "Right to request deletion of your data",
-        "portability": "Right to data portability",
-        "withdraw": "Right to withdraw consent at any time"
+        "access": "Access your personal information that we store.",
+        "correction": "Request correction of inaccurate or incomplete data.",
+        "deletion": "Request deletion of your account and related data (Right to be Forgotten).",
+        "portability": "Receive a copy of your data in a structured format.",
+        "withdraw": "Withdraw consent for data processing (which may affect service availability)."
       }
     },
-    "cookies": {
-      "title": "Cookies and Tracking",
-      "content": "We use cookies and similar tracking technologies to enhance your experience, analyze usage patterns, and deliver personalized content. You can manage your cookie preferences through your browser settings."
+    "retention": {
+      "title": "7. Data Retention",
+      "content": "We store your data for as long as your account is active or as needed to provide services. Certain message logs may be deleted periodically from our servers (e.g., after 30-90 days) for privacy and storage efficiency reasons, unless otherwise required by law."
     },
     "changes": {
-      "title": "Changes to This Policy",
-      "content": "We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the \"Last Updated\" date."
+      "title": "8. Policy Changes",
+      "content": "We reserve the right to update this Privacy Policy at any time. Significant changes will be notified via email or through platform announcements. Continued use of the service after changes take effect constitutes your agreement to the new policy."
     },
     "contact": {
-      "title": "Contact Us",
-      "content": "If you have any questions about this Privacy Policy or our data practices, please contact us:"
+      "title": "9. Contact Us",
+      "content": "If you have any questions, complaints, or wish to exercise your data rights, please contact our data protection officer at:"
     }
   }
 }

@@ -24,25 +24,28 @@ export async function handleAccountUpdate(
 
     if (payload.event === 'PARTNER_REMOVED') {
       // Business disconnected from Cloud API via WhatsApp Business App
-      const user = await prisma.user.findFirst({
+      const account = await prisma.whatsAppAccount.findFirst({
         where: {
           wabaId,
           isCoexistence: true
-        }
+        },
+        include: { user: true }
       })
 
-      if (!user) {
-        console.warn(`⚠️ User not found for WABA ${wabaId}`)
+      const user = account?.user
+
+      if (!account || !user) {
+        console.warn(`⚠️ WhatsApp account not found for WABA ${wabaId}`)
         return
       }
 
       console.log(`🔌 User ${user.id} disconnected from Cloud API`)
 
-      // Update user status
-      await prisma.user.update({
-        where: { id: user.id },
+      // Update account status
+      await prisma.whatsAppAccount.update({
+        where: { id: account.id },
         data: {
-          wabaConnectionStatus: 'disconnected',
+          connectionStatus: 'disconnected',
           isCoexistence: false,
           coexistenceSyncStatus: null,
           coexistenceSyncProgress: null

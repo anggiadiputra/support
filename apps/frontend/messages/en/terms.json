@@ -3,67 +3,71 @@
   "lastUpdated": "Last Updated",
   "sections": {
     "acceptance": {
-      "title": "Acceptance of Terms",
-      "content": "By accessing or using {appName}, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services."
+      "title": "1. Acceptance of Terms",
+      "content": "By registering for, accessing, or using {appName}, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service. If you are entering into these terms on behalf of a company or other legal entity, you represent that you have the legal authority to bind such entity. If you do not agree with any part of these terms, you must not use our services."
     },
     "services": {
-      "title": "Description of Services",
-      "intro": "{appName} provides a business messaging platform that includes:",
+      "title": "2. Description and Scope of Services",
+      "intro": "{appName} is a cloud-based business communication platform provider that offers access to:",
       "items": {
-        "messaging": "Multi-channel messaging (WhatsApp Business API, Instagram, etc.)",
-        "integration": "Third-party integrations and API access",
-        "analytics": "Message analytics and reporting",
-        "automation": "Automated messaging and template management"
+        "messaging": "Third-party Application Programming Interfaces (APIs) (including but not limited to WhatsApp Business API and Meta Platforms).",
+        "integration": "Centralized messaging management systems (Omnichannel) and CRM integrations.",
+        "analytics": "Data analytics services, message performance reporting, and delivery logs.",
+        "automation": "Message automation features, template management, and interactive bots."
       }
     },
+    "compliance": {
+      "title": "3. Third-Party Compliance (WhatsApp/Meta)",
+      "content": "As a user of services integrated with Meta Platforms, Inc., you are strictly required to comply with all current WhatsApp Business policies, including the Commerce Policy and WhatsApp Business Policy. {appName} is not liable for any suspension, blocking, or termination of your account by third parties (Meta/WhatsApp) resulting from policy violations."
+    },
     "accounts": {
-      "title": "User Accounts",
-      "intro": "When creating an account, you agree to:",
+      "title": "4. Accounts and Security",
+      "intro": "In managing your account, you are obligated to:",
       "items": {
-        "accurate": "Provide accurate and complete information",
-        "security": "Maintain the security of your account credentials",
-        "notify": "Notify us immediately of any unauthorized access",
-        "responsible": "Be responsible for all activities under your account"
+        "accurate": "Provide accurate, complete, and up-to-date identification data in accordance with valid legal documents.",
+        "security": "Maintain the confidentiality of your password and API Keys from any unauthorized access.",
+        "notify": "Notify us in writing within a maximum of 24 hours if any unauthorized access to your account is detected.",
+        "responsible": "Accept full responsibility for all activities, communications, and transactions conducted through your account."
       }
     },
     "usage": {
-      "title": "Acceptable Use",
-      "intro": "You agree not to:",
+      "title": "5. Acceptable Use Policy",
+      "intro": "You are strictly prohibited from using {appName} services for:",
       "items": {
-        "laws": "Violate any applicable laws or regulations",
-        "spam": "Send spam, unsolicited messages, or bulk messages without consent",
-        "harmful": "Transmit harmful, offensive, or illegal content",
-        "interfere": "Interfere with or disrupt our services or servers",
-        "reverse": "Attempt to reverse engineer or access unauthorized areas"
+        "laws": "Activities that violate the laws of the Republic of Indonesia or laws in the jurisdiction where you operate.",
+        "spam": "Sending bulk messages (spam), promotional messages without explicit recipient consent (Opt-in), or messages that disturb the comfort of end-users.",
+        "harmful": "Distributing harmful content, viruses, malware, pornographic material, gambling, or content containing hate speech or harassment.",
+        "interfere": "Attempting to decompile, reverse engineer, or undermine the integrity of our server infrastructure.",
+        "reverse": "Using automated scripts to extract data or manipulate the system without written permission."
       }
     },
     "payment": {
-      "title": "Payment Terms",
-      "content": "Paid subscriptions are billed in advance. All fees are non-refundable unless otherwise stated. We reserve the right to change pricing with 30 days notice. Failure to pay may result in service suspension."
+      "title": "6. Fees and Payment Terms",
+      "content": "Services are provided based on subscription plans paid in advance (prepaid). All fees paid are final and non-refundable for any reason, including but not limited to account blocking by third parties. We reserve the right to adjust service rates with at least 30 calendar days' notice."
     },
     "intellectual": {
-      "title": "Intellectual Property",
-      "content": "All content, features, and functionality of {appName} are owned by us and protected by intellectual property laws. You retain ownership of your data and content but grant us a license to use it to provide our services."
+      "title": "7. Intellectual Property Rights",
+      "content": "All trademarks, source code, UI/UX designs, and technology within {appName} are our legal property and are protected by Copyright Laws. You are granted a limited, non-exclusive, and non-transferable license solely for the purpose of using the service during an active subscription period."
     },
-    "termination": {
-      "title": "Termination",
-      "content": "We may suspend or terminate your account at any time for violation of these terms. You may cancel your account at any time. Upon termination, your right to use the service ceases immediately."
-    },
-    "disclaimer": {
-      "title": "Disclaimer of Warranties",
-      "content": "Our services are provided \"as is\" without warranties of any kind, either express or implied. We do not guarantee that our services will be uninterrupted, secure, or error-free."
+    "indemnification": {
+      "title": "8. Indemnification",
+      "content": "You agree to indemnify, defend, and hold harmless {appName}, its directors, employees, and partners from any legal claims, losses, costs (including attorney fees), or liabilities arising from your misuse of the service or your violation of these Terms of Service."
     },
     "limitation": {
-      "title": "Limitation of Liability",
-      "content": "To the maximum extent permitted by law, {appName} shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of our services."
+      "title": "9. Limitation of Liability",
+      "content": "To the maximum extent permitted by applicable law, {appName} shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, loss of data, or business interruption arising from your use of the service or third-party technical failures."
     },
-    "changes": {
-      "title": "Changes to Terms",
-      "content": "We reserve the right to modify these terms at any time. We will notify users of significant changes via email or through our platform. Continued use after changes constitutes acceptance."
+    "termination": {
+      "title": "10. Termination",
+      "content": "We reserve the right to unilaterally suspend or terminate access to the service without notice if a material breach of these Terms of Service is detected. You may terminate your subscription at any time via the control panel; however, any outstanding payment obligations must be settled."
+    },
+    "dispute": {
+      "title": "11. Governing Law and Dispute Resolution",
+      "content": "These Terms of Service are governed by and construed in accordance with the laws of the Republic of Indonesia. Any disputes arising shall first be attempted to be resolved through amicable negotiation, and if no agreement is reached, shall be settled through the jurisdiction of the District Court in the legal domicile of {appName}."
     },
     "contact": {
-      "title": "Contact Us",
-      "content": "If you have any questions about these Terms of Service, please contact us:"
+      "title": "12. Contact Information",
+      "content": "For legal inquiries or reports of abuse, please contact our legal team at:"
     }
   }
 }

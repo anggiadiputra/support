@@ -31,7 +31,8 @@ export interface AdminUser {
   role: Role
   isActive: boolean
   subscriptionTier: string
-  wabaConnectionStatus: string | null
+  whatsappAccountCount: number
+  hasConnectedWhatsApp: boolean
   createdAt: Date
   lastLoginAt: Date | null
 }
@@ -52,8 +53,6 @@ export interface AdminUserDetailResponse {
   user: AdminUser & {
     email: string
     emailVerified: boolean
-    phoneNumberId: string | null
-    wabaId: string | null
   }
   subscription: {
     id: string
@@ -63,13 +62,20 @@ export interface AdminUserDetailResponse {
     endDate: Date | null
     notes: string | null
   } | null
-  wabaStatus: {
-    wabaId: string | null
-    phoneNumberId: string | null
-    connectionStatus: string | null
-    connectedAt: Date | null
+  whatsappAccounts: {
+    id: string
+    wabaId: string
+    wabaName: string | null
+    connectionStatus: string
+    connectedAt: Date
     lastSyncAt: Date | null
-  } | null
+    phoneNumbers: {
+      id: string
+      phoneNumberId: string
+      displayPhoneNumber: string
+      isPrimary: boolean
+    }[]
+  }[]
   instagramAccounts: {
     id: string
     username: string
@@ -168,9 +174,15 @@ export class AdminUserService {
           role: true,
           isActive: true,
           subscriptionTier: true,
-          wabaConnectionStatus: true,
           createdAt: true,
-          lastLoginAt: true
+          lastLoginAt: true,
+          _count: {
+            select: {
+              whatsappAccounts: {
+                where: { connectionStatus: 'connected' }
+              } as any
+            }
+          }
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -180,14 +192,15 @@ export class AdminUserService {
     ])
 
     return {
-      users: users.map(user => ({
+      users: users.map((user: any) => ({
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
         isActive: user.isActive,
         subscriptionTier: user.subscriptionTier,
-        wabaConnectionStatus: user.wabaConnectionStatus,
+        whatsappAccountCount: user._count?.whatsappAccounts ?? 0,
+        hasConnectedWhatsApp: (user._count?.whatsappAccounts ?? 0) > 0,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt
       })),
@@ -209,6 +222,19 @@ export class AdminUserService {
       where: { id: userId },
       include: {
         subscription: true,
+        whatsappAccounts: {
+          include: {
+            phoneNumbers: {
+              select: {
+                id: true,
+                phoneNumberId: true,
+                displayPhoneNumber: true,
+                isPrimary: true
+              }
+            }
+          },
+          orderBy: { connectedAt: 'desc' }
+        },
         instagramAccounts: {
           select: {
             id: true,
@@ -236,6 +262,10 @@ export class AdminUserService {
       return null
     }
 
+    const connectedCount = (user as any).whatsappAccounts?.filter(
+      (a: any) => a.connectionStatus === 'connected'
+    ).length ?? 0
+
     return {
       user: {
         id: user.id,
@@ -244,12 +274,11 @@ export class AdminUserService {
         role: user.role,
         isActive: user.isActive,
         subscriptionTier: user.subscriptionTier,
-        wabaConnectionStatus: user.wabaConnectionStatus,
+        whatsappAccountCount: connectedCount,
+        hasConnectedWhatsApp: connectedCount > 0,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
         emailVerified: user.emailVerified,
-        phoneNumberId: user.phoneNumberId,
-        wabaId: user.wabaId
       },
       subscription: user.subscription ? {
         id: user.subscription.id,
@@ -259,13 +288,15 @@ export class AdminUserService {
         endDate: user.subscription.endDate,
         notes: user.subscription.notes
       } : null,
-      wabaStatus: {
-        wabaId: user.wabaId,
-        phoneNumberId: user.phoneNumberId,
-        connectionStatus: user.wabaConnectionStatus,
-        connectedAt: user.wabaConnectedAt,
-        lastSyncAt: user.wabaLastSyncAt
-      },
+      whatsappAccounts: ((user as any).whatsappAccounts || []).map((wa: any) => ({
+        id: wa.id,
+        wabaId: wa.wabaId,
+        wabaName: wa.wabaName,
+        connectionStatus: wa.connectionStatus,
+        connectedAt: wa.connectedAt,
+        lastSyncAt: wa.lastSyncAt,
+        phoneNumbers: wa.phoneNumbers || []
+      })),
       instagramAccounts: user.instagramAccounts,
       recentActivity: user.auditLogs
     }
@@ -304,6 +335,9 @@ export class AdminUserService {
 
     // Only update if there are changes
     if (Object.keys(updateData).length === 0) {
+      const connectedWabaCount = await prisma.whatsAppAccount.count({
+        where: { userId: user.id, connectionStatus: 'connected' }
+      })
       return {
         id: user.id,
         email: user.email,
@@ -311,7 +345,8 @@ export class AdminUserService {
         role: user.role,
         isActive: user.isActive,
         subscriptionTier: user.subscriptionTier,
-        wabaConnectionStatus: user.wabaConnectionStatus,
+        whatsappAccountCount: connectedWabaCount,
+        hasConnectedWhatsApp: connectedWabaCount > 0,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt
       }
@@ -329,7 +364,6 @@ export class AdminUserService {
           role: true,
           isActive: true,
           subscriptionTier: true,
-          wabaConnectionStatus: true,
           createdAt: true,
           lastLoginAt: true
         }
@@ -348,7 +382,16 @@ export class AdminUserService {
       })
     ])
 
-    return updatedUser
+    // Enrich with WhatsApp account count
+    const connectedWabaCount = await prisma.whatsAppAccount.count({
+      where: { userId, connectionStatus: 'connected' }
+    })
+
+    return {
+      ...updatedUser,
+      whatsappAccountCount: connectedWabaCount,
+      hasConnectedWhatsApp: connectedWabaCount > 0,
+    }
   }
 
   /**
@@ -478,5 +521,81 @@ export class AdminUserService {
     ])
 
     return { success: true, subscription }
+  }
+
+  /**
+   * Get paginated activity logs for a user with category filter
+   */
+  static async getUserActivity(
+    userId: string,
+    options: {
+      page?: number
+      limit?: number
+      category?: string
+      startDate?: string
+      endDate?: string
+    } = {}
+  ) {
+    const page = options.page || 1
+    const limit = Math.min(options.limit || 20, 100)
+    const skip = (page - 1) * limit
+
+    const where: any = { userId }
+
+    // Category filter maps to action prefixes
+    if (options.category) {
+      const categoryMap: Record<string, string[]> = {
+        auth: ['LOGIN', 'LOGOUT', 'AUTH', 'USER_REGISTERED', 'PASSWORD', 'PROFILE', 'OTP', 'RATE_LIMIT'],
+        messages: ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'MESSAGE_DELIVERED', 'MESSAGE_READ', 'MESSAGE_FAILED', 'MESSAGE_MEDIA'],
+        templates: ['TEMPLATE_', 'BULK_SEND'],
+        waba: ['WABA_', 'SET_PRIMARY'],
+        channels: ['INSTAGRAM_', 'MESSENGER_'],
+        api: ['API_KEY_', 'WEBHOOK_ENDPOINT'],
+        customers: ['CUSTOMER_', 'CONSENT_', 'CONVERSATION_'],
+        broadcast: ['BROADCAST_']
+      }
+
+      const prefixes = categoryMap[options.category]
+      if (prefixes && prefixes.length > 0) {
+        where.OR = prefixes.map(prefix => ({
+          action: { startsWith: prefix }
+        }))
+      }
+    }
+
+    if (options.startDate || options.endDate) {
+      where.timestamp = {}
+      if (options.startDate) where.timestamp.gte = new Date(options.startDate)
+      if (options.endDate) where.timestamp.lte = new Date(options.endDate)
+    }
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+        skip,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          details: true,
+          timestamp: true,
+          ipAddress: true
+        }
+      }),
+      prisma.auditLog.count({ where })
+    ])
+
+    return {
+      logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
   }
 }

@@ -2,9 +2,8 @@ import cron from 'node-cron';
 import { wabaService } from '../services/waba/index.js';
 import { emailService } from '../services/email/index.js';
 import { logger } from '../utils/logger.js';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/database.js';
+import { getWhatsAppAccountByWabaId } from '../utils/whatsapp-account-helper.js';
 
 /**
  * Cron job to refresh WABA access tokens
@@ -71,17 +70,15 @@ export function startWABATokenRefreshJob() {
         // Send email notification for each failed refresh
         for (const error of results.errors) {
           try {
-            // Get user details
-            const user = await prisma.user.findFirst({
-              where: { wabaId: error.wabaId }
-            });
+            // Get WhatsApp account and user details
+            const account = await getWhatsAppAccountByWabaId(error.wabaId);
 
-            if (user) {
+            if (account) {
               await emailService.sendTokenRefreshFailure(
                 error.wabaId,
-                user.name || 'User',
+                account.user.name || 'User',
                 error.error,
-                user.email
+                account.user.email
               );
             }
           } catch (emailError) {

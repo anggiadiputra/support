@@ -12,14 +12,26 @@ import {
   Clock,
   Zap,
   Users,
+  Trash2,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
 } from "lucide-react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { useAdminHealth, type SystemHealth } from "../hooks/use-admin-health"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { useAdminHealth, useFailedJobs, type SystemHealth } from "../hooks/use-admin-health"
 
 function getStatusIcon(status: "healthy" | "unhealthy" | "degraded") {
   switch (status) {
@@ -382,6 +394,293 @@ function WebhookStatsCard({
   )
 }
 
+function FailedJobsCard() {
+  const { failedJobs, isLoading, error, refetch, retryJob, deleteJob, deleteAllJobs } = useFailedJobs(20)
+  const [selectedJob, setSelectedJob] = useState<string | null>(null)
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
+
+  const handleRetry = async (queue: string, jobId: string) => {
+    setActionLoading(`retry-${jobId}`)
+    try {
+      await retryJob(queue, jobId)
+    } catch (err) {
+      console.error("Failed to retry job:", err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDelete = async (queue: string, jobId: string) => {
+    if (!confirm("Are you sure you want to delete this failed job?")) return
+    setActionLoading(`delete-${jobId}`)
+    try {
+      await deleteJob(queue, jobId)
+    } catch (err) {
+      console.error("Failed to delete job:", err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedJobs.size === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedJobs.size} failed job(s)?`)) return
+    setActionLoading("delete-selected")
+    try {
+      for (const jobKey of selectedJobs) {
+        const [queue, jobId] = jobKey.split("-")
+        await deleteJob(queue, jobId)
+      }
+      setSelectedJobs(new Set())
+    } catch (err) {
+      console.error("Failed to delete selected jobs:", err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    if (!confirm("Are you sure you want to delete ALL failed jobs? This action cannot be undone.")) return
+    setDeleteAllLoading(true)
+    try {
+      await deleteAllJobs()
+      setSelectedJobs(new Set())
+    } catch (err) {
+      console.error("Failed to delete all jobs:", err)
+    } finally {
+      setDeleteAllLoading(false)
+    }
+  }
+
+  const handleSelectJob = (jobId: string, checked: boolean) => {
+    setSelectedJobs((prev) => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(jobId)
+      } else {
+        newSet.delete(jobId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedJobs(new Set(failedJobs?.failedJobs.map((j) => `${j.queue}-${j.id}`) || []))
+    } else {
+      setSelectedJobs(new Set())
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-40 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const hasFailedJobs = (failedJobs?.failedJobs.length || 0) > 0
+
+  return (
+    <Card className={`col-span-full ${hasFailedJobs ? "border-red-200" : ""}`}>
+      <CardHeader>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              Failed Jobs
+            </CardTitle>
+            <CardDescription>
+              {failedJobs?.totalFailed || 0} total failed jobs across all queues
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasFailedJobs && (
+              <>
+                {selectedJobs.size > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteSelected}
+                    disabled={actionLoading === "delete-selected"}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Delete Selected ({selectedJobs.size})
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAll}
+                  disabled={deleteAllLoading}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Delete All
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : !hasFailedJobs ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <CheckCircle className="h-8 w-8 text-green-500 mr-2" />
+            No failed jobs
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {hasFailedJobs && (
+              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                <Checkbox
+                  id="select-all"
+                  checked={failedJobs?.failedJobs.length != null && failedJobs.failedJobs.length > 0 && selectedJobs.size === failedJobs.failedJobs.length}
+                  onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                />
+                <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                  Select all ({failedJobs?.failedJobs.length ?? 0} jobs)
+                </label>
+              </div>
+            )}
+            {failedJobs?.failedJobs.map((job) => {
+              const stacktraceText = job.stacktrace?.join("\n") ?? ""
+              const jobKey = `${job.queue}-${job.id}`
+              return (
+                <Collapsible
+                  key={jobKey}
+                  open={selectedJob === String(job.id)}
+                  onOpenChange={(open) => setSelectedJob(open ? String(job.id) : null)}
+                >
+                  <div className="border rounded-lg overflow-hidden">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Checkbox
+                            checked={selectedJobs.has(jobKey)}
+                            onCheckedChange={(checked) => handleSelectJob(jobKey, checked === true)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Badge variant="outline" className="capitalize text-xs">
+                            {job.queue}
+                          </Badge>
+                          <span className="text-sm font-medium truncate">
+                            {job.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ID: {String(job.id).slice(0, 8)}...
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">
+                            {job.attemptsMade} attempts
+                          </Badge>
+                          {job.failedAt && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(job.failedAt).toLocaleString()}
+                            </span>
+                          )}
+                          {selectedJob === String(job.id) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t bg-muted/30 p-3 space-y-3">
+                        {/* Error Reason */}
+                        {job.failedReason && (
+                          <div>
+                            <p className="text-xs font-semibold text-red-600 mb-1">Error:</p>
+                            <p className="text-xs text-red-600 bg-red-50 p-2 rounded overflow-x-auto">
+                              {String(job.failedReason)}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Stacktrace */}
+                        {stacktraceText && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer font-semibold text-muted-foreground hover:text-foreground">
+                              Stacktrace
+                            </summary>
+                            <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto text-xs">
+                              {String(stacktraceText)}
+                            </pre>
+                          </details>
+                        )}
+
+                        {/* Job Data */}
+                        {job.data != null && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer font-semibold text-muted-foreground hover:text-foreground">
+                              Job Data
+                            </summary>
+                            <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto text-xs">
+                              {JSON.stringify(job.data, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRetry(job.queue, String(job.id))}
+                            disabled={actionLoading === `retry-${job.id}`}
+                            className="text-xs"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Retry
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(job.queue, String(job.id))}
+                            disabled={actionLoading === `delete-${job.id}`}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function AdminSystemHealthPage() {
   const { health, isLoading, error, refetch } = useAdminHealth()
 
@@ -446,6 +745,9 @@ export default function AdminSystemHealthPage() {
 
       {/* Queue Monitor */}
       <QueueMonitorCard queue={health?.queue} isLoading={isLoading} />
+
+      {/* Failed Jobs */}
+      <FailedJobsCard />
     </div>
   )
 }

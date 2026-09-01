@@ -125,4 +125,121 @@ app.get('/webhooks', async (c: Context) => {
   }
 })
 
+/**
+ * GET /api/v1/admin/health/failed-jobs
+ * Get failed jobs from all queues
+ */
+app.get('/failed-jobs', async (c: Context) => {
+  try {
+    const limit = parseInt(c.req.query('limit') || '20', 10)
+    const result = await AdminHealthService.getFailedJobs(Math.min(limit, 100))
+
+    return c.json({
+      success: true,
+      data: result
+    })
+  } catch (error) {
+    console.error('Failed jobs error:', error)
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message: 'Failed to get failed jobs'
+      }
+    }, 500)
+  }
+})
+
+/**
+ * POST /api/v1/admin/health/failed-jobs/:queue/:jobId/retry
+ * Retry a failed job
+ */
+app.post('/failed-jobs/:queue/:jobId/retry', async (c: Context) => {
+  try {
+    const queue = c.req.param('queue')
+    const jobId = c.req.param('jobId')
+
+    if (!['webhook', 'message', 'webhookOutbound'].includes(queue)) {
+      return c.json({
+        error: {
+          code: 'BadRequest',
+          message: 'Invalid queue name. Must be: webhook, message, or webhookOutbound'
+        }
+      }, 400)
+    }
+
+    await AdminHealthService.retryFailedJob(queue as 'webhook' | 'message' | 'webhookOutbound', jobId)
+
+    return c.json({
+      success: true,
+      message: 'Job retry initiated'
+    })
+  } catch (error) {
+    console.error('Retry job error:', error)
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message: error instanceof Error ? error.message : 'Failed to retry job'
+      }
+    }, 500)
+  }
+})
+
+/**
+ * DELETE /api/v1/admin/health/failed-jobs/:queue/:jobId
+ * Delete a failed job
+ */
+app.delete('/failed-jobs/:queue/:jobId', async (c: Context) => {
+  try {
+    const queue = c.req.param('queue')
+    const jobId = c.req.param('jobId')
+
+    if (!['webhook', 'message', 'webhookOutbound'].includes(queue)) {
+      return c.json({
+        error: {
+          code: 'BadRequest',
+          message: 'Invalid queue name. Must be: webhook, message, or webhookOutbound'
+        }
+      }, 400)
+    }
+
+    await AdminHealthService.deleteFailedJob(queue as 'webhook' | 'message' | 'webhookOutbound', jobId)
+
+    return c.json({
+      success: true,
+      message: 'Job deleted'
+    })
+  } catch (error) {
+    console.error('Delete job error:', error)
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message: error instanceof Error ? error.message : 'Failed to delete job'
+      }
+    }, 500)
+  }
+})
+
+/**
+ * DELETE /api/v1/admin/health/failed-jobs
+ * Delete all failed jobs from all queues
+ */
+app.delete('/failed-jobs', async (c: Context) => {
+  try {
+    await AdminHealthService.deleteAllFailedJobs()
+
+    return c.json({
+      success: true,
+      message: 'All failed jobs deleted'
+    })
+  } catch (error) {
+    console.error('Delete all jobs error:', error)
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message: error instanceof Error ? error.message : 'Failed to delete all failed jobs'
+      }
+    }, 500)
+  }
+})
+
 export default app

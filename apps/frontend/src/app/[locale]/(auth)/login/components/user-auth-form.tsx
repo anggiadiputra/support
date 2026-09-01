@@ -5,9 +5,10 @@ import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations } from "next-intl"
+import { useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter } from "@/i18n/routing"
 import { authClient } from "@/lib/auth-client"
-import { LockKeyhole, Mail } from "lucide-react"
+import { SESSION_QUERY_KEY } from "@/hooks/use-cached-session"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,8 +23,22 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
 import { useToast } from "@/hooks/use-toast"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
-import { useTurnstileConfig } from "@/hooks/use-turnstile-config"
-import { Turnstile, TurnstileSkeleton } from "@/components/auth/turnstile"
+import { useMascot } from "@/components/auth/mascot-context"
+
+// Map error codes from better-auth to translation keys
+const LOGIN_ERROR_MAP: Record<string, string> = {
+  INVALID_EMAIL_OR_PASSWORD: "invalidCredentials",
+  USER_NOT_FOUND: "invalidCredentials",
+  INVALID_PASSWORD: "invalidCredentials",
+  ACCOUNT_NOT_FOUND: "invalidCredentials",
+  // Account status errors  
+  USER_SUSPENDED: "accountDeactivated",
+  USER_BANNED: "accountDeactivated",
+  USER_DISABLED: "accountDeactivated",
+  // 2FA errors
+  TWO_FACTOR_NOT_ENABLED: "twoFactorRequired",
+  INVALID_TWO_FACTOR_CODE: "invalidTwoFactorCode",
+}
 
 function useFormSchema() {
   const t = useTranslations("validation")
@@ -43,15 +58,22 @@ export function UserAuthForm({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   const [isLoading, setIsLoading] = useState(false)
-  const [turnstileToken, setTurnstileToken] = useState<string>("")
-  const { enabled: turnstileEnabled, siteKey: turnstileSiteKey, isLoading: isTurnstileLoading } = useTurnstileConfig()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
   const tErrors = useTranslations("errors")
   const formSchema = useFormSchema()
 
+  // Get mascot state setter (with fallback if context not available)
+  let setMascotState: ((state: "idle" | "email" | "password") => void) | null = null
+  try {
+    const mascot = useMascot()
+    setMascotState = mascot.setState
+  } catch {
+    // Context not available
+  }
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,85 +84,67 @@ export function UserAuthForm({
   })
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
-    if (turnstileEnabled && !turnstileToken) {
-      toast({
-        variant: "destructive",
-        title: "Verifikasi Diperlukan",
-        description: "Harap selesaikan verifikasi keamanan Cloudflare Turnstile terlebih dahulu.",
-      })
-      return
-    }
-
     setIsLoading(true)
 
     try {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-      }, {
-        headers: {
-          "X-Turnstile-Token": turnstileToken,
-        },
       })
 
       if (result.error) {
+        // Get appropriate error message based on error code
+        const errorCode = (result.error as any)?.code || ""
+        const translationKey = LOGIN_ERROR_MAP[errorCode] || "invalidCredentials"
+        
         toast({
           variant: "destructive",
           title: t("loginError"),
-          description: result.error.message,
+          description: tErrors(translationKey as any),
         })
         setIsLoading(false)
       } else {
-        // Refresh to update session state, then redirect
-        router.refresh()
+        // Invalidate and refetch session cache, wait for completion before redirect
+        await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+        await queryClient.refetchQueries({ queryKey: SESSION_QUERY_KEY })
         router.replace("/dashboard")
         // Keep isLoading true to prevent double-click during navigation
       }
-    } catch (error: any) {
+    } catch {
       toast({
         variant: "destructive",
         title: tErrors("generic"),
-        description: error.message || tErrors("errorOccurred"),
+        description: tErrors("networkError"),
       })
       setIsLoading(false)
     }
   }
 
   return (
-    <div className={cn("grid gap-5", className)} {...props}>
+    <div className={cn("grid gap-6", className)} {...props}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid gap-4">
-            <GoogleSignInButton mode="login" />
-
-            <div className="relative my-2">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-3 text-slate-500">
-                  {tCommon("continueWith")} email
-                </span>
-              </div>
-            </div>
-
+          <div className="grid gap-5">
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
-                  <FormLabel className="text-sm font-medium text-slate-700">{t("email")}</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-semibold">{t("email")}</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        type="email"
-                        autoComplete="email"
-                        placeholder={tCommon("emailPlaceholder")}
-                        className="h-10 border-slate-300 bg-white pl-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                        {...field}
-                      />
-                    </div>
+                    <Input
+                      placeholder={tCommon("emailPlaceholder")}
+                      className="h-11"
+                      {...field}
+                      onFocus={(e) => {
+                        field.onBlur?.()
+                        setMascotState?.("email")
+                      }}
+                      onBlur={(e) => {
+                        field.onBlur?.()
+                        setMascotState?.("idle")
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -150,12 +154,12 @@ export function UserAuthForm({
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
+                <FormItem className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <FormLabel className="text-sm font-medium text-slate-700">{t("password")}</FormLabel>
+                    <FormLabel className="text-sm font-semibold">{t("password")}</FormLabel>
                     <Link
                       href="/forgot-password"
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                      className="text-primary text-xs font-medium hover:underline"
                     >
                       {t("forgotPassword")}
                     </Link>
@@ -163,35 +167,41 @@ export function UserAuthForm({
                   <FormControl>
                     <PasswordInput
                       placeholder={t("minChars", { min: 8 })}
-                      autoComplete="current-password"
-                      className="h-10"
-                      inputClassName="h-10 border-slate-300 bg-white pr-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                      startIcon={<LockKeyhole className="size-4" />}
+                      className="h-11"
                       {...field}
+                      onFocus={(e) => {
+                        field.onBlur?.()
+                        setMascotState?.("password")
+                      }}
+                      onBlur={(e) => {
+                        field.onBlur?.()
+                        setMascotState?.("idle")
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {isTurnstileLoading ? (
-              <TurnstileSkeleton />
-            ) : turnstileEnabled && turnstileSiteKey ? (
-              <Turnstile
-                siteKey={turnstileSiteKey}
-                onVerify={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken("")}
-                onError={() => setTurnstileToken("")}
-              />
-            ) : null}
-
             <Button
-              className="mt-2 h-10 bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-              disabled={isLoading || isTurnstileLoading || (turnstileEnabled && !turnstileToken)}
+              className="mt-2 h-11 font-semibold"
+              disabled={isLoading}
             >
               {isLoading ? t("processing") : t("login")}
             </Button>
+
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/50" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-3 text-muted-foreground font-medium">
+                  {tCommon("continueWith")}
+                </span>
+              </div>
+            </div>
+
+            <GoogleSignInButton />
           </div>
         </form>
       </Form>

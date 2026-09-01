@@ -1,22 +1,7 @@
 "use client"
 
-import { LineChart as ChartLineIcon } from "lucide-react"
-import {
-  Line,
-  LineChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-} from "recharts"
-import type { MessageAnalyticsData } from "@/lib/api/insights-api"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
@@ -26,6 +11,8 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
+import { IconChartLine } from "@tabler/icons-react"
+import type { MessageAnalyticsData } from "@/lib/api/insights-api"
 
 interface MessageAnalyticsChartProps {
   data: MessageAnalyticsData | null
@@ -48,10 +35,7 @@ const chartConfig = {
  * Displays line chart showing sent vs delivered messages over time
  * Requirements: 5.1, 5.4, 5.5
  */
-export function MessageAnalyticsChart({
-  data,
-  isLoading,
-}: MessageAnalyticsChartProps) {
+export function MessageAnalyticsChart({ data, isLoading }: MessageAnalyticsChartProps) {
   if (isLoading) {
     return (
       <Card>
@@ -67,12 +51,11 @@ export function MessageAnalyticsChart({
   }
 
   // Transform data points for chart
-  const chartData =
-    data?.dataPoints.map((point) => ({
-      date: new Date(point.start * 1000).toISOString(),
-      sent: point.sent,
-      delivered: point.delivered,
-    })) || []
+  const chartData = data?.dataPoints.map((point) => ({
+    date: new Date(point.start * 1000).toISOString(),
+    sent: point.sent,
+    delivered: point.delivered,
+  })) || []
 
   const isEmpty = chartData.length === 0
 
@@ -80,15 +63,13 @@ export function MessageAnalyticsChart({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-medium">
-          <ChartLineIcon className="h-4 w-4" />
+          <IconChartLine className="h-4 w-4" />
           Message Analytics
         </CardTitle>
         <CardDescription>
           {data ? (
             <>
-              {data.totals.sent.toLocaleString()} sent •{" "}
-              {data.totals.delivered.toLocaleString()} delivered •{" "}
-              {data.totals.deliveryRate.toFixed(1)}% delivery rate
+              {data.totals.sent.toLocaleString()} sent • {data.totals.delivered.toLocaleString()} delivered • {data.totals.deliveryRate.toFixed(1)}% delivery rate
             </>
           ) : (
             "Messages sent vs delivered over time"
@@ -97,9 +78,9 @@ export function MessageAnalyticsChart({
       </CardHeader>
       <CardContent>
         {isEmpty ? (
-          <div className="text-muted-foreground flex h-[300px] items-center justify-center">
+          <div className="flex h-[300px] items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <ChartLineIcon className="mx-auto h-12 w-12 opacity-50" />
+              <IconChartLine className="mx-auto h-12 w-12 opacity-50" />
               <p className="mt-2">No message data available for this period</p>
             </div>
           </div>
@@ -117,10 +98,7 @@ export function MessageAnalyticsChart({
                 tickMargin={8}
                 tickFormatter={(value) => {
                   const date = new Date(value)
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })
+                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
                 }}
               />
               <YAxis

@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../../utils/database.js'
-import { getWhatsAppClientAsync } from '../../utils/whatsapp.js'
+import { WhatsAppAPI } from '../../utils/whatsapp.js'
+import { resolveCredentialsForSending } from '../../utils/whatsapp-account-helper.js'
 import { getEffectiveUserId } from '../../middleware/resolveContext.js'
 import { eventEmitter } from '../../websocket/index.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
 
 const app = new Hono()
 
@@ -25,27 +27,17 @@ app.post('/', async (c) => {
 
     const body = await c.req.json()
     const validation = markAsReadSchema.safeParse(body)
-    
+
     if (!validation.success) {
-      return c.json({ 
-        error: 'Validation failed', 
-        details: validation.error.issues 
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { customerId } = validation.data
 
-    // Get user's phone number ID for WhatsApp API
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { 
-        phoneNumberId: true,
-        wabaConnectionStatus: true,
-        wabaAccessToken: true
-      }
-    })
+    // Resolve WhatsApp credentials for this customer
+    const credentials = await resolveCredentialsForSending(userId, customerId)
 
-    if (!user?.phoneNumberId) {
+    if (!credentials) {
       return c.json({ error: 'WhatsApp not connected' }, 400)
     }
 
@@ -62,29 +54,27 @@ app.post('/', async (c) => {
     })
 
     if (unreadMessages.length === 0) {
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         message: 'No unread messages',
         markedCount: 0,
         unreadCount: 0
       })
     }
 
-    // Only send mark as read to WhatsApp if connected
-    if (user.wabaConnectionStatus === 'connected' && user.wabaAccessToken) {
-      try {
-        const whatsapp = await getWhatsAppClientAsync()
-        
-        // Mark the most recent message as read (WhatsApp marks all prior as read too)
-        const latestMessage = unreadMessages[0]
-        if (latestMessage.wamId) {
-          await whatsapp.markAsRead(user.phoneNumberId, latestMessage.wamId)
-          console.log(`✅ Marked message ${latestMessage.wamId} as read for customer ${customerId}`)
-        }
-      } catch (error) {
-        console.error('Failed to send mark as read to WhatsApp:', error)
-        // Don't fail the request - still update local status
+    // Send mark as read to WhatsApp
+    try {
+      const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
+
+      // Mark the most recent message as read (WhatsApp marks all prior as read too)
+      const latestMessage = unreadMessages[0]
+      if (latestMessage.wamId) {
+        await whatsapp.markAsRead(credentials.phoneNumberId, latestMessage.wamId)
+        console.log(`✅ Marked message ${latestMessage.wamId} as read for customer ${customerId}`)
       }
+    } catch (error) {
+      logDetailedError(error, { path: c.req.path, method: c.req.method })
+      // Don't fail the request - still update local status
     }
 
     // Update local message status to READ
@@ -107,7 +97,7 @@ app.post('/', async (c) => {
         }
       })
     } catch (err) {
-      console.error('Failed to emit unread count update:', err)
+      logDetailedError(err, { path: c.req.path, method: c.req.method })
     }
 
     // After marking as read, unread count for this customer is 0
@@ -119,10 +109,10 @@ app.post('/', async (c) => {
     })
 
   } catch (error: any) {
-    console.error('Mark as read error:', error)
-    return c.json({ 
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+    return c.json({
       error: 'Failed to mark messages as read',
-      details: error.message 
+      details: error.message
     }, 500)
   }
 })

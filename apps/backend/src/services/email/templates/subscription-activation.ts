@@ -20,12 +20,14 @@ export interface SubscriptionActivationParams {
   orderId: string;
   /** Amount paid in IDR */
   amount: number;
-  /** Application name (defaults to KirimChat) */
+  /** Application name */
   appName?: string;
   /** Duration in days (30, 90, 180, or 365) */
   durationDays?: number;
   /** Human-readable duration label (e.g., "1 Bulan", "3 Bulan") */
   durationLabel?: string;
+  /** Support email address (rendered only if provided) */
+  supportEmail?: string;
 }
 
 export interface SubscriptionActivationTemplate {
@@ -72,10 +74,12 @@ export function subscriptionActivationTemplate(
     endDate,
     orderId,
     amount,
-    appName = 'KirimChat',
+    appName = process.env.APP_NAME || 'Messaging Platform',
     durationDays = 30,
     durationLabel = '1 Bulan',
+    supportEmail = process.env.SUPPORT_EMAIL || '',
   } = params;
+  const sanitizedSupportEmail = supportEmail ? escapeHtml(supportEmail) : '';
 
   // Sanitize inputs
   const sanitizedUserName = escapeHtml(userName);
@@ -113,7 +117,7 @@ export function subscriptionActivationTemplate(
           <tr>
             <td style="padding: 32px 32px 16px; text-align: center;">
               <div style="width: 64px; height: 64px; margin: 0 auto; background-color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px; color: #ffffff;">✓</span>
+                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">&#10003;</span>
               </div>
             </td>
           </tr>
@@ -178,9 +182,9 @@ export function subscriptionActivationTemplate(
               <p style="margin: 0 0 8px; font-size: 12px; color: #999; text-align: center;">
                 Simpan email ini sebagai bukti pembayaran.
               </p>
-              <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
-                Jika ada pertanyaan, hubungi support@kirim.chat
-              </p>
+              ${sanitizedSupportEmail ? `<p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
+                Jika ada pertanyaan, hubungi ${sanitizedSupportEmail}
+              </p>` : ''}
             </td>
           </tr>
         </table>
@@ -209,8 +213,7 @@ Detail Subscription:
 Anda sekarang dapat menikmati semua fitur ${sanitizedTierName}.
 Subscription akan diperpanjang otomatis sebelum tanggal berakhir.
 
-Simpan email ini sebagai bukti pembayaran.
-Jika ada pertanyaan, hubungi support@kirim.chat
+Simpan email ini sebagai bukti pembayaran.${sanitizedSupportEmail ? `\nJika ada pertanyaan, hubungi ${sanitizedSupportEmail}` : ''}
 
 Ini adalah pesan otomatis. Jangan balas email ini.
 `.trim();

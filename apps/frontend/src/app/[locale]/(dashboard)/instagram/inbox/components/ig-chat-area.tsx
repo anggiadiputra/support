@@ -25,7 +25,7 @@ export function IGChatArea({
   onBack,
 }: Props) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Window Status Banner */}
       {!conversation.isWindowActive && (
         <div className="flex-shrink-0 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
@@ -42,7 +42,7 @@ export function IGChatArea({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <IGMessageList
           messages={messages}
           loading={loadingMessages}

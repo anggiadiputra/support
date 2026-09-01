@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { User, Lock, Save, Loader2, SquarePen, X } from "lucide-react"
+import { User, Lock, Save, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { settingsApi } from "@/lib/api/settings-api"
 import { useBusinessAccount } from "@/hooks/use-business-account"
@@ -20,8 +20,6 @@ import { useTranslations } from "next-intl"
 export default function ProfilePage() {
   const { userEmail, userName, userId, userRole } = useBusinessAccount()
   const [saving, setSaving] = useState(false)
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [isEditingPassword, setIsEditingPassword] = useState(false)
   const { toast } = useToast()
   const t = useTranslations("settings")
 
@@ -70,7 +68,6 @@ export default function ProfilePage() {
         title: t("success"),
         description: result.message || t("profileUpdated"),
       })
-      setIsEditingProfile(false)
 
       if (profileForm.email !== userEmail) {
         setTimeout(() => {
@@ -129,7 +126,6 @@ export default function ProfilePage() {
         title: t("success"),
         description: t("passwordChanged"),
       })
-      setIsEditingPassword(false)
 
       setPasswordForm({
         currentPassword: "",
@@ -157,26 +153,12 @@ export default function ProfilePage() {
       <div className="max-w-2xl space-y-6">
         {/* Profile Settings */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-blue-600" />
-                {t("profileSettings")}
-              </CardTitle>
-              <CardDescription>{t("updateProfileInfo")}</CardDescription>
-            </div>
-            {!isEditingProfile && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditingProfile(true)}
-                className="gap-1.5"
-              >
-                <SquarePen className="h-4 w-4" />
-                Edit
-              </Button>
-            )}
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              {t("profileSettings")}
+            </CardTitle>
+            <CardDescription>{t("updateProfileInfo")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -190,7 +172,6 @@ export default function ProfilePage() {
                     setProfileForm({ ...profileForm, name: e.target.value })
                   }
                   placeholder={t("yourName")}
-                  disabled={!isEditingProfile}
                   required
                 />
               </div>
@@ -205,10 +186,9 @@ export default function ProfilePage() {
                     setProfileForm({ ...profileForm, email: e.target.value })
                   }
                   placeholder="your@email.com"
-                  disabled={!isEditingProfile}
                   required
                 />
-                {isEditingProfile && profileForm.email !== userEmail && (
+                {profileForm.email !== userEmail && (
                   <p className="text-sm text-amber-600">
                     {t("emailChangeVerification")}
                   </p>
@@ -222,68 +202,35 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {isEditingProfile && (
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("saving")}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        {t("saveChanges")}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => {
-                      setProfileForm({
-                        name: userName || "",
-                        email: userEmail || "",
-                      })
-                      setIsEditingProfile(false)
-                    }}
-                    className="w-full sm:w-auto"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full sm:w-auto"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("saving")}
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {t("saveChanges")}
+                  </>
+                )}
+              </Button>
             </form>
           </CardContent>
         </Card>
 
         {/* Password Settings */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-blue-600" />
-                {t("changePassword")}
-              </CardTitle>
-              <CardDescription>{t("changePasswordDescription")}</CardDescription>
-            </div>
-            {!isEditingPassword && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditingPassword(true)}
-                className="gap-1.5"
-              >
-                <SquarePen className="h-4 w-4" />
-                Edit
-              </Button>
-            )}
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              {t("changePassword")}
+            </CardTitle>
+            <CardDescription>{t("changePasswordDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
@@ -300,7 +247,6 @@ export default function ProfilePage() {
                     })
                   }
                   placeholder={t("enterCurrentPassword")}
-                  disabled={!isEditingPassword}
                   required
                 />
               </div>
@@ -318,7 +264,6 @@ export default function ProfilePage() {
                     })
                   }
                   placeholder={t("enterNewPassword")}
-                  disabled={!isEditingPassword}
                   required
                   minLength={8}
                 />
@@ -340,11 +285,9 @@ export default function ProfilePage() {
                     })
                   }
                   placeholder={t("confirmNewPasswordPlaceholder")}
-                  disabled={!isEditingPassword}
                   required
                 />
-                {isEditingPassword &&
-                  passwordForm.confirmPassword &&
+                {passwordForm.confirmPassword &&
                   passwordForm.newPassword !== passwordForm.confirmPassword && (
                     <p className="text-sm text-destructive">
                       {t("passwordsDoNotMatch")}
@@ -352,43 +295,23 @@ export default function ProfilePage() {
                   )}
               </div>
 
-              {isEditingPassword && (
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("changingPassword")}
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="mr-2 h-4 w-4" />
-                        {t("changePassword")}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => {
-                      setPasswordForm({
-                        currentPassword: "",
-                        newPassword: "",
-                        confirmPassword: "",
-                      })
-                      setIsEditingPassword(false)
-                    }}
-                    className="w-full sm:w-auto"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full sm:w-auto"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("changingPassword")}
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-2 h-4 w-4" />
+                    {t("changePassword")}
+                  </>
+                )}
+              </Button>
             </form>
           </CardContent>
         </Card>

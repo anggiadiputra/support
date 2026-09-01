@@ -1,69 +1,73 @@
 {
-  "title": "Syarat dan Ketentuan",
+  "title": "Syarat dan Ketentuan Layanan",
   "lastUpdated": "Terakhir Diperbarui",
   "sections": {
     "acceptance": {
-      "title": "Penerimaan Ketentuan",
-      "content": "Dengan mengakses atau menggunakan {appName}, Anda setuju untuk terikat oleh Syarat dan Ketentuan ini. Jika Anda tidak setuju dengan ketentuan ini, mohon untuk tidak menggunakan layanan kami."
+      "title": "1. Penerimaan Ketentuan",
+      "content": "Dengan mendaftar, mengakses, atau menggunakan layanan {appName}, Anda menyatakan bahwa Anda telah membaca, memahami, dan setuju untuk terikat oleh seluruh Syarat dan Ketentuan ini. Jika Anda bertindak atas nama perusahaan atau badan hukum, Anda menyatakan memiliki wewenang hukum untuk mengikat entitas tersebut pada ketentuan ini. Apabila Anda tidak menyetujui bagian mana pun dari ketentuan ini, Anda tidak diperkenankan untuk menggunakan layanan kami."
     },
     "services": {
-      "title": "Deskripsi Layanan",
-      "intro": "{appName} menyediakan platform perpesanan bisnis yang mencakup:",
+      "title": "2. Deskripsi dan Ruang Lingkup Layanan",
+      "intro": "{appName} adalah penyedia platform komunikasi bisnis berbasis cloud yang menyediakan akses ke:",
       "items": {
-        "messaging": "Perpesanan multi-channel (WhatsApp Business API, Instagram, dll.)",
-        "integration": "Integrasi pihak ketiga dan akses API",
-        "analytics": "Analitik pesan dan pelaporan",
-        "automation": "Perpesanan otomatis dan manajemen template"
+        "messaging": "Antarmuka Pemrograman Aplikasi (API) pihak ketiga (termasuk namun tidak terbatas pada WhatsApp Business API dan Meta Platforms).",
+        "integration": "Sistem manajemen pesan terpusat (Omnichannel) dan integrasi CRM.",
+        "analytics": "Layanan analitik data, pelaporan performa pesan, dan log pengiriman.",
+        "automation": "Fitur otomatisasi pesan, manajemen template, dan bot interaktif."
       }
     },
+    "compliance": {
+      "title": "3. Kepatuhan Pihak Ketiga (WhatsApp/Meta)",
+      "content": "Sebagai pengguna layanan yang terintegrasi dengan Meta Platforms, Inc., Anda wajib mematuhi seluruh kebijakan terbaru dari WhatsApp Business, termasuk Kebijakan Perdagangan (Commerce Policy) dan Kebijakan Bisnis WhatsApp. {appName} tidak bertanggung jawab atas penangguhan, pemblokiran, atau penghentian akun Anda oleh pihak ketiga (Meta/WhatsApp) akibat pelanggaran kebijakan tersebut."
+    },
     "accounts": {
-      "title": "Akun Pengguna",
-      "intro": "Saat membuat akun, Anda setuju untuk:",
+      "title": "4. Akun dan Keamanan",
+      "intro": "Dalam pengelolaan akun, Anda berkewajiban untuk:",
       "items": {
-        "accurate": "Memberikan informasi yang akurat dan lengkap",
-        "security": "Menjaga keamanan kredensial akun Anda",
-        "notify": "Segera memberitahu kami tentang akses yang tidak sah",
-        "responsible": "Bertanggung jawab atas semua aktivitas di bawah akun Anda"
+        "accurate": "Memberikan data identitas yang akurat, lengkap, dan terbaru sesuai dengan dokumen hukum yang sah.",
+        "security": "Menjaga kerahasiaan kata sandi dan API Key Anda dari akses pihak mana pun.",
+        "notify": "Melaporkan secara tertulis kepada kami dalam waktu maksimal 24 jam jika ditemukan indikasi akses tidak sah pada akun Anda.",
+        "responsible": "Bertanggung jawab penuh atas segala aktivitas, komunikasi, dan transaksi yang dilakukan melalui akun Anda."
       }
     },
     "usage": {
-      "title": "Penggunaan yang Dapat Diterima",
-      "intro": "Anda setuju untuk tidak:",
+      "title": "5. Kebijakan Penggunaan yang Diperbolehkan",
+      "intro": "Anda dilarang keras untuk menggunakan layanan {appName} untuk:",
       "items": {
-        "laws": "Melanggar hukum atau peraturan yang berlaku",
-        "spam": "Mengirim spam, pesan yang tidak diminta, atau pesan massal tanpa persetujuan",
-        "harmful": "Mengirimkan konten yang berbahaya, menyinggung, atau ilegal",
-        "interfere": "Mengganggu atau merusak layanan atau server kami",
-        "reverse": "Mencoba merekayasa balik atau mengakses area yang tidak sah"
+        "laws": "Kegiatan yang melanggar hukum Negara Republik Indonesia atau hukum di yurisdiksi tempat Anda beroperasi.",
+        "spam": "Mengirimkan pesan massal (spam), pesan promosi tanpa persetujuan eksplisit dari penerima (Opt-in), atau pesan yang mengganggu kenyamanan pengguna akhir.",
+        "harmful": "Mendistribusikan konten berbahaya, virus, malware, materi pornografi, perjudian, atau konten yang mengandung SARA dan ujaran kebencian.",
+        "interfere": "Melakukan upaya dekompilasi, rekayasa balik (reverse engineering), atau mencoba merusak integritas infrastruktur server kami.",
+        "reverse": "Menggunakan skrip otomatis untuk mengekstraksi data atau memanipulasi sistem tanpa izin tertulis."
       }
     },
     "payment": {
-      "title": "Ketentuan Pembayaran",
-      "content": "Langganan berbayar ditagih di muka. Semua biaya tidak dapat dikembalikan kecuali dinyatakan lain. Kami berhak mengubah harga dengan pemberitahuan 30 hari. Kegagalan membayar dapat mengakibatkan penangguhan layanan."
+      "title": "6. Ketentuan Biaya dan Pembayaran",
+      "content": "Layanan disediakan berdasarkan paket berlangganan yang dibayarkan di muka (prepaid). Seluruh biaya yang telah dibayarkan bersifat final dan tidak dapat dikembalikan (non-refundable) dengan alasan apa pun, termasuk namun tidak terbatas pada pemblokiran akun oleh pihak ketiga. Kami berhak melakukan penyesuaian tarif layanan dengan pemberitahuan minimal 30 hari kalender sebelumnya."
     },
     "intellectual": {
-      "title": "Kekayaan Intelektual",
-      "content": "Semua konten, fitur, dan fungsionalitas {appName} dimiliki oleh kami dan dilindungi oleh hukum kekayaan intelektual. Anda tetap memiliki kepemilikan atas data dan konten Anda tetapi memberikan kami lisensi untuk menggunakannya dalam menyediakan layanan kami."
+      "title": "7. Hak Kekayaan Intelektual",
+      "content": "Seluruh merek dagang, kode sumber, desain UI/UX, dan teknologi yang terdapat dalam {appName} adalah milik sah kami dan dilindungi oleh Undang-Undang Hak Cipta. Anda diberikan lisensi terbatas, non-eksklusif, dan tidak dapat dipindahtangankan hanya untuk tujuan penggunaan layanan selama masa berlangganan aktif."
     },
-    "termination": {
-      "title": "Penghentian",
-      "content": "Kami dapat menangguhkan atau menghentikan akun Anda kapan saja karena pelanggaran ketentuan ini. Anda dapat membatalkan akun Anda kapan saja. Setelah penghentian, hak Anda untuk menggunakan layanan berakhir segera."
-    },
-    "disclaimer": {
-      "title": "Penafian Jaminan",
-      "content": "Layanan kami disediakan \"sebagaimana adanya\" tanpa jaminan apa pun, baik tersurat maupun tersirat. Kami tidak menjamin bahwa layanan kami akan tidak terputus, aman, atau bebas dari kesalahan."
+    "indemnification": {
+      "title": "8. Ganti Rugi (Indemnification)",
+      "content": "Anda setuju untuk membebaskan, membela, dan melepaskan {appName} beserta direksi, karyawan, dan mitranya dari segala tuntutan hukum, kerugian, biaya (termasuk biaya pengacara), atau kewajiban yang timbul akibat penyalahgunaan layanan oleh Anda atau pelanggaran Anda terhadap Syarat dan Ketentuan ini."
     },
     "limitation": {
-      "title": "Batasan Tanggung Jawab",
-      "content": "Sejauh diizinkan oleh hukum, {appName} tidak bertanggung jawab atas kerusakan tidak langsung, insidental, khusus, konsekuensial, atau hukuman yang timbul dari penggunaan layanan kami."
+      "title": "9. Batasan Tanggung Jawab",
+      "content": "Sejauh diizinkan oleh hukum yang berlaku, {appName} tidak bertanggung jawab atas kerugian tidak langsung, kehilangan keuntungan (loss of profit), kehilangan data, atau gangguan bisnis yang timbul dari ketidakmampuan Anda menggunakan layanan atau akibat kegagalan sistem teknis pihak ketiga."
     },
-    "changes": {
-      "title": "Perubahan Ketentuan",
-      "content": "Kami berhak mengubah ketentuan ini kapan saja. Kami akan memberitahu pengguna tentang perubahan signifikan melalui email atau melalui platform kami. Penggunaan berkelanjutan setelah perubahan merupakan penerimaan."
+    "termination": {
+      "title": "10. Penghentian Layanan",
+      "content": "Kami berhak menangguhkan atau menghentikan akses layanan secara sepihak tanpa pemberitahuan jika ditemukan indikasi pelanggaran berat terhadap Syarat dan Ketentuan ini. Anda dapat menghentikan langganan kapan saja melalui panel kendali, namun kewajiban pembayaran yang tertunda (jika ada) tetap harus diselesaikan."
+    },
+    "dispute": {
+      "title": "11. Hukum yang Mengatur dan Penyelesaian Sengketa",
+      "content": "Syarat dan Ketentuan ini diatur dan ditafsirkan sesuai dengan hukum Negara Republik Indonesia. Setiap perselisihan yang timbul akan diupayakan penyelesaiannya melalui musyawarah untuk mufakat, dan jika tidak tercapai, akan diselesaikan melalui yurisdiksi Pengadilan Negeri di wilayah kedudukan hukum {appName}."
     },
     "contact": {
-      "title": "Hubungi Kami",
-      "content": "Jika Anda memiliki pertanyaan tentang Syarat dan Ketentuan ini, silakan hubungi kami:"
+      "title": "12. Kontak Informasi",
+      "content": "Untuk pertanyaan hukum atau laporan penyalahgunaan, silakan hubungi tim legal kami melalui:"
     }
   }
 }

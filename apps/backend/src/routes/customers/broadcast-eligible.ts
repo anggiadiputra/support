@@ -41,14 +41,28 @@ app.get('/broadcast-eligible', async (c: Context) => {
     const search = c.req.query('search')
     const tagsParam = c.req.query('tags')
     const pipelineStageId = c.req.query('pipelineStageId')
+    const whatsappPhoneNumberId = c.req.query('whatsappPhoneNumberId')
+    // templateCategory: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION' | 'SERVICE'
+    // Only MARKETING triggers the marketingOptOut filter (per Meta policy:
+    // user_preferences/131050 only suppress marketing category messages).
+    const templateCategory = (c.req.query('templateCategory') || '').toUpperCase()
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
     const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50), 100)
 
-    // Build where clause - only consented and not blacklisted
+    // Build where clause - consented + not blacklisted always.
+    // marketingOptOut filter applied only when sending MARKETING templates.
     const where: any = {
       userId,
       consentStatus: true,
       blacklisted: false
+    }
+    if (templateCategory === 'MARKETING') {
+      where.marketingOptOut = false
+    }
+
+    // Filter by WhatsApp phone number (multi-number support)
+    if (whatsappPhoneNumberId) {
+      where.whatsappPhoneNumberId = whatsappPhoneNumberId
     }
 
     // Search filter
@@ -72,8 +86,10 @@ app.get('/broadcast-eligible', async (c: Context) => {
       where.pipelineStageId = pipelineStageId
     }
 
-    // Get customers with pagination
-    const [customers, total] = await Promise.all([
+    // Get customers with pagination + count of marketing-opted-out customers
+    // that would otherwise be eligible (for transparency in the UI when sending
+    // a MARKETING template).
+    const [customers, total, marketingOptedOutCount] = await Promise.all([
       prisma.customer.findMany({
         where,
         select: {
@@ -81,6 +97,12 @@ app.get('/broadcast-eligible', async (c: Context) => {
           phoneNumber: true,
           name: true,
           tags: true,
+          marketingOptOut: true,
+          // BSUID / username identifiers — surfaced so UI can label BSUID-only
+          // customers and so downstream broadcast routing has full context.
+          whatsappBsuid: true,
+          whatsappUsername: true,
+          whatsappParentBsuid: true,
           pipelineStage: {
             select: {
               id: true,
@@ -93,7 +115,18 @@ app.get('/broadcast-eligible', async (c: Context) => {
         skip: (page - 1) * limit,
         take: limit
       }),
-      prisma.customer.count({ where })
+      prisma.customer.count({ where }),
+      // Count customers who match other filters but are marketing-opted-out
+      prisma.customer.count({
+        where: {
+          userId,
+          consentStatus: true,
+          blacklisted: false,
+          marketingOptOut: true,
+          ...(whatsappPhoneNumberId ? { whatsappPhoneNumberId } : {}),
+          ...(pipelineStageId ? { pipelineStageId } : {}),
+        }
+      })
     ])
 
     return c.json({
@@ -104,7 +137,11 @@ app.get('/broadcast-eligible', async (c: Context) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit)
-      }
+      },
+      // Transparency: how many customers are opted out of marketing.
+      // For UTILITY/AUTH templates this is informational only (they're still
+      // in `data`). For MARKETING templates these have been filtered out.
+      marketingOptedOutCount
     })
   } catch (error) {
     console.error('Get broadcast eligible customers error:', error)

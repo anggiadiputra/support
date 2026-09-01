@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
@@ -60,21 +60,11 @@ export function useAdminUsers(initialQuery: AdminUsersQuery = {}): UseAdminUsers
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState<AdminUsersQuery>(initialQuery)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
-  const isMountedRef = useRef(true)
-
-  useEffect(() => {
-    isMountedRef.current = true
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [])
 
   const fetchUsers = useCallback(async () => {
     try {
-      if (isMountedRef.current) {
-        setIsLoading(true)
-        setError(null)
-      }
+      setIsLoading(true)
+      setError(null)
 
       const params = new URLSearchParams()
       if (query.page) params.set("page", query.page.toString())
@@ -97,22 +87,16 @@ export function useAdminUsers(initialQuery: AdminUsersQuery = {}): UseAdminUsers
 
       const data = await response.json()
 
-      if (isMountedRef.current) {
-        if (data.success && data.data) {
-          setUsers(data.data.users)
-          setPagination(data.data.pagination)
-        } else {
-          throw new Error(data.error?.message || "Failed to fetch users")
-        }
+      if (data.success && data.data) {
+        setUsers(data.data.users)
+        setPagination(data.data.pagination)
+      } else {
+        throw new Error(data.error?.message || "Failed to fetch users")
       }
     } catch (err) {
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : "An error occurred")
-      }
+      setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
   }, [query])
 

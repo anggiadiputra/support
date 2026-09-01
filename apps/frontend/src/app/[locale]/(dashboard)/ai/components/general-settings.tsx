@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
@@ -8,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import {
   Select,
@@ -18,18 +20,49 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Loader2, Save, AlertCircle } from "lucide-react"
-import { AIConfig, AIAgent } from "@/lib/api/ai-api"
+import type { AIConfig, AIAgent } from "@/lib/api/ai-api"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
+import { useUpdateAIConfig } from "@/hooks/use-ai"
 
 interface GeneralSettingsProps {
-  config: AIConfig
+  initialConfig: AIConfig
   agents: AIAgent[]
-  setConfig: (config: AIConfig) => void
-  onSave: () => void
-  saving: boolean
 }
 
-export function GeneralSettings({ config, agents, setConfig, onSave, saving }: GeneralSettingsProps) {
+export function GeneralSettings({
+  initialConfig,
+  agents,
+}: GeneralSettingsProps) {
+  const { toast } = useToast()
+  const [config, setConfig] = useState<AIConfig>(initialConfig)
+  const updateConfig = useUpdateAIConfig()
+
+  // Sync with initial config when it changes
+  useEffect(() => {
+    setConfig(initialConfig)
+  }, [initialConfig])
+
+  const handleSave = () => {
+    updateConfig.mutate(
+      { data: config },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Success",
+            description: "AI settings saved successfully",
+          })
+        },
+        onError: () => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save settings",
+          })
+        },
+      }
+    )
+  }
   return (
     <Card>
       <CardHeader>
@@ -88,53 +121,36 @@ export function GeneralSettings({ config, agents, setConfig, onSave, saving }: G
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="model">Model</Label>
-            <Input
-              id="model"
-              value={config.model}
-              onChange={(e) =>
-                setConfig({ ...config, model: e.target.value })
-              }
-              placeholder="gpt-4.1-nano-2025-04-14"
-              disabled={true}
-            />
-            <p className="text-xs text-muted-foreground">
-              Model selection is currently locked.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="temperature">Temperature ({config.temperature})</Label>
-            <Input
-              id="temperature"
-              type="number"
-              min="0"
-              max="2"
-              step="0.1"
-              value={config.temperature}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  temperature: parseFloat(e.target.value),
-                })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Higher values make output more random, lower values more deterministic.
-            </p>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="temperature">Temperature ({config.temperature})</Label>
+          <Input
+            id="temperature"
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            value={config.temperature}
+            onChange={(e) =>
+              setConfig({
+                ...config,
+                temperature: parseFloat(e.target.value),
+              })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Higher values make output more random, lower values more deterministic.
+          </p>
         </div>
 
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? (
+        <Button size="sm" onClick={handleSave} disabled={updateConfig.isPending}>
+          {updateConfig.isPending ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               Saving...
             </>
           ) : (
             <>
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="h-4 w-4" />
               Save Changes
             </>
           )}

@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { apiKeyService } from '../../services/api-key-service.js';
 import { logger } from '../../utils/logger.js';
 import { requireFeature, checkUsageLimit } from '../../middleware/subscription.js';
+import { handleValidationError } from '../../middleware/errorHandler.js';
+import { auditLog } from '../../utils/auditLog.js';
 
 const app = new Hono();
 
@@ -50,16 +52,7 @@ app.post('/', requireFeature('apiAccess'), async (c: Context) => {
     const parseResult = createApiKeySchema.safeParse(body);
 
     if (!parseResult.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid request parameters',
-          details: parseResult.error.issues.map((e) => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
-        },
-      }, 400);
+      return handleValidationError(parseResult.error, c);
     }
 
     const { name, expiresInDays } = parseResult.data;
@@ -69,6 +62,13 @@ app.post('/', requireFeature('apiAccess'), async (c: Context) => {
       name,
       expiresInDays,
     });
+
+    // Audit log
+    await auditLog('API_KEY_CREATED', 'APIKey', apiKey.id, {
+      name,
+      keyPrefix: apiKey.keyPrefix,
+      expiresAt: apiKey.expiresAt.toISOString()
+    }, c.user.id);
 
     return c.json({
       success: true,
@@ -165,6 +165,11 @@ app.delete('/:id', async (c: Context) => {
     }
 
     await apiKeyService.revokeApiKey(c.user.id, apiKeyId);
+
+    // Audit log
+    await auditLog('API_KEY_REVOKED', 'APIKey', apiKeyId, {
+      revokedBy: c.user.id
+    }, c.user.id);
 
     return c.json({
       success: true,

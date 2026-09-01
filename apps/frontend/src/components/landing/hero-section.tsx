@@ -1,19 +1,19 @@
 "use client"
 
-import { MessageCircle, Rocket } from "lucide-react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { IconBrandWhatsapp, IconRocket } from "@tabler/icons-react"
+import Link from "next/link"
 
 export function HeroSection() {
   return (
     <section className="container mx-auto px-4 py-20 md:py-32">
       <div className="mx-auto max-w-4xl text-center">
         {/* Badge */}
-        <div className="bg-muted mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm">
-          <MessageCircle className="h-4 w-4 text-green-600" />
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-muted px-4 py-2 text-sm">
+          <IconBrandWhatsapp className="h-4 w-4 text-green-600" />
           <span>WhatsApp Business API Platform</span>
         </div>
-
+        
         {/* Heading */}
         <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
           Kirim Pesan WhatsApp
@@ -22,29 +22,25 @@ export function HeroSection() {
             Lebih Mudah & Cepat
           </span>
         </h1>
-
+        
         {/* Description */}
-        <p className="text-muted-foreground mx-auto mb-8 max-w-2xl text-lg md:text-xl">
-          Platform WhatsApp Business API terlengkap untuk mengelola komunikasi
-          bisnis Anda. Kirim pesan, kelola kontak, dan tingkatkan engagement
-          pelanggan.
+        <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground md:text-xl">
+          Platform WhatsApp Business API terlengkap untuk mengelola komunikasi bisnis Anda. 
+          Kirim pesan, kelola kontak, dan tingkatkan engagement pelanggan.
         </p>
-
+        
         {/* CTA Buttons */}
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="rounded-full px-8">
             <Link href="/register">
               Mulai Gratis
-              <Rocket className="ml-2 h-4 w-4" />
+              <IconRocket className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="rounded-full px-8"
-          >
-            <Link href="/login">Login</Link>
+          <Button asChild size="lg" variant="outline" className="rounded-full px-8">
+            <Link href="/login">
+              Login
+            </Link>
           </Button>
         </div>
       </div>

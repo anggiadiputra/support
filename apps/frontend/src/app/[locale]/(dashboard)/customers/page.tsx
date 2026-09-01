@@ -1,47 +1,58 @@
 "use client"
 
-import { useState } from "react"
-import { Users } from "lucide-react"
-import { useBusinessAccount } from "@/hooks/use-business-account"
-import { useCustomers } from "@/hooks/use-customers"
-import { Card, CardContent } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
-import { PageHeader } from "@/components/page-header"
-import { CustomerViewDrawer } from "./components/customer-view-drawer"
 import { columns } from "./components/customers-columns"
-import { CustomersMutateDrawer } from "./components/customers-mutate-drawer"
 import { CustomersPrimaryActions } from "./components/customers-primary-actions"
 import { CustomersTable } from "./components/customers-table"
+import { CustomerStats } from "./components/customer-stats"
 import { Customer } from "./data/schema"
+import { Card, CardContent } from "@/components/ui/card"
+import { IconUsers } from "@tabler/icons-react"
+import { useBusinessAccount } from "@/hooks/use-business-account"
+import { CustomerViewDrawer } from "./components/customer-view-drawer"
+import { CustomersMutateDrawer } from "./components/customers-mutate-drawer"
+import { useCustomers } from "@/hooks/use-customers"
+import { useState } from "react"
+import { useTranslations } from "next-intl"
+import { useWhatsAppPhoneNumbers } from "@/hooks/use-whatsapp-phone-numbers"
+import { WhatsAppPhoneSelector } from "@/components/whatsapp-phone-selector"
 
 export default function CustomersPage() {
   const { userId, isLoading: isLoadingAccount } = useBusinessAccount()
+  const t = useTranslations("customers")
+  const {
+    phoneNumbers,
+    selectedPhoneNumberId,
+    setSelectedPhoneNumberId,
+  } = useWhatsAppPhoneNumbers()
 
   // Use TanStack Query for customers data with caching
   // Requirements: 4.1, 4.3, 4.4
-  const {
-    data: customersData = [],
-    isLoading: customersLoading,
-    isFetching,
-  } = useCustomers(undefined, !isLoadingAccount && !!userId)
+  const { data: customersData = [], isLoading: customersLoading, isFetching } = useCustomers(
+    selectedPhoneNumberId ? { whatsappPhoneNumberId: selectedPhoneNumberId } : undefined,
+    !isLoadingAccount && !!userId
+  )
 
   // Transform data to match frontend schema
-  const customers: Customer[] = customersData.map((customer: any) => ({
-    ...customer,
-    consentStatus:
-      typeof customer.consentStatus === "boolean"
-        ? customer.consentStatus
-          ? "CONSENTED"
-          : "NOT_CONSENTED"
-        : customer.consentStatus,
-  }))
+  const customers: Customer[] = customersData.map((customer: any) => {
+    const channels: string[] = []
+    if (customer.phoneNumber) channels.push('whatsapp')
+    if (customer.instagramUsername) channels.push('instagram')
+    if (customer.messengerConversations && customer.messengerConversations.length > 0) channels.push('messenger')
+
+    return {
+      ...customer,
+      channels,
+      consentStatus: typeof customer.consentStatus === 'boolean'
+        ? (customer.consentStatus ? 'CONSENTED' : 'NOT_CONSENTED')
+        : customer.consentStatus
+    }
+  })
 
   // Drawer states
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false)
   const [editDrawerOpen, setEditDrawerOpen] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  )
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
   const loading = isLoadingAccount || customersLoading
 
@@ -60,9 +71,14 @@ export default function CustomersPage() {
     return (
       <>
         <Header />
-        <div className="space-y-6 p-6">
+        <div className="space-y-4 p-4">
           <div className="animate-pulse space-y-4">
             <div className="bg-muted h-8 w-48 rounded"></div>
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-muted h-20 rounded"></div>
+              ))}
+            </div>
             <div className="bg-muted h-64 w-full rounded"></div>
           </div>
         </div>
@@ -73,30 +89,43 @@ export default function CustomersPage() {
   return (
     <>
       <Header />
-      <div className="space-y-6 p-6">
-        <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <span>Customers</span>
-              {isFetching && !loading && (
-                <span className="text-muted-foreground animate-pulse text-xs font-normal">
-                  Updating...
-                </span>
-              )}
-            </div>
-          }
-          description="Manage your WhatsApp contacts and consent preferences"
-        >
+      <div className="space-y-4 p-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {t("title")}
+            {isFetching && !loading && (
+              <span className="ml-2 text-xs text-muted-foreground animate-pulse">
+                {t("updating")}
+              </span>
+            )}
+          </h2>
+          <p className="text-muted-foreground">
+            {t("description")}
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <WhatsAppPhoneSelector
+            phoneNumbers={phoneNumbers}
+            selectedId={selectedPhoneNumberId}
+            onSelect={setSelectedPhoneNumberId}
+          />
+          <div className="h-6 w-px bg-border" />
           <CustomersPrimaryActions />
-        </PageHeader>
+        </div>
+
+        {/* Stats Cards - filtered by selected phone number */}
+        <CustomerStats 
+          enabled={!isLoadingAccount && !!userId} 
+          whatsappPhoneNumberId={selectedPhoneNumberId}
+        />
 
         {customers.length === 0 && !loading ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <Users className="text-muted-foreground mb-4 h-12 w-12" />
-              <h3 className="mb-2 text-lg font-semibold">No customers yet</h3>
+              <IconUsers className="text-muted-foreground mb-4 h-12 w-12" />
+              <h3 className="mb-2 text-lg font-semibold">{t("noCustomers")}</h3>
               <p className="text-muted-foreground mb-4 text-center text-sm">
-                Add your first customer to start sending WhatsApp messages
+                {t("noCustomersDescription")}
               </p>
               <CustomersPrimaryActions />
             </CardContent>

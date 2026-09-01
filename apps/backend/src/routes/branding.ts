@@ -53,7 +53,16 @@ app.get('/', async (c: Context) => {
     for (const setting of dbSettings) {
       const propName = dbKeyToCamelCase(setting.key) as keyof BrandingSettings
       if (propName in branding && setting.value) {
-        branding[propName] = setting.value
+        // Parse JSON for externalLinks
+        if (propName === 'externalLinks') {
+          try {
+            branding.externalLinks = JSON.parse(setting.value)
+          } catch {
+            branding.externalLinks = []
+          }
+        } else {
+          (branding as unknown as Record<string, string>)[propName] = setting.value
+        }
       }
     }
 

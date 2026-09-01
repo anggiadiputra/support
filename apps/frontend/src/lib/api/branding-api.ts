@@ -1,6 +1,14 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005'
 
 /**
+ * External Link for sidebar
+ */
+export interface ExternalLink {
+  label: string
+  url: string
+}
+
+/**
  * Branding Settings
  * Requirements: 1.1, 2.1
  */
@@ -9,16 +17,29 @@ export interface BrandingSettings {
   logoUrl: string
   supportEmail: string
   supportWhatsapp: string
+  termsUrl: string
+  privacyUrl: string
+  n8nPackageName: string
+  externalLinks: ExternalLink[]
 }
 
 /**
- * Default branding values (matches backend defaults)
+ * Get default app name from environment
+ */
+const getDefaultAppName = () => process.env.NEXT_PUBLIC_APP_NAME || 'Messaging Platform'
+
+/**
+ * Default branding values (uses env for app name)
  */
 export const DEFAULT_BRANDING: BrandingSettings = {
-  websiteName: process.env.NEXT_PUBLIC_APP_NAME || 'Platform',
+  websiteName: getDefaultAppName(),
   logoUrl: '',
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@example.com',
-  supportWhatsapp: process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '+6281295648580',
+  supportEmail: 'support@yourdomain.com',
+  supportWhatsapp: '+6281234567890',
+  termsUrl: 'https://yourdomain.com/terms',
+  privacyUrl: 'https://yourdomain.com/privacy',
+  n8nPackageName: '@kichat/n8n-nodes-kirimchat',
+  externalLinks: [],
 }
 
 export const brandingApi = {
@@ -45,6 +66,11 @@ export const brandingApi = {
       return DEFAULT_BRANDING
     }
 
-    return result.data
+    // Ensure externalLinks is always an array
+    return {
+      ...DEFAULT_BRANDING,
+      ...result.data,
+      externalLinks: Array.isArray(result.data?.externalLinks) ? result.data.externalLinks : [],
+    }
   },
 }

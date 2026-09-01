@@ -1,6 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005'
 
-export type SubscriptionTier = 'FREE' | 'LITE' | 'PRO'
+export type SubscriptionTier = 'FREE' | 'BASIC' | 'LITE' | 'PRO'
 export type SubscriptionStatus = 'ACTIVE' | 'PENDING_PAYMENT' | 'EXPIRED' | 'CANCELLED'
 
 export interface SubscriptionFeatures {
@@ -23,6 +23,18 @@ export interface SubscriptionUsage {
   webhookEndpoints: number
 }
 
+export interface ChannelLimits {
+  maxWhatsappDevices: number
+  maxInstagramAccounts: number
+  maxMessengerAccounts: number
+}
+
+export interface ChannelUsage {
+  whatsappDevices: number
+  instagramAccounts: number
+  messengerAccounts: number
+}
+
 export interface SubscriptionData {
   tier: SubscriptionTier
   status: SubscriptionStatus
@@ -30,6 +42,8 @@ export interface SubscriptionData {
   features: SubscriptionFeatures
   limits: SubscriptionLimits
   usage: SubscriptionUsage
+  channelLimits: ChannelLimits
+  channelUsage: ChannelUsage
 }
 
 // Duration option from pricing API
@@ -61,16 +75,21 @@ export interface TierPricingWithDurations {
   currency: string
   features: string[]
   durations: DurationOption[]
+  enabled: boolean          // Whether the plan is available for purchase
+  isContactUs: boolean      // Show "Contact Us" instead of price
+  contactUrl: string        // URL for Contact Us button
 }
 
 // Legacy PricingData for backward compatibility
 export interface PricingData {
+  basic: TierPricing
   lite: TierPricing
   pro: TierPricing
 }
 
 // New pricing data with durations
 export interface PricingDataWithDurations {
+  basic: TierPricingWithDurations
   lite: TierPricingWithDurations
   pro: TierPricingWithDurations
 }
@@ -83,6 +102,13 @@ function convertToLegacyPricing(data: PricingDataWithDurations): PricingData {
   }
 
   return {
+    basic: {
+      tier: 'BASIC',
+      price: getMonthlyPrice(data.basic),
+      currency: data.basic.currency,
+      period: 'month',
+      features: data.basic.features,
+    },
     lite: {
       tier: 'LITE',
       price: getMonthlyPrice(data.lite),
@@ -98,6 +124,20 @@ function convertToLegacyPricing(data: PricingDataWithDurations): PricingData {
       features: data.pro.features,
     },
   }
+}
+
+export interface ProrateInfo {
+  hasProration: boolean
+  currentTier?: string
+  targetTier: string
+  currentTierPrice?: number
+  targetTierPrice?: number
+  daysRemaining?: number
+  totalDays?: number
+  prorateCredit?: number
+  originalPrice: number
+  effectivePrice: number
+  savings?: number
 }
 
 export const subscriptionApi = {
@@ -135,5 +175,23 @@ export const subscriptionApi = {
     const pricing = convertToLegacyPricing(pricingWithDurations)
 
     return { pricing, pricingWithDurations }
+  },
+
+  async getProrate(targetTier: SubscriptionTier, durationMonths: number): Promise<ProrateInfo> {
+    const response = await fetch(
+      `${API_URL}/api/v1/payment/prorate?targetTier=${targetTier}&durationMonths=${durationMonths}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+      }
+    )
+
+    const result = await response.json()
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to fetch prorate info')
+    }
+
+    return result.data
   },
 }

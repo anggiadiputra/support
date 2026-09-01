@@ -2,7 +2,7 @@ import { Queue, Worker, QueueEvents } from 'bullmq'
 import { Redis } from 'ioredis'
 
 // Redis connection configuration for Upstash
-const redisConnection = new Redis({
+export const redisConnection = new Redis({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
@@ -18,6 +18,9 @@ export const QUEUE_NAMES = {
     WEBHOOK: 'webhook-processing',
     MESSAGE: 'message-processing',
     WEBHOOK_OUTBOUND: 'webhook-outbound',
+    MEMORY: 'memory-processing',
+    BROADCAST: 'broadcast-processing',
+    DOCUMENT: 'document-processing',
 } as const
 
 // Webhook Queue - for processing incoming webhooks
@@ -77,6 +80,63 @@ export const webhookOutboundQueue = new Queue(QUEUE_NAMES.WEBHOOK_OUTBOUND, {
     },
 })
 
+// Memory Queue - for processing conversation memory embeddings
+export const memoryQueue = new Queue(QUEUE_NAMES.MEMORY, {
+    connection: redisConnection,
+    defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 1000, // 1s, 2s, 4s
+        },
+        removeOnComplete: {
+            count: 100,
+            age: 3600, // Remove after 1 hour
+        },
+        removeOnFail: {
+            count: 500, // Keep last 500 failed jobs for debugging
+        },
+    },
+})
+
+// Broadcast Queue - for processing bulk template sends with recovery support
+export const broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, {
+    connection: redisConnection,
+    defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 5000, // 5s, 10s, 20s - longer delays for broadcast retries
+        },
+        removeOnComplete: {
+            count: 100,
+            age: 86400, // Keep for 24 hours (broadcasts are important)
+        },
+        removeOnFail: {
+            count: 500,
+        },
+    },
+})
+
+// Document Queue - for processing knowledge base document uploads (PDF parsing + embeddings)
+export const documentQueue = new Queue(QUEUE_NAMES.DOCUMENT, {
+    connection: redisConnection,
+    defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 5000, // 5s, 10s, 20s - PDF processing can take time
+        },
+        removeOnComplete: {
+            count: 100,
+            age: 3600, // Remove after 1 hour
+        },
+        removeOnFail: {
+            count: 500, // Keep failed jobs for debugging
+        },
+    },
+})
+
 // Queue Events for monitoring
 export const webhookQueueEvents = new QueueEvents(QUEUE_NAMES.WEBHOOK, {
     connection: redisConnection,
@@ -90,15 +150,33 @@ export const webhookOutboundQueueEvents = new QueueEvents(QUEUE_NAMES.WEBHOOK_OU
     connection: redisConnection,
 })
 
+export const memoryQueueEvents = new QueueEvents(QUEUE_NAMES.MEMORY, {
+    connection: redisConnection,
+})
+
+export const broadcastQueueEvents = new QueueEvents(QUEUE_NAMES.BROADCAST, {
+    connection: redisConnection,
+})
+
+export const documentQueueEvents = new QueueEvents(QUEUE_NAMES.DOCUMENT, {
+    connection: redisConnection,
+})
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('📦 Closing queues...')
     await webhookQueue.close()
     await messageQueue.close()
     await webhookOutboundQueue.close()
+    await memoryQueue.close()
+    await broadcastQueue.close()
+    await documentQueue.close()
     await webhookQueueEvents.close()
     await messageQueueEvents.close()
     await webhookOutboundQueueEvents.close()
+    await memoryQueueEvents.close()
+    await broadcastQueueEvents.close()
+    await documentQueueEvents.close()
     await redisConnection.quit()
     console.log('✅ Queues closed')
 })
@@ -116,6 +194,14 @@ webhookOutboundQueueEvents.on('failed', ({ jobId, failedReason }) => {
     console.error(`❌ Webhook outbound job ${jobId} failed:`, failedReason)
 })
 
+memoryQueueEvents.on('failed', ({ jobId, failedReason }) => {
+    console.error(`❌ Memory job ${jobId} failed:`, failedReason)
+})
+
+broadcastQueueEvents.on('failed', ({ jobId, failedReason }) => {
+    console.error(`❌ Broadcast job ${jobId} failed:`, failedReason)
+})
+
 // Success logging
 webhookQueueEvents.on('completed', ({ jobId }) => {
     console.log(`✅ Webhook job ${jobId} completed`)
@@ -127,4 +213,20 @@ messageQueueEvents.on('completed', ({ jobId }) => {
 
 webhookOutboundQueueEvents.on('completed', ({ jobId }) => {
     console.log(`✅ Webhook outbound job ${jobId} completed`)
+})
+
+memoryQueueEvents.on('completed', ({ jobId }) => {
+    console.log(`✅ Memory job ${jobId} completed`)
+})
+
+broadcastQueueEvents.on('completed', ({ jobId }) => {
+    console.log(`✅ Broadcast job ${jobId} completed`)
+})
+
+documentQueueEvents.on('failed', ({ jobId, failedReason }) => {
+    console.error(`❌ Document job ${jobId} failed:`, failedReason)
+})
+
+documentQueueEvents.on('completed', ({ jobId }) => {
+    console.log(`✅ Document job ${jobId} completed`)
 })

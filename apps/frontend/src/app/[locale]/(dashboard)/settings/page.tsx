@@ -18,8 +18,6 @@ import {
   Lock,
   Save,
   Loader2,
-  SquarePen,
-  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { settingsApi } from "@/lib/api/settings-api"
@@ -29,8 +27,6 @@ import { RoleGuard } from "@/components/auth/role-guard"
 export default function SettingsPage() {
   const { userEmail, userName, userId } = useBusinessAccount()
   const [saving, setSaving] = useState(false)
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [isEditingPassword, setIsEditingPassword] = useState(false)
   const { toast } = useToast()
 
   // Profile form state
@@ -78,7 +74,6 @@ export default function SettingsPage() {
         title: "Success",
         description: result.message || "Profile updated successfully",
       })
-      setIsEditingProfile(false)
 
       // If email changed, show verification message
       if (profileForm.email !== userEmail) {
@@ -139,7 +134,6 @@ export default function SettingsPage() {
         title: "Success",
         description: "Password changed successfully",
       })
-      setIsEditingPassword(false)
 
       // Clear form
       setPasswordForm({
@@ -178,26 +172,12 @@ export default function SettingsPage() {
           <TabsContent value="profile" className="space-y-6">
             {/* Profile Settings */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-blue-600" />
-                    Profile Settings
-                  </CardTitle>
-                  <CardDescription>Update your profile information</CardDescription>
-                </div>
-                {!isEditingProfile && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingProfile(true)}
-                    className="gap-1.5"
-                  >
-                    <SquarePen className="h-4 w-4" />
-                    Edit
-                  </Button>
-                )}
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Profile Settings
+                </CardTitle>
+                <CardDescription>Update your profile information</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -211,7 +191,6 @@ export default function SettingsPage() {
                         setProfileForm({ ...profileForm, name: e.target.value })
                       }
                       placeholder="Your name"
-                      disabled={!isEditingProfile}
                       required
                     />
                   </div>
@@ -226,80 +205,46 @@ export default function SettingsPage() {
                         setProfileForm({ ...profileForm, email: e.target.value })
                       }
                       placeholder="your@email.com"
-                      disabled={!isEditingProfile}
                       required
                     />
-                    {isEditingProfile && profileForm.email !== userEmail && (
+                    {profileForm.email !== userEmail && (
                       <p className="text-sm text-amber-600">
                         Changing your email will require verification
                       </p>
                     )}
                   </div>
 
-                  {isEditingProfile && (
-                    <div className="flex items-center gap-2 pt-2">
-                      <Button
-                        type="submit"
-                        disabled={saving}
-                        className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {saving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={saving}
-                        onClick={() => {
-                          setProfileForm({
-                            name: userName || "",
-                            email: userEmail || "",
-                          })
-                          setIsEditingProfile(false)
-                        }}
-                        className="w-full sm:w-auto"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full sm:w-auto"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
 
             {/* Password Settings */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <Lock className="h-5 w-5 text-blue-600" />
-                    Change Password
-                  </CardTitle>
-                  <CardDescription>
-                    Update your password to keep your account secure
-                  </CardDescription>
-                </div>
-                {!isEditingPassword && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingPassword(true)}
-                    className="gap-1.5"
-                  >
-                    <SquarePen className="h-4 w-4" />
-                    Edit
-                  </Button>
-                )}
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  Change Password
+                </CardTitle>
+                <CardDescription>
+                  Update your password to keep your account secure
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleChangePassword} className="space-y-4">
@@ -316,7 +261,6 @@ export default function SettingsPage() {
                         })
                       }
                       placeholder="Enter current password"
-                      disabled={!isEditingPassword}
                       required
                     />
                   </div>
@@ -334,7 +278,6 @@ export default function SettingsPage() {
                         })
                       }
                       placeholder="Enter new password"
-                      disabled={!isEditingPassword}
                       required
                       minLength={8}
                     />
@@ -357,56 +300,34 @@ export default function SettingsPage() {
                         })
                       }
                       placeholder="Confirm new password"
-                      disabled={!isEditingPassword}
                       required
                     />
-                    {isEditingPassword &&
-                      passwordForm.confirmPassword &&
+                    {passwordForm.confirmPassword &&
                       passwordForm.newPassword !==
-                        passwordForm.confirmPassword && (
+                      passwordForm.confirmPassword && (
                         <p className="text-sm text-destructive">
                           Passwords do not match
                         </p>
                       )}
                   </div>
 
-                  {isEditingPassword && (
-                    <div className="flex items-center gap-2 pt-2">
-                      <Button
-                        type="submit"
-                        disabled={saving}
-                        className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {saving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Changing Password...
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="mr-2 h-4 w-4" />
-                            Change Password
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={saving}
-                        onClick={() => {
-                          setPasswordForm({
-                            currentPassword: "",
-                            newPassword: "",
-                            confirmPassword: "",
-                          })
-                          setIsEditingPassword(false)
-                        }}
-                        className="w-full sm:w-auto"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full sm:w-auto"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Changing Password...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Change Password
+                      </>
+                    )}
+                  </Button>
                 </form>
               </CardContent>
             </Card>

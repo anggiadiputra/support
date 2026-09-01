@@ -1,16 +1,25 @@
 import winston from 'winston'
 
-const { combine, timestamp, errors, printf, colorize } = winston.format
+import { sanitizeLogValue, serializeLogMeta } from './logger-serializer.js'
 
-// Custom format for console output
-const consoleFormat = printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}]: ${stack || message}`
+const { combine, timestamp, errors, printf, colorize } = winston.format
+const sanitizeFormat = winston.format((info) => sanitizeLogValue(info) as winston.Logform.TransformableInfo)
+
+// Custom format for console output - include all metadata
+const consoleFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
+  // Remove service from meta as it's redundant
+  const { service, ...restMeta } = meta
+  const metaStr = Object.keys(restMeta).length > 0 
+    ? '\n' + serializeLogMeta(restMeta) 
+    : ''
+  return `${timestamp} [${level}]: ${stack || message}${metaStr}`
 })
 
 // Create logger instance
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: combine(
+    sanitizeFormat(),
     timestamp(),
     errors({ stack: true }),
     winston.format.json()
@@ -54,4 +63,69 @@ import path from 'path'
 const logsDir = path.join(process.cwd(), 'logs')
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true })
+}
+
+// ============================================================================
+// extractAxiosError
+// ============================================================================
+//
+// Extract only safe, bounded fields from an AxiosError-shaped object.
+//
+// Returns a plain object suitable for `logger.error(msg, { error: extractAxiosError(err) })`.
+// NEVER includes `error.config`, `error.request`, or `error.response.headers` —
+// those are the leak vector (Bearer tokens, set-cookie, raw HTTP) and OOM
+// vector (ClientRequest references socket/agent/buffers).
+//
+// Call this at every catch site that catches an axios error before passing
+// the error to logger/console.
+// ============================================================================
+
+import type { AxiosError } from 'axios'
+
+// Mirror of the pattern in logger-serializer.ts; kept local so the helper is
+// self-contained and does not need a circular import.
+const TOKEN_QUERY_PATTERN_LOGGER = /([?&](access_token|token|apikey|api_key|client_secret)=)[^&#]+/gi
+
+export function extractAxiosError(error: unknown): Record<string, unknown> {
+  if (error === null || error === undefined) {
+    return { error: String(error) }
+  }
+
+  if (typeof error !== 'object') {
+    return { error: String(error) }
+  }
+
+  const err = error as AxiosError & { code?: string }
+  const isAxios = (err as { isAxiosError?: boolean }).isAxiosError === true
+
+  if (!isAxios) {
+    // Plain Error path — return name/message/stack only.
+    return {
+      name: (err as Error).name,
+      message: (err as Error).message,
+      stack: (err as Error).stack,
+    }
+  }
+
+  // Build the redacted URL (strip access_token from query string)
+  const rawUrl = err.config?.url ?? ''
+  const safeUrl = rawUrl.replace(TOKEN_QUERY_PATTERN_LOGGER, '$1[REDACTED]')
+
+  return {
+    message: err.message,
+    code: err.code,
+    request: {
+      method: err.config?.method?.toUpperCase(),
+      url: safeUrl,
+    },
+    response: err.response
+      ? {
+          status: err.response.status,
+          // err.response.data is usually the JSON Meta error body — safe to keep.
+          // The serializer will redact any nested access_token inside anyway.
+          data: err.response.data,
+        }
+      : undefined,
+    stack: err.stack,
+  }
 }

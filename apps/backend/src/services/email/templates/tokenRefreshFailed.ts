@@ -8,7 +8,9 @@ interface TokenRefreshFailedParams {
 
 export const tokenRefreshFailedTemplate: EmailTemplate = (params: TokenRefreshFailedParams) => {
   const { wabaId, businessName, error } = params;
-  
+  const appName = process.env.APP_NAME || 'Messaging Platform';
+  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${process.env.DEFAULT_LOCALE || 'en'}/dashboard`;
+
   return {
     subject: `[URGENT] WhatsApp Token Refresh Failed - ${businessName}`,
     body: `
@@ -26,7 +28,7 @@ export const tokenRefreshFailedTemplate: EmailTemplate = (params: TokenRefreshFa
       <h3>Action Required:</h3>
       <p>Please reconnect your WhatsApp Business Account to restore messaging services:</p>
       <ol>
-        <li>Log in to your dashboard at https://kirim.chat/dashboard</li>
+        <li>Log in to your dashboard at ${dashboardUrl}</li>
         <li>Navigate to WhatsApp Settings</li>
         <li>Click "Reconnect WhatsApp"</li>
         <li>Complete the authorization flow</li>
@@ -34,7 +36,7 @@ export const tokenRefreshFailedTemplate: EmailTemplate = (params: TokenRefreshFa
       
       <p>If you continue to experience issues, please contact support.</p>
       
-      <p>Best regards,<br>Kirim.Chat Team</p>
+      <p>Best regards,<br>${appName} Team</p>
     `
   };
 };

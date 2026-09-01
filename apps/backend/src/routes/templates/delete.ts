@@ -2,8 +2,9 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
-import { getWhatsAppClientAsync } from '../../utils/whatsapp.js'
+import { WhatsAppAPI } from '../../utils/whatsapp.js'
 import { templateCacheService } from '../../services/template-cache-service.js'
+import { resolveCredentialsForSending } from '../../utils/whatsapp-account-helper.js'
 
 const app = new Hono()
 
@@ -13,15 +14,7 @@ app.delete('/:id', async (c: Context) => {
     const id = c.req.param('id')
 
     const template = await prisma.messageTemplate.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            wabaId: true
-          }
-        }
-      }
+      where: { id }
     })
 
     if (!template) {
@@ -44,10 +37,13 @@ app.delete('/:id', async (c: Context) => {
     }
 
     // If template is submitted to Meta, delete from Meta first
-    if (template.metaTemplateId && template.user.wabaId) {
+    if (template.metaTemplateId) {
       try {
-        const whatsapp = await getWhatsAppClientAsync()
-        await whatsapp.deleteTemplate(template.user.wabaId, template.templateName)
+        const credentials = await resolveCredentialsForSending(template.userId)
+        if (credentials) {
+          const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
+          await whatsapp.deleteTemplate(credentials.wabaId, template.templateName)
+        }
       } catch (metaError) {
         console.error('Failed to delete from Meta:', metaError)
         // Continue with local deletion even if Meta deletion fails

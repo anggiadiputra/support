@@ -14,6 +14,9 @@ import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
 import { instagramService, InstagramError } from '../../services/InstagramService.js'
 import { disconnectService, type DisconnectMode, type InstagramDeletedCounts } from '../../services/disconnect-service.js'
+import { getSubscription } from '../../middleware/subscription.js'
+import { adminSubscriptionPlansService, type PlanTier } from '../../services/admin/subscription-plans-service.js'
+import { SubscriptionTier, SubscriptionStatus } from '@prisma/client'
 
 const app = new Hono()
 
@@ -33,19 +36,36 @@ app.get('/url', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Context) => 
       }, 401)
     }
 
-    // Check if user already has an Instagram account connected
-    const existingAccount = await prisma.instagramAccount.findFirst({
+    // Check subscription limit for Instagram accounts
+    const subscription = await getSubscription(c.user.id)
+    
+    // Get effective tier (treat inactive subscriptions as FREE)
+    const INACTIVE_STATUSES: SubscriptionStatus[] = [
+      SubscriptionStatus.EXPIRED,
+      SubscriptionStatus.CANCELLED,
+      SubscriptionStatus.PENDING_PAYMENT
+    ]
+    const effectiveTier = INACTIVE_STATUSES.includes(subscription.status) 
+      ? SubscriptionTier.FREE 
+      : subscription.tier
+    
+    // Get channel limits from admin-configurable settings
+    const planTier = effectiveTier.toLowerCase() as PlanTier
+    const channelLimits = await adminSubscriptionPlansService.getChannelLimits(planTier)
+    
+    // Count current connected Instagram accounts
+    const connectedAccountsCount = await prisma.instagramAccount.count({
       where: {
         userId: c.user.id,
         connectionStatus: 'connected'
       }
     })
 
-    if (existingAccount) {
+    if (connectedAccountsCount >= channelLimits.maxInstagramAccounts) {
       return c.json({
         error: {
-          code: 'BadRequest',
-          message: 'Instagram account already connected. Disconnect first to connect a different account.'
+          code: 'LimitReached',
+          message: `You have reached the maximum number of Instagram accounts (${channelLimits.maxInstagramAccounts}) for your subscription plan. Please upgrade or disconnect an existing account.`
         }
       }, 400)
     }
@@ -251,6 +271,7 @@ app.get('/callback', async (c: Context) => {
 /**
  * GET /status - Get current Instagram connection status
  * Requirements: 1.5, 6.1 (Agent access)
+ * Returns all connected Instagram accounts for the user
  */
 app.get('/status', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c: Context) => {
   try {
@@ -268,8 +289,8 @@ app.get('/status', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c: 
       ? c.user.businessOwnerId 
       : c.user.id
 
-    // Get user's Instagram account
-    const igAccount = await prisma.instagramAccount.findFirst({
+    // Get ALL user's Instagram accounts (not just first one)
+    const igAccounts = await prisma.instagramAccount.findMany({
       where: { userId },
       select: {
         id: true,
@@ -286,30 +307,31 @@ app.get('/status', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c: 
             conversations: true
           }
         }
-      }
+      },
+      orderBy: { connectedAt: 'desc' }
     })
 
-    if (!igAccount) {
+    if (igAccounts.length === 0) {
       return c.json({
         success: true,
         data: {
           connected: false,
-          connectionStatus: 'not_connected'
+          connectionStatus: 'not_connected',
+          accounts: []
         }
       })
     }
 
-    // Check if token is expiring soon
     const now = new Date()
-    const tokenExpiresAt = new Date(igAccount.tokenExpiresAt)
-    const daysUntilExpiry = Math.floor((tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    const isTokenExpiringSoon = daysUntilExpiry <= 7
-    const isTokenExpired = tokenExpiresAt < now
+    
+    // Map accounts with token status
+    const accountsWithStatus = igAccounts.map(igAccount => {
+      const tokenExpiresAt = new Date(igAccount.tokenExpiresAt)
+      const daysUntilExpiry = Math.floor((tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const isTokenExpiringSoon = daysUntilExpiry <= 7
+      const isTokenExpired = tokenExpiresAt < now
 
-    return c.json({
-      success: true,
-      data: {
-        connected: igAccount.connectionStatus === 'connected',
+      return {
         id: igAccount.id,
         igId: igAccount.igId,
         username: igAccount.username,
@@ -323,6 +345,35 @@ app.get('/status', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c: 
         isTokenExpired,
         grantedPermissions: igAccount.grantedPermissions,
         conversationCount: igAccount._count.conversations
+      }
+    })
+
+    // Check if any account is connected
+    const hasConnectedAccount = accountsWithStatus.some(a => a.connectionStatus === 'connected')
+    
+    // For backward compatibility, also return the first account's data at root level
+    const primaryAccount = accountsWithStatus[0]
+
+    return c.json({
+      success: true,
+      data: {
+        // Backward compatibility fields (first/primary account)
+        connected: hasConnectedAccount,
+        id: primaryAccount.id,
+        igId: primaryAccount.igId,
+        username: primaryAccount.username,
+        profilePicUrl: primaryAccount.profilePicUrl,
+        connectionStatus: primaryAccount.connectionStatus,
+        connectedAt: primaryAccount.connectedAt,
+        lastSyncAt: primaryAccount.lastSyncAt,
+        tokenExpiresAt: primaryAccount.tokenExpiresAt,
+        daysUntilTokenExpiry: primaryAccount.daysUntilTokenExpiry,
+        isTokenExpiringSoon: primaryAccount.isTokenExpiringSoon,
+        isTokenExpired: primaryAccount.isTokenExpired,
+        grantedPermissions: primaryAccount.grantedPermissions,
+        conversationCount: primaryAccount.conversationCount,
+        // New: array of all accounts
+        accounts: accountsWithStatus
       }
     })
   } catch (error) {
@@ -512,16 +563,21 @@ app.delete('/', requireRole(['ADMIN', 'BUSINESS_OWNER']), async (c: Context) => 
       }, 400)
     }
 
-    // Get user's Instagram account
+    // Get specific account by ID if provided, otherwise get any account
+    const accountId = body.accountId
     const igAccount = await prisma.instagramAccount.findFirst({
-      where: { userId: c.user.id }
+      where: accountId 
+        ? { id: accountId, userId: c.user.id }
+        : { userId: c.user.id }
     })
 
     if (!igAccount) {
       return c.json({
         error: {
           code: 'NotFound',
-          message: 'No Instagram account connected'
+          message: accountId 
+            ? 'Instagram account not found or does not belong to you'
+            : 'No Instagram account connected'
         }
       }, 404)
     }

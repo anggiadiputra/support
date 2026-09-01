@@ -17,10 +17,12 @@ export type WebSocketEventType =
   | "typing_indicator"
   | "unread_count_updated"
   | "assignment_changed"
+  | "outbound_message"
+  | "new_notification"
 
 export interface NewMessagePayload {
   conversationId: string
-  channel: "whatsapp" | "instagram"
+  channel: "whatsapp" | "instagram" | "messenger"
   participantId: string
   participantName: string | null
   message: {
@@ -98,17 +100,40 @@ export interface UnreadCountUpdatedEvent extends BaseEvent {
 }
 
 /**
+ * Assignment history item from WebSocket event
+ * Used for realtime updates to assignment history
+ */
+export interface AssignmentHistoryItemPayload {
+  id: string
+  assigneeId: string | null
+  assigneeName: string | null
+  assigneeType: "HUMAN" | "AI_AGENT"
+  aiAgentId: string | null
+  aiAgentName: string | null
+  assignedById: string
+  assignedByName: string | null
+  assignedAt: string
+  unassignedAt: string | null
+}
+
+/**
  * Payload for assignment_changed event
  * Emitted when a conversation is assigned or unassigned
  * Requirements: 2.4
  */
 export interface AssignmentChangedPayload {
   conversationId: string
-  conversationType: "whatsapp" | "instagram"
+  conversationType: "whatsapp" | "instagram" | "messenger"
   assigneeId: string | null
   assigneeName: string | null
+  assigneeType?: "HUMAN" | "AI_AGENT"
+  aiAgentId?: string | null
+  aiAgentName?: string | null
   assignedById: string
+  assignedByName?: string | null
   action: "assigned" | "unassigned"
+  // History item for realtime updates
+  historyItem?: AssignmentHistoryItemPayload
 }
 
 /**
@@ -118,6 +143,56 @@ export interface AssignmentChangedPayload {
 export interface AssignmentChangedEvent extends BaseEvent {
   type: "assignment_changed"
   payload: AssignmentChangedPayload
+}
+
+/**
+ * Payload for outbound_message event
+ * Emitted when an outbound message is sent (by human or AI agent)
+ */
+export interface OutboundMessagePayload {
+  conversationId: string
+  channel: "whatsapp" | "instagram" | "messenger"
+  message: {
+    id: string
+    content: string
+    contentType: "text" | "image" | "video" | "audio" | "document" | "template" | "interactive"
+    timestamp: string
+    senderId: string
+    senderName: string
+    senderType: "human" | "ai_agent"
+  }
+}
+
+/**
+ * Event for outbound messages
+ */
+export interface OutboundMessageEvent extends BaseEvent {
+  type: "outbound_message"
+  payload: OutboundMessagePayload
+}
+
+/**
+ * Payload for new_notification event
+ * Emitted when a new notification is created for the user
+ */
+export interface NewNotificationPayload {
+  id: string
+  type: string
+  title: string
+  message: string
+  priority: string
+  actionUrl?: string | null
+  actionLabel?: string | null
+  isRead: boolean
+  createdAt: string
+}
+
+/**
+ * Event for new notifications
+ */
+export interface NewNotificationEvent {
+  type: "new_notification"
+  payload: NewNotificationPayload
 }
 
 // ============================================
@@ -141,6 +216,8 @@ export interface UseWebSocketOptions {
   onTypingIndicator?: (event: TypingIndicatorEvent) => void
   onUnreadCountUpdated?: (event: UnreadCountUpdatedEvent) => void
   onAssignmentChanged?: (event: AssignmentChangedEvent) => void
+  onOutboundMessage?: (event: OutboundMessageEvent) => void
+  onNewNotification?: (event: NewNotificationEvent) => void
   onConnectionChange?: (state: WebSocketState) => void
   enabled?: boolean
 }
@@ -172,6 +249,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     onTypingIndicator,
     onUnreadCountUpdated,
     onAssignmentChanged,
+    onOutboundMessage,
+    onNewNotification,
     onConnectionChange,
     enabled = true,
   } = options
@@ -191,8 +270,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const reconnectAttemptsRef = useRef(0)
   const isVisibleRef = useRef(true)
   const enabledRef = useRef(enabled)
-  const connectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isMountedRef = useRef(false)
 
   // Refs for callbacks to avoid stale closures in event listeners
   const onNewMessageRef = useRef(onNewMessage)
@@ -201,6 +278,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const onTypingIndicatorRef = useRef(onTypingIndicator)
   const onUnreadCountUpdatedRef = useRef(onUnreadCountUpdated)
   const onAssignmentChangedRef = useRef(onAssignmentChanged)
+  const onOutboundMessageRef = useRef(onOutboundMessage)
+  const onNewNotificationRef = useRef(onNewNotification)
 
   // Update refs when callbacks change
   useEffect(() => {
@@ -210,7 +289,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     onTypingIndicatorRef.current = onTypingIndicator
     onUnreadCountUpdatedRef.current = onUnreadCountUpdated
     onAssignmentChangedRef.current = onAssignmentChanged
-  }, [onNewMessage, onConversationUpdated, onMessageStatus, onTypingIndicator, onUnreadCountUpdated, onAssignmentChanged])
+    onOutboundMessageRef.current = onOutboundMessage
+    onNewNotificationRef.current = onNewNotification
+  }, [onNewMessage, onConversationUpdated, onMessageStatus, onTypingIndicator, onUnreadCountUpdated, onAssignmentChanged, onOutboundMessage, onNewNotification])
 
   // Update enabled ref when prop changes
   useEffect(() => {
@@ -284,6 +365,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       socket.on("assignment_changed", (event: AssignmentChangedEvent) => {
         updateState({ lastEventAt: new Date() })
         onAssignmentChangedRef.current?.(event)
+      })
+
+      // Outbound message event
+      socket.on("outbound_message", (event: OutboundMessageEvent) => {
+        updateState({ lastEventAt: new Date() })
+        onOutboundMessageRef.current?.(event)
+      })
+
+      // New notification event
+      socket.on("new_notification", (event: NewNotificationEvent) => {
+        updateState({ lastEventAt: new Date() })
+        onNewNotificationRef.current?.(event)
       })
     },
     [updateState]
@@ -400,20 +493,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   // Disconnect from WebSocket server
   const disconnect = useCallback(() => {
     clearReconnectTimeout()
-    if (connectTimeoutRef.current) {
-      clearTimeout(connectTimeoutRef.current)
-      connectTimeoutRef.current = null
-    }
     reconnectAttemptsRef.current = 0
 
     if (socketRef.current) {
       socketRef.current.removeAllListeners()
-      // Only disconnect if connected or actively connecting
-      if (socketRef.current.connected) {
-        socketRef.current.disconnect()
-      } else {
-        socketRef.current.close()
-      }
+      socketRef.current.disconnect()
       socketRef.current = null
     }
 
@@ -451,25 +535,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     }
   }, [handleVisibilityChange])
 
-  // Connect on mount if enabled (with delay to handle React Strict Mode double-invoke)
+  // Connect on mount if enabled
   useEffect(() => {
-    isMountedRef.current = true
-
     if (enabled && isVisibleRef.current) {
-      // Small delay to let React Strict Mode complete its unmount-remount cycle
-      connectTimeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current && enabledRef.current) {
-          connect()
-        }
-      }, 100)
+      connect()
     }
 
     return () => {
-      isMountedRef.current = false
-      if (connectTimeoutRef.current) {
-        clearTimeout(connectTimeoutRef.current)
-        connectTimeoutRef.current = null
-      }
       disconnect()
     }
   }, [enabled]) // Only depend on enabled, not connect/disconnect to avoid loops

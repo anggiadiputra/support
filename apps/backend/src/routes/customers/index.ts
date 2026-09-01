@@ -13,6 +13,8 @@ import exportCustomers from './export.js'
 import importCustomers from './import.js'
 import activityRoutes from './activities.js'
 import broadcastEligible from './broadcast-eligible.js'
+import notesRoutes from './notes.js'
+import statsRoutes from './stats.js'
 
 const app = new Hono()
 
@@ -23,13 +25,15 @@ app.use('/*', resolveContext)
 // All customer routes require customers:read permission at minimum
 app.use('/*', requirePermission('customers:read'))
 
-// Mount all routes
+// Mount all routes - stats and static paths before /:id pattern
+app.route('/', statsRoutes)
 app.route('/', broadcastEligible)
 app.route('/', listCustomers)
+app.route('/', exportCustomers)
 app.route('/', getCustomerDetail)
 app.route('/', getWindowStatus)
-app.route('/', exportCustomers)
 app.route('/', activityRoutes)
+app.route('/', notesRoutes)
 app.route('/', createCustomer)
 app.route('/', updateCustomer)
 app.route('/', updateConsent)

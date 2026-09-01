@@ -27,7 +27,7 @@ export function usePrefetch() {
     try {
       await queryClient.prefetchQuery({
         queryKey: queryKeys.dashboard.stats(),
-        queryFn: dashboardApi.getStats,
+        queryFn: () => dashboardApi.getStats(),
         staleTime: CACHE_TIMES.dashboard.staleTime,
       })
     } catch {

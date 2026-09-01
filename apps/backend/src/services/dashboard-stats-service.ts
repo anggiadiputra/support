@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../utils/database.js'
 import { getActiveWindowsCount } from '../utils/messageWindow.js'
 
@@ -122,11 +123,22 @@ export class DashboardStatsService {
    * Get comprehensive enhanced stats for user dashboard
    * Requirements: 1.1-1.5, 2.1-2.6, 3.1-3.4, 4.1-4.3, 5.1-5.4
    */
-  static async getEnhancedStats(userId: string): Promise<EnhancedDashboardStats> {
+  static async getEnhancedStats(
+    userId: string, 
+    whatsappPhoneNumberId?: string,
+    customStartDate?: Date,
+    customEndDate?: Date
+  ): Promise<EnhancedDashboardStats> {
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    
+    // Use custom date range if provided
+    const rangeStart = customStartDate || oneMonthAgo
+    // Set rangeEnd to end of day (23:59:59.999) to include all messages on that day
+    const rangeEndDate = customEndDate || now
+    const rangeEnd = new Date(rangeEndDate.getFullYear(), rangeEndDate.getMonth(), rangeEndDate.getDate(), 23, 59, 59, 999)
 
     // Execute all queries in parallel for performance
     const [
@@ -142,18 +154,18 @@ export class DashboardStatsService {
       activeWindowsCount,
       customerInsights
     ] = await Promise.all([
-      // Message stats with delivery/read rates
-      this.getMessageStats(userId, startOfToday, oneWeekAgo, oneMonthAgo),
-      // Message type breakdown
-      this.getMessageTypeStats(userId),
-      // Customer stats
-      this.getCustomerStats(userId, oneWeekAgo),
+      // Message stats with delivery/read rates (uses custom date range)
+      this.getMessageStats(userId, startOfToday, oneWeekAgo, rangeStart, rangeEnd, whatsappPhoneNumberId),
+      // Message type breakdown (uses custom date range)
+      this.getMessageTypeStats(userId, rangeStart, rangeEnd, whatsappPhoneNumberId),
+      // Customer stats (uses custom date range for "new" count)
+      this.getCustomerStats(userId, rangeStart, rangeEnd, whatsappPhoneNumberId),
       // Template stats by status
       this.getTemplateStats(userId),
       // Template stats by category
       this.getTemplateCategoryStats(userId),
-      // Template usage this month
-      this.getTemplateUsageThisMonth(userId, oneMonthAgo),
+      // Template usage (uses custom date range)
+      this.getTemplateUsageThisMonth(userId, rangeStart, rangeEnd, whatsappPhoneNumberId),
       // WhatsApp connection status
       this.getWhatsAppStatus(userId),
       // Instagram stats
@@ -163,7 +175,7 @@ export class DashboardStatsService {
       // Active windows count
       getActiveWindowsCount(userId),
       // Customer insights (pipeline + top leads)
-      this.getCustomerInsights(userId)
+      this.getCustomerInsights(userId, whatsappPhoneNumberId)
     ])
 
     return {
@@ -203,7 +215,7 @@ export class DashboardStatsService {
    * Get message volume data for chart (last N days)
    * Requirements: 1.4, 3.1
    */
-  static async getMessageVolume(userId: string, days: number = 30): Promise<MessageVolumeData[]> {
+  static async getMessageVolume(userId: string, days: number = 30, whatsappPhoneNumberId?: string): Promise<MessageVolumeData[]> {
     const now = new Date()
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
@@ -212,6 +224,7 @@ export class DashboardStatsService {
       SELECT DATE(timestamp) as date, COUNT(*) as count
       FROM "Message"
       WHERE "userId" = ${userId} AND timestamp >= ${startDate}
+      ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
       GROUP BY DATE(timestamp)
       ORDER BY date ASC
     `
@@ -274,7 +287,7 @@ export class DashboardStatsService {
    * Get customer insights (pipeline distribution + top leads)
    * Requirements: 2.4, 2.5
    */
-  static async getCustomerInsights(userId: string): Promise<CustomerInsights> {
+  static async getCustomerInsights(userId: string, whatsappPhoneNumberId?: string): Promise<CustomerInsights> {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
     // Get pipeline stage distribution
@@ -284,7 +297,7 @@ export class DashboardStatsService {
       stageColor: string
       count: bigint
     }>>`
-      SELECT 
+      SELECT
         ps.id as "stageId",
         ps.name as "stageName",
         ps.color as "stageColor",
@@ -292,6 +305,7 @@ export class DashboardStatsService {
       FROM "PipelineStage" ps
       JOIN "Pipeline" p ON ps."pipelineId" = p.id
       LEFT JOIN "Customer" c ON c."pipelineStageId" = ps.id AND c."userId" = ${userId}
+        ${whatsappPhoneNumberId ? Prisma.sql`AND c."whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
       WHERE p."userId" = ${userId}
       GROUP BY ps.id, ps.name, ps.color, ps."order"
       ORDER BY ps."order" ASC
@@ -299,7 +313,10 @@ export class DashboardStatsService {
 
     // Get top 5 leads by score
     const topLeads = await prisma.customer.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(whatsappPhoneNumberId ? { whatsappPhoneNumberId } : {}),
+      },
       orderBy: { leadScore: 'desc' },
       take: 5,
       select: {
@@ -317,6 +334,7 @@ export class DashboardStatsService {
     const newThisWeek = await prisma.customer.count({
       where: {
         userId,
+        ...(whatsappPhoneNumberId ? { whatsappPhoneNumberId } : {}),
         createdAt: { gte: oneWeekAgo }
       }
     })
@@ -325,6 +343,7 @@ export class DashboardStatsService {
     const consented = await prisma.customer.count({
       where: {
         userId,
+        ...(whatsappPhoneNumberId ? { whatsappPhoneNumberId } : {}),
         consentStatus: true
       }
     })
@@ -352,28 +371,45 @@ export class DashboardStatsService {
    * Get quality metrics for user
    * Requirements: 5.1, 5.2, 5.3, 5.4
    */
-  static async getQualityMetrics(userId: string): Promise<QualityMetrics> {
-    const [qualityRating, user, phoneNumber] = await Promise.all([
+  static async getQualityMetrics(userId: string, whatsappPhoneNumberId?: string): Promise<QualityMetrics> {
+    // Look up the specific PhoneNumber first to get Meta's phoneNumberId for QualityRating filtering
+    const targetPhone = whatsappPhoneNumberId
+      ? await prisma.phoneNumber.findUnique({
+          where: { id: whatsappPhoneNumberId },
+          select: { phoneNumberId: true, qualityRating: true, messagingLimitTier: true, whatsappAccountId: true }
+        })
+      : null
+
+    const [qualityRating, waAccount, phoneNumber] = await Promise.all([
       prisma.qualityRating.findFirst({
-        where: { userId },
+        where: {
+          userId,
+          ...(targetPhone ? { phoneNumberId: targetPhone.phoneNumberId } : {}),
+        },
         orderBy: { measuredAt: 'desc' }
       }),
-      prisma.user.findUnique({
-        where: { id: userId },
+      prisma.whatsAppAccount.findFirst({
+        where: {
+          userId,
+          connectionStatus: 'connected',
+          ...(targetPhone?.whatsappAccountId ? { id: targetPhone.whatsappAccountId } : {}),
+        },
         select: { messagingTier: true }
       }),
-      // Fallback: get quality from PhoneNumber table (from Meta API)
-      prisma.phoneNumber.findFirst({
-        where: { userId, isPrimary: true },
-        select: { qualityRating: true, messagingLimitTier: true }
-      })
+      // Get quality from PhoneNumber table (from Meta API)
+      targetPhone
+        ? Promise.resolve({ qualityRating: targetPhone.qualityRating, messagingLimitTier: targetPhone.messagingLimitTier })
+        : prisma.phoneNumber.findFirst({
+            where: { userId, isPrimary: true },
+            select: { qualityRating: true, messagingLimitTier: true }
+          })
     ])
 
     // If we have QualityRating data, use it
     if (qualityRating) {
       return {
         rating: qualityRating.rating,
-        messagingTier: user?.messagingTier || phoneNumber?.messagingLimitTier || null,
+        messagingTier: waAccount?.messagingTier || phoneNumber?.messagingLimitTier || null,
         blockCount7days: qualityRating.blockCount7days,
         spamReportCount7days: qualityRating.spamReportCount7days,
         status: qualityRating.status
@@ -389,7 +425,7 @@ export class DashboardStatsService {
       }
       return {
         rating: ratingMap[phoneNumber.qualityRating] || null,
-        messagingTier: user?.messagingTier || phoneNumber.messagingLimitTier || null,
+        messagingTier: waAccount?.messagingTier || phoneNumber.messagingLimitTier || null,
         blockCount7days: 0,
         spamReportCount7days: 0,
         status: 'CONNECTED'
@@ -398,7 +434,7 @@ export class DashboardStatsService {
 
     return {
       rating: null,
-      messagingTier: user?.messagingTier || null,
+      messagingTier: waAccount?.messagingTier || null,
       blockCount7days: 0,
       spamReportCount7days: 0,
       status: null
@@ -411,51 +447,63 @@ export class DashboardStatsService {
     userId: string,
     startOfToday: Date,
     oneWeekAgo: Date,
-    oneMonthAgo: Date
+    rangeStart: Date,
+    rangeEnd: Date,
+    whatsappPhoneNumberId?: string
   ) {
     const stats = await prisma.$queryRaw<Array<{
       total: bigint
       today: bigint
       thisWeek: bigint
-      thisMonth: bigint
+      inRange: bigint
       sent: bigint
       delivered: bigint
       read: bigint
       failed: bigint
+      sentInRange: bigint
+      deliveredInRange: bigint
+      readInRange: bigint
+      failedInRange: bigint
     }>>`
       SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE timestamp >= ${startOfToday}) as today,
         COUNT(*) FILTER (WHERE timestamp >= ${oneWeekAgo}) as "thisWeek",
-        COUNT(*) FILTER (WHERE timestamp >= ${oneMonthAgo}) as "thisMonth",
+        COUNT(*) FILTER (WHERE timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}) as "inRange",
         COUNT(*) FILTER (WHERE direction = 'OUTBOUND') as sent,
         COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'DELIVERED') as delivered,
         COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'READ') as read,
-        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'FAILED') as failed
+        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'FAILED') as failed,
+        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}) as "sentInRange",
+        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'DELIVERED' AND timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}) as "deliveredInRange",
+        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'READ' AND timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}) as "readInRange",
+        COUNT(*) FILTER (WHERE direction = 'OUTBOUND' AND status = 'FAILED' AND timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}) as "failedInRange"
       FROM "Message"
       WHERE "userId" = ${userId}
+      ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
     const row = stats[0]
-    const sent = Number(row.sent)
-    const delivered = Number(row.delivered)
-    const read = Number(row.read)
+    const sent = Number(row.sentInRange)
+    const delivered = Number(row.deliveredInRange)
+    const read = Number(row.readInRange)
 
     return {
       total: Number(row.total),
       today: Number(row.today),
       thisWeek: Number(row.thisWeek),
-      thisMonth: Number(row.thisMonth),
+      thisMonth: Number(row.inRange), // Now represents selected range
+      inRange: Number(row.inRange),
       sent,
       delivered,
       read,
-      failed: Number(row.failed),
+      failed: Number(row.failedInRange),
       deliveryRate: sent > 0 ? Math.round((delivered / sent) * 100 * 10) / 10 : 0,
       readRate: delivered > 0 ? Math.round((read / delivered) * 100 * 10) / 10 : 0
     }
   }
 
-  private static async getMessageTypeStats(userId: string) {
+  private static async getMessageTypeStats(userId: string, rangeStart: Date, rangeEnd: Date, whatsappPhoneNumberId?: string) {
     const stats = await prisma.$queryRaw<Array<{
       text: bigint
       image: bigint
@@ -473,6 +521,8 @@ export class DashboardStatsService {
         COUNT(*) FILTER (WHERE "messageType" NOT IN ('TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'TEMPLATE')) as other
       FROM "Message"
       WHERE "userId" = ${userId}
+      AND timestamp >= ${rangeStart} AND timestamp <= ${rangeEnd}
+      ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
     const row = stats[0]
@@ -486,26 +536,27 @@ export class DashboardStatsService {
     }
   }
 
-  private static async getCustomerStats(userId: string, oneWeekAgo: Date) {
+  private static async getCustomerStats(userId: string, rangeStart: Date, rangeEnd: Date, whatsappPhoneNumberId?: string) {
     const stats = await prisma.$queryRaw<Array<{
       total: bigint
-      newThisWeek: bigint
+      newInRange: bigint
       consented: bigint
       blacklisted: bigint
     }>>`
       SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE "createdAt" >= ${oneWeekAgo}) as "newThisWeek",
+        COUNT(*) FILTER (WHERE "createdAt" >= ${rangeStart} AND "createdAt" <= ${rangeEnd}) as "newInRange",
         COUNT(*) FILTER (WHERE "consentStatus" = true) as consented,
         COUNT(*) FILTER (WHERE blacklisted = true) as blacklisted
       FROM "Customer"
       WHERE "userId" = ${userId}
+      ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
     const row = stats[0]
     return {
       total: Number(row.total),
-      newThisWeek: Number(row.newThisWeek),
+      newThisWeek: Number(row.newInRange), // Now represents selected range
       consented: Number(row.consented),
       blacklisted: Number(row.blacklisted)
     }
@@ -558,12 +609,13 @@ export class DashboardStatsService {
     }
   }
 
-  private static async getTemplateUsageThisMonth(userId: string, oneMonthAgo: Date) {
+  private static async getTemplateUsageThisMonth(userId: string, rangeStart: Date, rangeEnd: Date, whatsappPhoneNumberId?: string) {
     const count = await prisma.message.count({
       where: {
         userId,
         messageType: 'TEMPLATE',
-        timestamp: { gte: oneMonthAgo }
+        timestamp: { gte: rangeStart, lte: rangeEnd },
+        ...(whatsappPhoneNumberId ? { whatsappPhoneNumberId } : {}),
       }
     })
     return count
@@ -618,13 +670,13 @@ export class DashboardStatsService {
   }
 
   private static async getLatestQualityRating(userId: string) {
-    const [qualityRating, user, phoneNumber] = await Promise.all([
+    const [qualityRating, waAccount, phoneNumber] = await Promise.all([
       prisma.qualityRating.findFirst({
         where: { userId },
         orderBy: { measuredAt: 'desc' }
       }),
-      prisma.user.findUnique({
-        where: { id: userId },
+      prisma.whatsAppAccount.findFirst({
+        where: { userId, connectionStatus: 'connected' },
         select: { messagingTier: true }
       }),
       // Fallback: get quality from PhoneNumber table (from Meta API)
@@ -638,7 +690,7 @@ export class DashboardStatsService {
     if (qualityRating) {
       return {
         rating: qualityRating.rating,
-        messagingTier: user?.messagingTier || phoneNumber?.messagingLimitTier || null,
+        messagingTier: waAccount?.messagingTier || phoneNumber?.messagingLimitTier || null,
         blockCount7days: qualityRating.blockCount7days,
         spamReportCount7days: qualityRating.spamReportCount7days,
         status: qualityRating.status
@@ -654,7 +706,7 @@ export class DashboardStatsService {
       }
       return {
         rating: ratingMap[phoneNumber.qualityRating] || null,
-        messagingTier: user?.messagingTier || phoneNumber.messagingLimitTier || null,
+        messagingTier: waAccount?.messagingTier || phoneNumber.messagingLimitTier || null,
         blockCount7days: 0,
         spamReportCount7days: 0,
         status: 'CONNECTED'
@@ -665,14 +717,11 @@ export class DashboardStatsService {
   }
 
   private static async getWhatsAppStatus(userId: string) {
-    // Check if user has WhatsApp connected - same logic as useBusinessAccount hook
-    const [user, phoneNumber] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          wabaId: true,
-          wabaConnectionStatus: true,
-        }
+    // Check if user has WhatsApp connected via WhatsAppAccount
+    const [waAccount, phoneNumber] = await Promise.all([
+      prisma.whatsAppAccount.findFirst({
+        where: { userId, connectionStatus: 'connected' },
+        select: { id: true }
       }),
       // Get any phone number for this user
       prisma.phoneNumber.findFirst({
@@ -685,11 +734,8 @@ export class DashboardStatsService {
       })
     ])
 
-    // Same logic as frontend: isWABAConnected = wabaConnectionStatus === 'connected'
-    const isConnected = user?.wabaConnectionStatus === 'connected'
-
     return {
-      connected: isConnected,
+      connected: !!waAccount,
       phoneNumber: phoneNumber?.displayPhoneNumber || null,
       verifiedName: phoneNumber?.verifiedName || null,
     }

@@ -16,8 +16,10 @@ export interface SubscriptionExpiryReminderParams {
   expiryDate: Date;
   /** Days until expiry (7 or 1) */
   daysUntilExpiry: number;
-  /** Application name (defaults to KirimChat) */
+  /** Application name */
   appName?: string;
+  /** Support email address (rendered only if provided) */
+  supportEmail?: string;
 }
 
 export interface SubscriptionExpiryReminderTemplate {
@@ -50,8 +52,12 @@ export function subscriptionExpiryReminderTemplate(
     tierName,
     expiryDate,
     daysUntilExpiry,
-    appName = 'KirimChat',
+    appName = process.env.APP_NAME || 'Messaging Platform',
+    supportEmail = process.env.SUPPORT_EMAIL || '',
   } = params;
+  const locale = process.env.DEFAULT_LOCALE || 'en';
+  const subscriptionUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${locale}/subscription`;
+  const sanitizedSupportEmail = supportEmail ? escapeHtml(supportEmail) : '';
 
   // Sanitize inputs
   const sanitizedUserName = escapeHtml(userName);
@@ -65,7 +71,7 @@ export function subscriptionExpiryReminderTemplate(
   const urgencyText = isUrgent ? 'Besok' : `${daysUntilExpiry} Hari Lagi`;
 
   const subject = isUrgent
-    ? `⚠️ Subscription ${sanitizedTierName} Berakhir Besok - ${sanitizedAppName}`
+    ? `Subscription ${sanitizedTierName} Berakhir Besok - ${sanitizedAppName}`
     : `Pengingat: Subscription ${sanitizedTierName} Berakhir ${daysUntilExpiry} Hari Lagi - ${sanitizedAppName}`;
 
   const html = `
@@ -92,7 +98,7 @@ export function subscriptionExpiryReminderTemplate(
           <tr>
             <td style="padding: 32px 32px 16px; text-align: center;">
               <div style="width: 64px; height: 64px; margin: 0 auto; background-color: ${urgencyColor}; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px; color: #ffffff;">⏰</span>
+                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">!</span>
               </div>
             </td>
           </tr>
@@ -128,7 +134,7 @@ export function subscriptionExpiryReminderTemplate(
               
               <!-- CTA Button -->
               <div style="text-align: center; margin-bottom: 24px;">
-                <a href="${process.env.FRONTEND_URL || 'https://app.kirim.chat'}/subscription" 
+                <a href="${subscriptionUrl}"
                    style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                   Perpanjang Sekarang
                 </a>
@@ -146,9 +152,9 @@ export function subscriptionExpiryReminderTemplate(
               <p style="margin: 0 0 8px; font-size: 12px; color: #999; text-align: center;">
                 Jika Anda sudah memperpanjang, abaikan email ini.
               </p>
-              <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
-                Butuh bantuan? Hubungi support@kirim.chat
-              </p>
+              ${sanitizedSupportEmail ? `<p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
+                Butuh bantuan? Hubungi ${sanitizedSupportEmail}
+              </p>` : ''}
             </td>
           </tr>
         </table>
@@ -173,10 +179,9 @@ Setelah subscription berakhir:
 - Data Anda tetap aman dan tersimpan
 
 Perpanjang subscription Anda sekarang untuk terus menikmati semua fitur ${sanitizedTierName}:
-${process.env.FRONTEND_URL || 'https://app.kirim.chat'}/subscription
+${subscriptionUrl}
 
-Jika Anda sudah memperpanjang, abaikan email ini.
-Butuh bantuan? Hubungi support@kirim.chat
+Jika Anda sudah memperpanjang, abaikan email ini.${sanitizedSupportEmail ? `\nButuh bantuan? Hubungi ${sanitizedSupportEmail}` : ''}
 
 Ini adalah pesan otomatis. Jangan balas email ini.
 `.trim();

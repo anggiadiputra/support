@@ -6,15 +6,13 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeSwitch } from "@/components/theme-switch"
 import { NavUser } from "@/components/layout/nav-user"
 import { useBusinessAccount } from "@/hooks/use-business-account"
-import { useBrandingContext } from "@/components/branding-provider"
 
 export function AdminHeader() {
   const { userName, userEmail } = useBusinessAccount()
-  const { websiteName } = useBrandingContext()
 
   const user = {
     name: userName || "Admin",
-    email: userEmail || "admin@example.com",
+    email: userEmail || "admin@yourdomain.com",
     avatar: "/favicon.svg",
   }
 
@@ -31,7 +29,7 @@ export function AdminHeader() {
       </div>
       <div className="flex w-full justify-between">
         <div className="flex items-center">
-          <span className="text-sm font-medium text-muted-foreground">{websiteName || "Admin"} Dashboard</span>
+          <span className="text-sm font-medium text-muted-foreground">KC Dashboard</span>
         </div>
         <div className="flex items-center gap-2">
           <ThemeSwitch />

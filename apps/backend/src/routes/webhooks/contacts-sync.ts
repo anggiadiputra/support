@@ -16,7 +16,12 @@ interface ContactSyncPayload {
     contact: {
       full_name?: string
       first_name?: string
-      phone_number: string
+      // Optional since the BSUID rollout: a username-adopted contact may
+      // arrive with no shared phone number (docs/bsuid.md).
+      phone_number?: string
+      user_id?: string // BSUID
+      parent_user_id?: string // Parent BSUID
+      username?: string // WhatsApp username
     }
     action: 'add' | 'remove'
     metadata: {
@@ -51,8 +56,20 @@ export async function handleContactsSync(
       const timestamp = new Date(parseInt(stateSync.metadata.timestamp) * 1000)
 
       try {
+        // The contact book is keyed on phone number (@@unique([userId,
+        // phoneNumber]), phoneNumber is required). A username-only contact has
+        // no phone to key on, so we skip it here rather than fabricate one —
+        // creating a phone-less row would violate the schema. Its BSUID still
+        // reaches us on the live `customer` record via inbound/status webhooks.
+        if (!contact.phone_number) {
+          console.log('⏭️ Skipping phone-less (BSUID-only) contact in contact sync')
+          processedCount++
+          continue
+        }
+
         if (action === 'add') {
-          // Add or update contact
+          // Add or update contact — now also persisting BSUID/username when Meta
+          // includes them (nullable columns; older rows stay null).
           await prisma.whatsAppContact.upsert({
             where: {
               userId_phoneNumber: {
@@ -65,12 +82,20 @@ export async function handleContactsSync(
               phoneNumber: contact.phone_number,
               fullName: contact.full_name,
               firstName: contact.first_name,
+              whatsappBsuid: contact.user_id || null,
+              whatsappParentBsuid: contact.parent_user_id || null,
+              whatsappUsername: contact.username || null,
               lastAction: action,
               lastSyncedAt: timestamp
             },
             update: {
               fullName: contact.full_name,
               firstName: contact.first_name,
+              // Only fill BSUID identifiers when newly provided; never null-out
+              // an existing value with an omitted field.
+              ...(contact.user_id ? { whatsappBsuid: contact.user_id } : {}),
+              ...(contact.parent_user_id ? { whatsappParentBsuid: contact.parent_user_id } : {}),
+              ...(contact.username ? { whatsappUsername: contact.username } : {}),
               lastAction: action,
               lastSyncedAt: timestamp
             }
@@ -122,17 +147,22 @@ export async function handleContactsSync(
       })
     }
 
-    // Mark contact sync as completed
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        contactSyncCompletedAt: new Date(),
-        coexistenceSyncProgress: Math.min(
-          (user.coexistenceSyncProgress || 0) + 50,
-          100
-        )
-      }
+    // Mark contact sync as completed on WhatsApp account
+    const whatsappAccount = await prisma.whatsAppAccount.findFirst({
+      where: { userId: user.id }
     })
+    if (whatsappAccount) {
+      await prisma.whatsAppAccount.update({
+        where: { id: whatsappAccount.id },
+        data: {
+          contactSyncCompletedAt: new Date(),
+          coexistenceSyncProgress: Math.min(
+            (whatsappAccount.coexistenceSyncProgress || 0) + 50,
+            100
+          )
+        }
+      })
+    }
 
     console.log(`✅ Contacts sync completed for user ${user.id} - ${processedCount} contacts processed`)
   } catch (error) {

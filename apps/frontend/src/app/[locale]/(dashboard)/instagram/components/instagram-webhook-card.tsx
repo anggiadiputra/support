@@ -1,17 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Webhook, RefreshCw, Check, X, AlertTriangle } from "lucide-react"
-import { instagramApi } from "@/lib/api/instagram"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { IconWebhook, IconRefresh, IconCheck, IconX, IconAlertTriangle } from "@tabler/icons-react"
+import { instagramApi } from "@/lib/api/instagram"
 
 interface WebhookStatus {
   igId: string
@@ -68,7 +62,7 @@ export function InstagramWebhookCard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Webhook className="h-5 w-5" />
+            <IconWebhook className="h-5 w-5" />
             Webhook Status
           </CardTitle>
         </CardHeader>
@@ -86,12 +80,11 @@ export function InstagramWebhookCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Webhook className="h-5 w-5" />
+          <IconWebhook className="h-5 w-5" />
           Webhook Status
         </CardTitle>
         <CardDescription>
-          Webhook subscriptions are required to receive Instagram DM
-          notifications
+          Webhook subscriptions are required to receive Instagram DM notifications
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -112,19 +105,19 @@ export function InstagramWebhookCard() {
             <span className="text-sm font-medium">Messages Webhook</span>
             {status?.isMessagesSubscribed ? (
               <Badge variant="default" className="bg-green-600">
-                <Check className="mr-1 h-3 w-3" />
+                <IconCheck className="mr-1 h-3 w-3" />
                 Subscribed
               </Badge>
             ) : (
               <Badge variant="destructive">
-                <X className="mr-1 h-3 w-3" />
+                <IconX className="mr-1 h-3 w-3" />
                 Not Subscribed
               </Badge>
             )}
           </div>
 
           {status?.subscribedFields && status.subscribedFields.length > 0 && (
-            <div className="text-muted-foreground text-sm">
+            <div className="text-sm text-muted-foreground">
               <span className="font-medium">Subscribed fields:</span>{" "}
               {status.subscribedFields.join(", ")}
             </div>
@@ -133,13 +126,12 @@ export function InstagramWebhookCard() {
           {!status?.isMessagesSubscribed && (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950/20">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                <IconAlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
                 <div className="text-sm text-yellow-800 dark:text-yellow-200">
                   <p className="font-medium">Webhook not subscribed</p>
                   <p className="mt-1">
-                    You won't receive Instagram DM notifications until webhooks
-                    are enabled. Click the button below to enable webhook
-                    subscriptions.
+                    You won't receive Instagram DM notifications until webhooks are enabled.
+                    Click the button below to enable webhook subscriptions.
                   </p>
                 </div>
               </div>
@@ -155,24 +147,18 @@ export function InstagramWebhookCard() {
           >
             {enabling ? (
               <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                <IconRefresh className="mr-2 h-4 w-4 animate-spin" />
                 Enabling...
               </>
             ) : (
               <>
-                <Webhook className="mr-2 h-4 w-4" />
-                {status?.isMessagesSubscribed
-                  ? "Re-enable Webhooks"
-                  : "Enable Webhooks"}
+                <IconWebhook className="mr-2 h-4 w-4" />
+                {status?.isMessagesSubscribed ? "Re-enable Webhooks" : "Enable Webhooks"}
               </>
             )}
           </Button>
-          <Button
-            variant="ghost"
-            onClick={loadWebhookStatus}
-            disabled={loading}
-          >
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="ghost" onClick={loadWebhookStatus} disabled={loading}>
+            <IconRefresh className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>

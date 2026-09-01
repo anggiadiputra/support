@@ -7,7 +7,7 @@ const app = new Hono()
 
 // Valid enum values
 const VALID_ROLES: Role[] = ['ADMIN', 'BUSINESS_OWNER', 'AGENT']
-const VALID_TIERS: SubscriptionTier[] = ['FREE', 'LITE', 'PRO']
+const VALID_TIERS: SubscriptionTier[] = ['FREE', 'BASIC', 'LITE', 'PRO']
 const VALID_STATUSES: SubscriptionStatus[] = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'CANCELLED']
 
 /**
@@ -104,6 +104,38 @@ app.get('/:id', async (c: Context) => {
       error: {
         code: 'InternalServerError',
         message: 'Failed to fetch user details'
+      }
+    }, 500)
+  }
+})
+
+/**
+ * GET /api/v1/admin/users/:id/activity
+ * Get paginated activity logs for a specific user
+ */
+app.get('/:id/activity', async (c: Context) => {
+  try {
+    const userId = c.req.param('id')
+    const query = c.req.query()
+
+    const result = await AdminUserService.getUserActivity(userId, {
+      page: parseInt(query.page || '1', 10) || 1,
+      limit: Math.min(100, Math.max(1, parseInt(query.limit || '20', 10) || 20)),
+      category: query.category || undefined,
+      startDate: query.startDate || undefined,
+      endDate: query.endDate || undefined
+    })
+
+    return c.json({
+      success: true,
+      data: result
+    })
+  } catch (error) {
+    console.error('Admin get user activity error:', error)
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message: 'Failed to fetch user activity'
       }
     }, 500)
   }

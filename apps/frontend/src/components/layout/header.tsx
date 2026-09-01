@@ -8,6 +8,7 @@ import { Search } from "@/components/search"
 import { ThemeSwitch } from "@/components/theme-switch"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { NavUser } from "@/components/layout/nav-user"
+import { NotificationIcon } from "@/components/notifications"
 import { useBusinessAccount } from "@/hooks/use-business-account"
 import { useSidebarData } from "./data/use-sidebar-data"
 
@@ -36,6 +37,7 @@ export function Header() {
       <div className="flex w-full justify-between">
         <Search placeholder={t("search")} />
         <div className="flex items-center gap-2">
+          <NotificationIcon />
           <ThemeSwitch />
           <LanguageSwitcher />
           <NavUser user={user} />

@@ -35,6 +35,14 @@ app.get('/:id', async (c: Context) => {
         activities: {
           orderBy: { timestamp: 'desc' },
           take: 20
+        },
+        customerNotes: {
+          include: {
+            creator: {
+              select: { id: true, name: true, email: true }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
         }
       }
     })
@@ -59,7 +67,14 @@ app.get('/:id', async (c: Context) => {
       consentStatus: customer.consentStatus ? 'CONSENTED' : 'NOT_CONSENTED',
       // Map database field names to frontend expected names
       lastMessageAt: customer.lastInboundMessageAt,
-      hasActiveWindow: customer.isWindowActive
+      hasActiveWindow: customer.isWindowActive,
+      // Transform notes to match frontend schema
+      notes: customer.customerNotes.map(note => ({
+        id: note.id,
+        content: note.content,
+        createdAt: note.createdAt,
+        createdBy: note.creator.name || note.creator.email
+      }))
     }
 
     return c.json({ success: true, data: transformedCustomer })

@@ -1,6 +1,7 @@
 import { prisma } from '../utils/database.js';
 import type { ConversationType, Role, AssigneeType } from '@prisma/client';
 import { eventEmitter } from '../websocket/event-emitter.js';
+import { resolveAIConfig } from './ai/resolve-ai-config.js';
 
 /**
  * Assignment result interface - Extended to support AI Agent assignments
@@ -119,6 +120,8 @@ export class AssignmentService {
 
   /**
    * Emit assignment changed WebSocket event to all users in business owner context
+   * Uses business room broadcast for efficient delivery to all team members
+   * Includes history item for realtime assignment history updates
    * 
    * @param businessOwnerId - The business owner's user ID
    * @param conversationId - The conversation ID
@@ -127,6 +130,7 @@ export class AssignmentService {
    * @param assigneeName - The assignee name (null for unassign)
    * @param assignedById - The user who made the change
    * @param action - 'assigned' or 'unassigned'
+   * @param historyItem - Optional assignment history item for realtime updates
    * Requirements: 2.4
    */
   private async emitAssignmentChangedEvent(
@@ -136,17 +140,43 @@ export class AssignmentService {
     assigneeId: string | null,
     assigneeName: string | null,
     assignedById: string,
-    action: 'assigned' | 'unassigned'
+    action: 'assigned' | 'unassigned',
+    historyItem?: {
+      id: string;
+      assigneeId: string | null;
+      assigneeName: string | null;
+      assigneeType: 'HUMAN' | 'AI_AGENT';
+      aiAgentId: string | null;
+      aiAgentName: string | null;
+      assignedById: string;
+      assignedByName: string | null;
+      assignedAt: Date;
+      unassignedAt: Date | null;
+    }
   ): Promise<void> {
-    const userIds = await this.getUserIdsInContext(businessOwnerId);
-    
-    eventEmitter.emitAssignmentChangedToUsers(userIds, {
+    eventEmitter.emitAssignmentChangedToBusinessRoom(businessOwnerId, {
       conversationId,
-      conversationType: conversationType.toLowerCase() as 'whatsapp' | 'instagram',
+      conversationType: conversationType.toLowerCase() as 'whatsapp' | 'instagram' | 'messenger',
       assigneeId,
       assigneeName,
+      assigneeType: historyItem?.assigneeType,
+      aiAgentId: historyItem?.aiAgentId ?? null,
+      aiAgentName: historyItem?.aiAgentName ?? null,
       assignedById,
+      assignedByName: historyItem?.assignedByName ?? null,
       action,
+      historyItem: historyItem ? {
+        id: historyItem.id,
+        assigneeId: historyItem.assigneeId,
+        assigneeName: historyItem.assigneeName,
+        assigneeType: historyItem.assigneeType,
+        aiAgentId: historyItem.aiAgentId,
+        aiAgentName: historyItem.aiAgentName,
+        assignedById: historyItem.assignedById,
+        assignedByName: historyItem.assignedByName,
+        assignedAt: historyItem.assignedAt.toISOString(),
+        unassignedAt: historyItem.unassignedAt?.toISOString() ?? null,
+      } : undefined,
     });
   }
 
@@ -228,6 +258,7 @@ export class AssignmentService {
    * @param assigneeId - The user ID to assign to
    * @param assignedById - The user ID making the assignment
    * @param businessOwnerId - The business owner's user ID
+   * @param escalationInfo - Optional escalation info when assignment is triggered by keyword
    * @returns The new assignment
    * Requirements: 1.2, 1.3, 1.4, 2.4, 4.1, 4.2
    */
@@ -236,7 +267,11 @@ export class AssignmentService {
     conversationType: ConversationType,
     assigneeId: string,
     assignedById: string,
-    businessOwnerId: string
+    businessOwnerId: string,
+    escalationInfo?: {
+      keywordGroup: string;
+      keyword: string;
+    }
   ): Promise<AssignmentResult> {
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
@@ -271,6 +306,10 @@ export class AssignmentService {
           assigneeId,
           assignedById,
           businessOwnerId,
+          // Escalation info (if triggered by keyword)
+          isEscalation: !!escalationInfo,
+          escalationKeywordGroup: escalationInfo?.keywordGroup,
+          escalationKeyword: escalationInfo?.keyword,
         },
         include: {
           assignee: {
@@ -317,7 +356,19 @@ export class AssignmentService {
       result.assigneeId,
       result.assigneeName,
       result.assignedById,
-      'assigned'
+      'assigned',
+      {
+        id: result.id,
+        assigneeId: result.assigneeId,
+        assigneeName: result.assigneeName,
+        assigneeType: 'HUMAN',
+        aiAgentId: null,
+        aiAgentName: null,
+        assignedById: result.assignedById,
+        assignedByName: result.assignedByName,
+        assignedAt: result.assignedAt,
+        unassignedAt: result.unassignedAt,
+      }
     );
 
     return result;
@@ -453,7 +504,19 @@ export class AssignmentService {
       result.aiAgentId, // Use aiAgentId as the identifier
       result.aiAgentName, // Use AI Agent name
       result.assignedById,
-      'assigned'
+      'assigned',
+      {
+        id: result.id,
+        assigneeId: null,
+        assigneeName: null,
+        assigneeType: 'AI_AGENT',
+        aiAgentId: result.aiAgentId,
+        aiAgentName: result.aiAgentName,
+        assignedById: result.assignedById,
+        assignedByName: result.assignedByName,
+        assignedAt: result.assignedAt,
+        unassignedAt: result.unassignedAt,
+      }
     );
 
     return result;
@@ -474,6 +537,7 @@ export class AssignmentService {
     unassignedById: string,
     businessOwnerId: string
   ): Promise<void> {
+    // Fetch assignment with relations for history item
     const assignment = await prisma.conversationAssignment.findFirst({
       where: {
         conversationId,
@@ -481,18 +545,31 @@ export class AssignmentService {
         businessOwnerId,
         unassignedAt: null,
       },
+      include: {
+        assignee: {
+          select: { id: true, name: true },
+        },
+        aiAgent: {
+          select: { id: true, name: true },
+        },
+        assignedBy: {
+          select: { id: true, name: true },
+        },
+      },
     });
 
     if (!assignment) {
       throw new Error(ASSIGNMENT_ERRORS.NOT_ASSIGNED);
     }
 
+    const unassignedAt = new Date();
     await prisma.conversationAssignment.update({
       where: { id: assignment.id },
-      data: { unassignedAt: new Date() },
+      data: { unassignedAt },
     });
 
     // Emit WebSocket event after successful unassignment (Requirement 2.4)
+    // Include history item with updated unassignedAt for realtime update
     await this.emitAssignmentChangedEvent(
       businessOwnerId,
       conversationId,
@@ -500,7 +577,19 @@ export class AssignmentService {
       null,
       null,
       unassignedById,
-      'unassigned'
+      'unassigned',
+      {
+        id: assignment.id,
+        assigneeId: assignment.assigneeId,
+        assigneeName: assignment.assignee?.name ?? null,
+        assigneeType: assignment.assigneeType as 'HUMAN' | 'AI_AGENT',
+        aiAgentId: assignment.aiAgentId,
+        aiAgentName: assignment.aiAgent?.name ?? null,
+        assignedById: assignment.assignedById,
+        assignedByName: assignment.assignedBy.name,
+        assignedAt: assignment.assignedAt,
+        unassignedAt,
+      }
     );
   }
 
@@ -715,6 +804,10 @@ export class AssignmentService {
       assignedByName: assignment.assignedBy.name,
       assignedAt: assignment.assignedAt,
       unassignedAt: assignment.unassignedAt,
+      // Escalation info
+      isEscalation: assignment.isEscalation,
+      escalationKeywordGroup: assignment.escalationKeywordGroup,
+      escalationKeyword: assignment.escalationKeyword,
     }));
   }
 
@@ -748,7 +841,7 @@ export class AssignmentService {
       return true;
     }
 
-    // Agent permissions
+    // Agent permissions - NEW RULES
     if (userRole === 'AGENT') {
       const currentAssignment = await this.getAssignment(
         conversationId,
@@ -756,16 +849,24 @@ export class AssignmentService {
         businessOwnerId
       );
 
-      // Agent can self-assign unassigned conversations (Requirement 7.2)
-      if (!currentAssignment && targetAssigneeId === userId) {
+      // Check if conversation is available for agent to claim
+      // Available = unassigned OR assigned to AI Agent
+      const isUnassigned = !currentAssignment;
+      const isAssignedToAI = currentAssignment?.assigneeType === 'AI_AGENT';
+      const isAvailable = isUnassigned || isAssignedToAI;
+
+      // Agent can only assign if conversation is available
+      if (!isAvailable) {
+        // Conversation is assigned to another human - agent cannot take over
+        return false;
+      }
+
+      // Agent can assign to self
+      if (targetAssigneeId === userId) {
         return true;
       }
 
-      // Agent can re-assign their own assigned conversations (Requirement 7.3)
-      if (currentAssignment?.assigneeId === userId) {
-        return true;
-      }
-
+      // Agent cannot assign to other humans
       return false;
     }
 
@@ -833,7 +934,8 @@ export class AssignmentService {
   async shouldAIRespond(
     conversationId: string,
     conversationType: ConversationType,
-    businessOwnerId: string
+    businessOwnerId: string,
+    whatsappAccountId?: string
   ): Promise<AIResponseDecision> {
     // Get current assignment for conversation
     const currentAssignment = await this.getAssignment(
@@ -863,22 +965,11 @@ export class AssignmentService {
     }
 
     // If unassigned → check AIConfig.enabled and return default agent (Requirement 3.2, 6.4)
-    const aiConfig = await prisma.aIConfig.findUnique({
-      where: { userId: businessOwnerId },
-      select: {
-        enabled: true,
-        activeAgentId: true,
-        activeAgent: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // Uses per-account config if available, falls back to user-level default
+    const resolvedConfig = await resolveAIConfig(businessOwnerId, whatsappAccountId);
 
-    // If AI is disabled globally → skip AI response
-    if (!aiConfig?.enabled) {
+    // If AI is disabled → skip AI response
+    if (!resolvedConfig?.enabled) {
       return {
         shouldRespond: false,
         reason: 'ai_disabled',
@@ -887,14 +978,21 @@ export class AssignmentService {
       };
     }
 
-    // If AI is enabled and has active agent → use default agent (Requirement 3.2)
-    if (aiConfig.activeAgentId && aiConfig.activeAgent) {
-      return {
-        shouldRespond: true,
-        reason: 'unassigned_ai_enabled',
-        aiAgentId: aiConfig.activeAgentId,
-        aiAgentName: aiConfig.activeAgent.name,
-      };
+    // If AI is enabled and has active agent → use that agent (Requirement 3.2)
+    if (resolvedConfig.activeAgentId) {
+      const activeAgent = await prisma.aIAgent.findUnique({
+        where: { id: resolvedConfig.activeAgentId },
+        select: { id: true, name: true },
+      });
+
+      if (activeAgent) {
+        return {
+          shouldRespond: true,
+          reason: 'unassigned_ai_enabled',
+          aiAgentId: activeAgent.id,
+          aiAgentName: activeAgent.name,
+        };
+      }
     }
 
     // AI is enabled but no active agent configured

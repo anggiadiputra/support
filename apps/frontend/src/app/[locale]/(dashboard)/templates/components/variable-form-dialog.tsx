@@ -1,24 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { format } from "date-fns"
-import {
-  Link,
-  DollarSign,
-  Calendar as CalendarIcon,
-  Image,
-  Video,
-  File,
-  CaseSensitive,
-  Loader2,
-  Check,
-  X,
-  Info,
-} from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
@@ -28,13 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -42,7 +23,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  IconLink,
+  IconCurrencyDollar,
+  IconCalendar,
+  IconPhoto,
+  IconVideo,
+  IconFile,
+  IconLetterCase,
+  IconLoader2,
+  IconCheck,
+  IconX,
+  IconInfoCircle,
+} from "@tabler/icons-react"
+import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface VariableFormDialogProps {
   open: boolean
@@ -51,13 +51,13 @@ interface VariableFormDialogProps {
 }
 
 const VARIABLE_TYPES = [
-  { value: "TEXT", icon: CaseSensitive },
-  { value: "URL", icon: Link },
-  { value: "CURRENCY", icon: DollarSign },
-  { value: "DATE", icon: CalendarIcon },
-  { value: "IMAGE", icon: Image },
-  { value: "VIDEO", icon: Video },
-  { value: "DOCUMENT", icon: File },
+  { value: "TEXT", icon: IconLetterCase },
+  { value: "URL", icon: IconLink },
+  { value: "CURRENCY", icon: IconCurrencyDollar },
+  { value: "DATE", icon: IconCalendar },
+  { value: "IMAGE", icon: IconPhoto },
+  { value: "VIDEO", icon: IconVideo },
+  { value: "DOCUMENT", icon: IconFile },
 ] as const
 
 type VariableType = (typeof VARIABLE_TYPES)[number]["value"]
@@ -74,6 +74,7 @@ interface FormErrors {
   type?: string
   exampleValue?: string
 }
+
 
 // Type-specific placeholders
 const TYPE_PLACEHOLDERS: Record<VariableType, string> = {
@@ -112,21 +113,18 @@ const validateCurrency = (value: string): boolean => {
   if (!value) return true
   const numberOnlyPattern = /^[\d,]+(?:\.\d{1,2})?$/
   const currencyWithCodePattern = /^[A-Z]{3}\s+[\d,]+(?:\.\d{1,2})?$/
-  return (
-    numberOnlyPattern.test(value.trim()) ||
-    currencyWithCodePattern.test(value.trim())
-  )
+  return numberOnlyPattern.test(value.trim()) || currencyWithCodePattern.test(value.trim())
 }
 
 const validateDate = (value: string): boolean => {
   if (!value) return true
   const isoPattern = /^\d{4}-\d{2}-\d{2}$/
   const ddmmyyyyPattern = /^\d{2}[/-]\d{2}[/-]\d{4}$/
-
+  
   if (!isoPattern.test(value) && !ddmmyyyyPattern.test(value)) {
     return false
   }
-
+  
   const date = new Date(value)
   return !isNaN(date.getTime())
 }
@@ -227,10 +225,7 @@ export function VariableFormDialog({
     }
 
     if (formData.exampleValue) {
-      const exampleError = validateExampleValue(
-        formData.exampleValue,
-        formData.type
-      )
+      const exampleError = validateExampleValue(formData.exampleValue, formData.type)
       if (exampleError) {
         newErrors.exampleValue = exampleError
       }
@@ -311,6 +306,7 @@ export function VariableFormDialog({
     }
   }
 
+
   // Render type-specific example value input
   const renderExampleValueInput = () => {
     const baseInputProps = {
@@ -332,10 +328,7 @@ export function VariableFormDialog({
             <Input
               {...baseInputProps}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  exampleValue: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, exampleValue: e.target.value }))
               }
               className={cn(baseInputProps.className, "flex-1")}
             />
@@ -347,7 +340,7 @@ export function VariableFormDialog({
                   size="icon"
                   className="shrink-0"
                 >
-                  <CalendarIcon className="h-4 w-4" />
+                  <IconCalendar className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -372,14 +365,11 @@ export function VariableFormDialog({
             <Input
               {...baseInputProps}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  exampleValue: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, exampleValue: e.target.value }))
               }
               className={cn(baseInputProps.className, "pl-10")}
             />
-            <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <IconCurrencyDollar className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           </div>
         )
 
@@ -393,20 +383,17 @@ export function VariableFormDialog({
               {...baseInputProps}
               type="url"
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  exampleValue: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, exampleValue: e.target.value }))
               }
-              className={cn(baseInputProps.className, "pr-10 pl-10")}
+              className={cn(baseInputProps.className, "pl-10 pr-10")}
             />
-            <Link className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <IconLink className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             {formData.exampleValue && exampleValueValidation && (
-              <div className="absolute top-1/2 right-3 -translate-y-1/2">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 {exampleValueValidation.valid ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                  <IconCheck className="h-4 w-4 text-green-500" />
                 ) : (
-                  <X className="text-destructive h-4 w-4" />
+                  <IconX className="h-4 w-4 text-destructive" />
                 )}
               </div>
             )}
@@ -419,19 +406,16 @@ export function VariableFormDialog({
             <Input
               {...baseInputProps}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  exampleValue: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, exampleValue: e.target.value }))
               }
               className={cn(baseInputProps.className, "pr-10")}
             />
             {formData.exampleValue && exampleValueValidation && (
-              <div className="absolute top-1/2 right-3 -translate-y-1/2">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 {exampleValueValidation.valid ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                  <IconCheck className="h-4 w-4 text-green-500" />
                 ) : (
-                  <X className="text-destructive h-4 w-4" />
+                  <IconX className="h-4 w-4 text-destructive" />
                 )}
               </div>
             )}
@@ -491,7 +475,7 @@ export function VariableFormDialog({
               <p className="text-destructive text-sm">{errors.type}</p>
             )}
             <p className="text-muted-foreground flex items-center gap-1 text-xs">
-              <Info className="h-3 w-3" />
+              <IconInfoCircle className="h-3 w-3" />
               {TYPE_HINTS[formData.type]}
             </p>
           </div>
@@ -503,10 +487,7 @@ export function VariableFormDialog({
               id="description"
               value={formData.description}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
               placeholder={t("form.descriptionPlaceholder")}
               rows={2}
@@ -540,7 +521,7 @@ export function VariableFormDialog({
               {tCommon("cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tCommon("create")}
             </Button>
           </DialogFooter>

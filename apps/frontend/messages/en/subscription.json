@@ -12,6 +12,7 @@
   "downgrade": "Downgrade",
   "currentPlanBadge": "Current Plan",
   "free": "Free",
+  "basic": "Basic",
   "lite": "Lite",
   "pro": "Pro",
   "perMonth": "/month",
@@ -47,6 +48,7 @@
   "basicPlan": "Basic Plan",
   "notAvailable": "Not Available",
   "freeDescription": "To start your business",
+  "basicDescription": "For developer integration",
   "liteDescription": "For growing businesses",
   "proDescription": "For enterprise businesses",
   "duration1Month": "1 Month",
@@ -58,5 +60,16 @@
   "discount": "{percent}% off",
   "totalPrice": "Total Price",
   "effectiveMonthlyPrice": "Price per month",
-  "bestValue": "Best Value"
+  "bestValue": "Best Value",
+  "betaPromo": "Beta Promo",
+  "limitedTimeFree": "Limited Time Free",
+  "betaPromoDescription": "This plan is free during beta period. Will become a paid plan after the promotional period ends.",
+  "verifyingPayment": "Verifying payment...",
+  "paymentSuccess": "Payment Successful",
+  "premiumActivated": "Your subscription has been activated.",
+  "paymentPending": "Payment Pending",
+  "paymentPendingDesc": "We haven't received confirmation yet. Please check again later in Payment History.",
+  "billedAs": "Billed {price} every {period}",
+  "contactUs": "Contact Us",
+  "noPlansAvailable": "No plans available at the moment."
 }

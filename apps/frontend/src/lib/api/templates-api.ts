@@ -1,8 +1,15 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005'
 
 export const templatesApi = {
-    async getTemplates() {
-        const response = await fetch(`${API_URL}/api/v1/templates`, {
+    async getTemplates(filters?: { whatsappAccountId?: string }) {
+        const params = new URLSearchParams()
+        if (filters?.whatsappAccountId) {
+            params.append('whatsappAccountId', filters.whatsappAccountId)
+        }
+        const queryString = params.toString()
+        const url = `${API_URL}/api/v1/templates${queryString ? `?${queryString}` : ''}`
+
+        const response = await fetch(url, {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
         })
@@ -42,6 +49,8 @@ export const templatesApi = {
         footerContent?: string
         buttons?: any[]
         variables?: string[]
+        headerMediaId?: string
+        whatsappAccountId?: string
     }) {
         const response = await fetch(`${API_URL}/api/v1/templates`, {
             method: 'POST',

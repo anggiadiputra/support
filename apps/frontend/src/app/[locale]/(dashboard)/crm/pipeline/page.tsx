@@ -1,16 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Plus, MoreHorizontal, Settings } from "lucide-react"
+import { IconLayoutKanban } from "@tabler/icons-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { Header } from "@/components/layout/header"
 import { RoleGuard } from "@/components/auth/role-guard"
+import { Link } from "@/i18n/routing"
 import {
     Dialog,
     DialogContent,
@@ -26,9 +28,6 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PipelinesSettings } from "../../settings/crm/components/pipelines-settings"
-import { CustomFieldsSettings } from "../../settings/crm/components/custom-fields-settings"
 import { useCustomers, useUpdateCustomer } from "@/hooks/use-customers"
 
 interface Customer {
@@ -47,11 +46,9 @@ interface Stage {
 }
 
 export default function PipelinePage() {
-    const searchParams = useSearchParams()
-    const tabFromUrl = searchParams.get("tab")
-    const [activeTab, setActiveTab] = useState(tabFromUrl === "settings" ? "settings" : "pipeline")
     const [stages, setStages] = useState<Stage[]>([])
     const [pipelineLoading, setPipelineLoading] = useState(true)
+    const [hasPipeline, setHasPipeline] = useState(true)
     const [addDealOpen, setAddDealOpen] = useState(false)
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>("")
     const [selectedStageId, setSelectedStageId] = useState<string>("")
@@ -77,6 +74,7 @@ export default function PipelinePage() {
             const pipelineData = await pipelineRes.json()
 
             if (pipelineData.success && pipelineData.data.length > 0) {
+                setHasPipeline(true)
                 const defaultPipeline = pipelineData.data.find((p: any) => p.isDefault) || pipelineData.data[0]
 
                 // Group customers by stage using cached customers data
@@ -85,6 +83,8 @@ export default function PipelinePage() {
                     customers: customers.filter((c: any) => c.pipelineStageId === stage.id)
                 }))
                 setStages(stagesWithCustomers)
+            } else {
+                setHasPipeline(false)
             }
         } catch (error) {
             console.error("Failed to fetch pipeline data", error)
@@ -183,42 +183,124 @@ export default function PipelinePage() {
 
     const loading = pipelineLoading || customersLoading
 
-    if (loading) return <div>Loading pipeline...</div>
+    if (loading) return (
+        <RoleGuard>
+            <div className="flex flex-col h-screen">
+                <Header />
+                <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
+                    {/* Header skeleton */}
+                    <div className="flex justify-between items-center flex-shrink-0">
+                        <div>
+                            <Skeleton className="h-8 w-48 mb-2" />
+                            <Skeleton className="h-4 w-64" />
+                        </div>
+                        <Skeleton className="h-10 w-28" />
+                    </div>
+
+                    {/* Pipeline columns skeleton */}
+                    <div className="flex-1 min-h-0 relative">
+                        <div className="absolute inset-0 overflow-x-auto overflow-y-auto">
+                            <div className="inline-flex h-full gap-4 pb-4">
+                                {Array.from({ length: 4 }).map((_, stageIndex) => (
+                                    <div key={stageIndex} className="w-80 flex-shrink-0 flex flex-col bg-muted/50 rounded-lg p-2">
+                                        {/* Stage header skeleton */}
+                                        <div className="flex items-center justify-between p-2 mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Skeleton className="w-3 h-3 rounded-full" />
+                                                <Skeleton className="h-4 w-20" />
+                                                <Skeleton className="h-5 w-6 rounded-md" />
+                                            </div>
+                                            <Skeleton className="h-6 w-6" />
+                                        </div>
+
+                                        {/* Customer cards skeleton */}
+                                        <div className="flex-1 flex flex-col gap-2 min-h-[100px]">
+                                            {Array.from({ length: stageIndex === 0 ? 3 : stageIndex === 1 ? 2 : 1 }).map((_, cardIndex) => (
+                                                <div key={cardIndex} className="border rounded-lg bg-card p-3 space-y-2">
+                                                    <div className="flex justify-between items-start">
+                                                        <Skeleton className="h-4 w-32" />
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <Skeleton className="h-3 w-16" />
+                                                        <Skeleton className="h-5 w-5 rounded-full" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </RoleGuard>
+    )
+
+    if (!hasPipeline) return (
+        <RoleGuard>
+            <div className="flex flex-col h-screen">
+                <Header />
+                <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
+                    <div className="flex justify-between items-center flex-shrink-0">
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight">Sales Pipeline</h2>
+                            <p className="text-muted-foreground">
+                                Manage your deals and customer stages
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center max-w-md space-y-4">
+                            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                                <IconLayoutKanban className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-semibold">No Pipeline Created</h3>
+                                <p className="text-muted-foreground text-sm">
+                                    You need to create a pipeline first before you can start tracking your deals. 
+                                    Go to CRM Settings to set up your sales pipeline stages.
+                                </p>
+                            </div>
+                            <Button size="sm" asChild>
+                                <Link href="/crm-settings">
+                                    <Settings className="h-4 w-4" />
+                                    Go to CRM Settings
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </RoleGuard>
+    )
 
     return (
         <RoleGuard>
-            <Header />
-            <div className="h-full flex flex-col space-y-4 p-4">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight">Sales Pipeline</h2>
-                        <p className="text-muted-foreground">
-                            Manage your deals and customer stages
-                        </p>
-                    </div>
-                </div>
-
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                    <TabsList className="w-fit">
-                        <TabsTrigger value="pipeline">Pipeline Board</TabsTrigger>
-                        <TabsTrigger value="settings" className="flex items-center gap-2">
-                            <Settings className="h-4 w-4" />
-                            Settings
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="pipeline" className="flex-1 flex flex-col mt-4">
-                        <div className="flex justify-end mb-4">
-                            <Button onClick={() => setAddDealOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" /> Add Deal
-                            </Button>
+            <div className="flex flex-col h-screen">
+                <Header />
+                <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
+                    <div className="flex justify-between items-center flex-shrink-0">
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight">Sales Pipeline</h2>
+                            <p className="text-muted-foreground">
+                                Manage your deals and customer stages
+                            </p>
                         </div>
+                        <Button size="sm" onClick={() => setAddDealOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            Add Deal
+                        </Button>
+                    </div>
 
-                        <div className="flex-1 overflow-x-auto pb-4">
+                    {/* Kanban board dengan scroll horizontal */}
+                    <div className="flex-1 min-h-0 relative">
+                        <div className="absolute inset-0 overflow-x-auto overflow-y-auto">
                             <DragDropContext onDragEnd={onDragEnd}>
-                                <div className="flex h-full gap-4 min-w-max">
+                                <div className="inline-flex h-full gap-4 pb-4">
                                     {stages.map((stage) => (
-                                        <div key={stage.id} className="w-80 flex flex-col bg-muted/50 rounded-lg p-2">
+                                        <div key={stage.id} className="w-80 flex-shrink-0 flex flex-col bg-muted/50 rounded-lg p-2">
                                             <div className="flex items-center justify-between p-2 mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div
@@ -283,25 +365,8 @@ export default function PipelinePage() {
                                 </div>
                             </DragDropContext>
                         </div>
-                    </TabsContent>
-
-                    <TabsContent value="settings" className="mt-4 space-y-8">
-                        <Tabs defaultValue="pipelines" className="space-y-4">
-                            <TabsList>
-                                <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
-                                <TabsTrigger value="custom-fields">Custom Fields</TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="pipelines" className="space-y-4">
-                                <PipelinesSettings />
-                            </TabsContent>
-
-                            <TabsContent value="custom-fields" className="space-y-4">
-                                <CustomFieldsSettings />
-                            </TabsContent>
-                        </Tabs>
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                </div>
 
                 {/* Add Deal Dialog */}
                 <Dialog open={addDealOpen} onOpenChange={setAddDealOpen}>
@@ -360,10 +425,10 @@ export default function PipelinePage() {
                         </div>
 
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setAddDealOpen(false)}>
+                            <Button variant="outline" size="sm" onClick={() => setAddDealOpen(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleAddDeal}>
+                            <Button size="sm" onClick={handleAddDeal}>
                                 Add to Pipeline
                             </Button>
                         </div>

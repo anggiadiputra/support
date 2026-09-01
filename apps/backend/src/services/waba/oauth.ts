@@ -12,6 +12,7 @@ import https from 'https';
 import { randomBytes } from 'crypto';
 import dns from 'dns';
 import { TokenEncryptionService } from '../../utils/tokenEncryption.js';
+import { logger } from '../../utils/logger.js';
 import { WABASettings, wabaSettings } from './settings.js';
 import { WABAServiceError, WABAErrorCode } from './errors.js';
 import type {
@@ -136,6 +137,8 @@ export class WABAOAuth {
         signupUrl: signupUrl.toString(),
         state,
         expiresAt,
+        appId: config.appId,
+        configId: config.configId,
       };
     } catch (error) {
       if (error instanceof WABAServiceError) {
@@ -150,7 +153,7 @@ export class WABAOAuth {
 
   /**
    * Exchange authorization code for access token
-   * Uses curl as workaround for Node.js networking issues on some VPS
+   * Uses native fetch with axios fallback for reliability
    *
    * @param code - Authorization code from Meta callback
    * @param state - Encrypted state parameter
@@ -180,22 +183,26 @@ export class WABAOAuth {
         url.searchParams.set('client_id', config.appId);
         url.searchParams.set('client_secret', config.appSecret);
         url.searchParams.set('code', code);
-        url.searchParams.set('redirect_uri', config.redirectUri);
+        logger.info('WABA token exchange attempt', { attempt, maxRetries });
 
-        console.log(`Token exchange attempt ${attempt}/${maxRetries} using curl...`);
+        // Use native fetch (available in Node.js 18+)
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(60000), // 60s timeout
+        });
 
-        // Use curl as workaround for Node.js networking issues
-        const { execSync } = await import('child_process');
-        const curlResult = execSync(
-          `curl -s --connect-timeout 30 --max-time 60 "${url.toString()}"`,
-          { encoding: 'utf-8', timeout: 65000 }
-        );
-
-        const responseData = JSON.parse(curlResult);
+        const responseData = await response.json();
 
         if (responseData.error) {
           const metaError = responseData.error as MetaAPIError;
-          console.error(`Meta API error (attempt ${attempt}/${maxRetries}):`, metaError);
+          logger.error('WABA Meta API error during token exchange', {
+            attempt,
+            maxRetries,
+            metaError,
+          });
 
           throw new WABAServiceError(
             WABAErrorCode.TOKEN_EXCHANGE_FAILED,
@@ -208,7 +215,7 @@ export class WABAOAuth {
           );
         }
 
-        console.log('Token exchange successful!');
+        logger.info('WABA token exchange successful', { attempt });
 
         return {
           accessToken: responseData.access_token,
@@ -225,7 +232,11 @@ export class WABAOAuth {
 
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-        console.error(`Token exchange error (attempt ${attempt}/${maxRetries}):`, {
+        // Pass error through logger sanitizer (redacts client_secret in query
+        // strings, strips axios config/request/response trees with Bearer leaks).
+        logger.error('WABA token exchange error', {
+          attempt,
+          maxRetries,
           errorName: error instanceof Error ? error.name : 'Unknown',
           errorMessage,
         });
@@ -233,7 +244,7 @@ export class WABAOAuth {
         // Retry on errors
         if (attempt < maxRetries) {
           const delay = attempt * 1000;
-          console.log(`Retrying token exchange in ${delay}ms...`);
+          logger.info('WABA token exchange retry scheduled', { delayMs: delay, attempt });
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }

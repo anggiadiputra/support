@@ -2,6 +2,10 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import messagesRoutes from './messages.js';
 import conversationsRoutes from './conversations.js';
+import templatesRoutes from './templates.js';
+import phoneNumbersRoutes from './phone-numbers.js';
+import instagramAccountsRoutes from './instagram-accounts.js';
+import facebookPagesRoutes from './facebook-pages.js';
 import { getApiKeyUserId } from '../../../../middleware/apiKeyAuth.js';
 
 const app = new Hono();
@@ -28,5 +32,9 @@ app.get('/health', (c: Context) => {
 // Mount public API routes
 app.route('/messages', messagesRoutes);
 app.route('/conversations', conversationsRoutes);
+app.route('/templates', templatesRoutes);
+app.route('/phone-numbers', phoneNumbersRoutes);
+app.route('/instagram-accounts', instagramAccountsRoutes);
+app.route('/facebook-pages', facebookPagesRoutes);
 
 export default app;

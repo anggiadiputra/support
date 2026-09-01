@@ -5,19 +5,31 @@
 
 import type { Context } from 'hono'
 import { prisma } from '../../utils/database.js'
+import {
+  getWhatsAppAccountByWabaId,
+  type WhatsAppAccountWithRelations,
+} from '../../utils/whatsapp-account-helper.js'
 
 /**
- * Get user by WABA ID with access check
+ * Result type when a WhatsApp account is found successfully
  */
-export async function getUserByWabaId(wabaId: string, currentUserId: string, currentUserRole: string) {
-  const user = await prisma.user.findFirst({
-    where: { wabaId },
-    include: {
-      phoneNumbers: true
-    }
-  })
+export interface GetAccountResult {
+  account: WhatsAppAccountWithRelations
+  user: WhatsAppAccountWithRelations['user']
+}
 
-  if (!user) {
+/**
+ * Get WhatsApp account by WABA ID with access check.
+ * Returns the WhatsAppAccount (with phoneNumbers and user) or an error.
+ */
+export async function getUserByWabaId(
+  wabaId: string,
+  currentUserId: string,
+  currentUserRole: string
+): Promise<GetAccountResult | { error: any; status: number }> {
+  const account = await getWhatsAppAccountByWabaId(wabaId)
+
+  if (!account) {
     return {
       error: {
         code: 'NotFound',
@@ -28,7 +40,7 @@ export async function getUserByWabaId(wabaId: string, currentUserId: string, cur
   }
 
   // Check access - user can only access their own WABA (unless ADMIN)
-  if (currentUserRole !== 'ADMIN' && user.id !== currentUserId) {
+  if (currentUserRole !== 'ADMIN' && account.userId !== currentUserId) {
     return {
       error: {
         code: 'Forbidden',
@@ -36,14 +48,14 @@ export async function getUserByWabaId(wabaId: string, currentUserId: string, cur
         details: {
           reason: 'You do not have access to this WABA',
           yourUserId: currentUserId,
-          wabaUserId: user.id
+          wabaUserId: account.userId
         }
       },
       status: 403
     }
   }
 
-  return { user }
+  return { account, user: account.user }
 }
 
 /**

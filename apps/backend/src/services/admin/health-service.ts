@@ -1,6 +1,7 @@
 import { prisma } from '../../utils/database.js'
 import { connectionManager } from '../../websocket/connection-manager.js'
-import { webhookQueue, messageQueue, webhookOutboundQueue } from '../../utils/queue.js'
+import { webhookQueue, messageQueue, webhookOutboundQueue, documentQueue, QUEUE_NAMES } from '../../utils/queue.js'
+import type { Job } from 'bullmq'
 
 export interface DatabaseHealth {
   status: 'healthy' | 'unhealthy'
@@ -24,6 +25,7 @@ export interface QueueStats {
     webhook: { pending: number; active: number; completed: number; failed: number }
     message: { pending: number; active: number; completed: number; failed: number }
     webhookOutbound: { pending: number; active: number; completed: number; failed: number }
+    document: { pending: number; active: number; completed: number; failed: number }
   }
 }
 
@@ -46,6 +48,22 @@ export interface SystemHealth {
   websocket: WebsocketStats
   webhooks: WebhookStats
   overall: 'healthy' | 'degraded' | 'unhealthy'
+}
+
+export interface FailedJobDetails {
+  id: string | number
+  name: string
+  queue: string
+  data: unknown
+  failedReason: string | undefined
+  stacktrace: string[] | undefined
+  attemptsMade: number
+  failedAt: Date | undefined
+}
+
+export interface FailedJobsResponse {
+  failedJobs: FailedJobDetails[]
+  totalFailed: number
 }
 
 
@@ -84,7 +102,7 @@ export class AdminHealthService {
     try {
       // Use webhookQueue's client to ping Redis
       const client = await webhookQueue.client
-      await (client as any).ping()
+      await (client as unknown as { ping(): Promise<string> }).ping()
       const latencyMs = Date.now() - start
 
       return {
@@ -106,18 +124,19 @@ export class AdminHealthService {
    * Requirements: 6.3
    */
   static async getQueueStats(): Promise<QueueStats> {
-    const [webhookCounts, messageCounts, webhookOutboundCounts] = await Promise.all([
+    const [webhookCounts, messageCounts, webhookOutboundCounts, documentCounts] = await Promise.all([
       webhookQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed'),
       messageQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed'),
-      webhookOutboundQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed')
+      webhookOutboundQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed'),
+      documentQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed')
     ])
 
     return {
-      pending: webhookCounts.waiting + messageCounts.waiting + webhookOutboundCounts.waiting,
-      active: webhookCounts.active + messageCounts.active + webhookOutboundCounts.active,
-      completed: webhookCounts.completed + messageCounts.completed + webhookOutboundCounts.completed,
-      failed: webhookCounts.failed + messageCounts.failed + webhookOutboundCounts.failed,
-      delayed: webhookCounts.delayed + messageCounts.delayed + webhookOutboundCounts.delayed,
+      pending: webhookCounts.waiting + messageCounts.waiting + webhookOutboundCounts.waiting + documentCounts.waiting,
+      active: webhookCounts.active + messageCounts.active + webhookOutboundCounts.active + documentCounts.active,
+      completed: webhookCounts.completed + messageCounts.completed + webhookOutboundCounts.completed + documentCounts.completed,
+      failed: webhookCounts.failed + messageCounts.failed + webhookOutboundCounts.failed + documentCounts.failed,
+      delayed: webhookCounts.delayed + messageCounts.delayed + webhookOutboundCounts.delayed + documentCounts.delayed,
       byQueue: {
         webhook: {
           pending: webhookCounts.waiting,
@@ -136,6 +155,12 @@ export class AdminHealthService {
           active: webhookOutboundCounts.active,
           completed: webhookOutboundCounts.completed,
           failed: webhookOutboundCounts.failed
+        },
+        document: {
+          pending: documentCounts.waiting,
+          active: documentCounts.active,
+          completed: documentCounts.completed,
+          failed: documentCounts.failed
         }
       }
     }
@@ -234,5 +259,147 @@ export class AdminHealthService {
       webhooks,
       overall
     }
+  }
+
+  /**
+   * Get failed jobs from all queues
+   * @param limit - Maximum number of failed jobs to return per queue
+   */
+  static async getFailedJobs(limit: number = 20): Promise<FailedJobsResponse> {
+    const queues = [
+      { name: QUEUE_NAMES.WEBHOOK, queue: webhookQueue, label: 'webhook' },
+      { name: QUEUE_NAMES.MESSAGE, queue: messageQueue, label: 'message' },
+      { name: QUEUE_NAMES.WEBHOOK_OUTBOUND, queue: webhookOutboundQueue, label: 'webhookOutbound' },
+      { name: QUEUE_NAMES.DOCUMENT, queue: documentQueue, label: 'document' },
+    ]
+
+    const failedJobs: FailedJobDetails[] = []
+
+    for (const { name, queue, label } of queues) {
+      const jobs = await queue.getFailed(0, limit) as Job[]
+      for (const job of jobs) {
+        failedJobs.push({
+          id: job.id,
+          name: job.name,
+          queue: label,
+          data: job.data,
+          failedReason: job.failedReason,
+          stacktrace: job.stacktrace,
+          attemptsMade: job.attemptsMade,
+          failedAt: job.processedOn ? new Date(job.processedOn) : undefined,
+        })
+      }
+    }
+
+    // Sort by failed date (newest first)
+    failedJobs.sort((a, b) => {
+      if (!a.failedAt) return 1
+      if (!b.failedAt) return -1
+      return b.failedAt.getTime() - a.failedAt.getTime()
+    })
+
+    // Get total failed count
+    const [webhookFailed, messageFailed, webhookOutboundFailed, documentFailed] = await Promise.all([
+      webhookQueue.getJobCounts('failed'),
+      messageQueue.getJobCounts('failed'),
+      webhookOutboundQueue.getJobCounts('failed'),
+      documentQueue.getJobCounts('failed'),
+    ])
+
+    const totalFailed = webhookFailed.failed + messageFailed.failed + webhookOutboundFailed.failed + documentFailed.failed
+
+    return {
+      failedJobs: failedJobs.slice(0, limit * queues.length),
+      totalFailed
+    }
+  }
+
+  /**
+   * Retry a failed job
+   * @param queueName - Queue name ('webhook' | 'message' | 'webhookOutbound' | 'document')
+   * @param jobId - Job ID to retry
+   */
+  static async retryFailedJob(queueName: 'webhook' | 'message' | 'webhookOutbound' | 'document', jobId: string): Promise<boolean> {
+    let queue
+    switch (queueName) {
+      case 'webhook':
+        queue = webhookQueue
+        break
+      case 'message':
+        queue = messageQueue
+        break
+      case 'webhookOutbound':
+        queue = webhookOutboundQueue
+        break
+      case 'document':
+        queue = documentQueue
+        break
+      default:
+        throw new Error(`Invalid queue name: ${queueName}`)
+    }
+
+    const job = await queue.getJob(jobId)
+    if (!job) {
+      throw new Error(`Job ${jobId} not found in queue ${queueName}`)
+    }
+
+    await job.retry()
+    return true
+  }
+
+  /**
+   * Delete a failed job
+   * @param queueName - Queue name ('webhook' | 'message' | 'webhookOutbound' | 'document')
+   * @param jobId - Job ID to delete
+   */
+  static async deleteFailedJob(queueName: 'webhook' | 'message' | 'webhookOutbound' | 'document', jobId: string): Promise<boolean> {
+    let queue
+    switch (queueName) {
+      case 'webhook':
+        queue = webhookQueue
+        break
+      case 'message':
+        queue = messageQueue
+        break
+      case 'webhookOutbound':
+        queue = webhookOutboundQueue
+        break
+      case 'document':
+        queue = documentQueue
+        break
+      default:
+        throw new Error(`Invalid queue name: ${queueName}`)
+    }
+
+    const job = await queue.getJob(jobId)
+    if (!job) {
+      throw new Error(`Job ${jobId} not found in queue ${queueName}`)
+    }
+
+    await job.remove()
+    return true
+  }
+
+  /**
+   * Delete all failed jobs from all queues
+   */
+  static async deleteAllFailedJobs(): Promise<number> {
+    const queues = [
+      { name: 'webhook', queue: webhookQueue },
+      { name: 'message', queue: messageQueue },
+      { name: 'webhookOutbound', queue: webhookOutboundQueue },
+      { name: 'document', queue: documentQueue },
+    ]
+
+    let totalDeleted = 0
+    for (const { name, queue } of queues) {
+      const jobs = await queue.getFailed(0, 1000)
+      for (const job of jobs) {
+        await job.remove()
+        totalDeleted++
+      }
+    }
+
+    return totalDeleted
   }
 }

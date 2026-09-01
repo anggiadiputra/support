@@ -7,9 +7,33 @@ export interface WABADetails {
     timezone?: string
     currency?: string
     messageTemplateNamespace?: string
-    wabaConnectionStatus?: string
-    wabaConnectedAt?: string
-    wabaLastSyncAt?: string
+    connectionStatus?: string
+    connectedAt?: string
+    lastSyncAt?: string
+    isManualLogin?: boolean
+}
+
+export interface ManualConnectResponse {
+    waba: WABADetails & {
+        isManualLogin: boolean
+    }
+    phoneNumbers: PhoneNumberDetails[]
+    webhook: {
+        url: string
+        verifyToken: string
+        instructions: string
+    }
+}
+
+export interface WebhookInfoResponse {
+    accountId: string
+    wabaId: string
+    wabaName: string
+    webhook: {
+        url: string
+        verifyToken: string
+        instructions: string[]
+    }
 }
 
 export interface PhoneNumberDetails {
@@ -27,6 +51,14 @@ export interface SignupUrlResponse {
     signupUrl: string
     state: string
     expiresAt: string
+    appId?: string
+    configId?: string
+}
+
+export interface EmbeddedSignupInitResponse {
+    appId: string
+    configId: string
+    state: string
 }
 
 export interface CallbackResponse {
@@ -74,6 +106,21 @@ export interface SyncStatus {
 }
 
 export const wabaApi = {
+    async getAccounts(): Promise<WABADetails[]> {
+        const response = await fetch(`${API_URL}/api/v1/waba/accounts`, {
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+        })
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}))
+            throw new Error(error.error?.message || 'Failed to fetch WhatsApp accounts')
+        }
+
+        const result = await response.json()
+        return result.data || []
+    },
+
     async initSignup(enableCoexistence = false): Promise<SignupUrlResponse> {
         const response = await fetch(`${API_URL}/api/v1/waba/signup/init`, {
             method: 'POST',
@@ -91,6 +138,20 @@ export const wabaApi = {
         return result.data
     },
 
+    async initEmbeddedSignup(enableCoexistence = false): Promise<EmbeddedSignupInitResponse> {
+        const result = await this.initSignup(enableCoexistence)
+
+        if (!result.appId || !result.configId) {
+            throw new Error("Missing Meta embedded signup configuration")
+        }
+
+        return {
+            appId: result.appId,
+            configId: result.configId,
+            state: result.state,
+        }
+    },
+
     async handleCallback(code: string, state: string): Promise<CallbackResponse> {
         // Use AbortController with longer timeout for WABA callback (can take up to 2 minutes)
         const controller = new AbortController()
@@ -101,6 +162,50 @@ export const wabaApi = {
                 `${API_URL}/api/v1/waba/signup/callback?code=${encodeURIComponent(
                     code
                 )}&state=${encodeURIComponent(state)}`,
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    signal: controller.signal,
+                }
+            )
+
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}))
+                throw new Error(
+                    error.error?.message || 'Failed to complete WABA connection'
+                )
+            }
+
+            const result = await response.json()
+            return result.data
+        } catch (error) {
+            clearTimeout(timeoutId)
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error('Connection timed out. Please refresh the page to check if connection was successful.')
+            }
+            throw error
+        }
+    },
+
+    async exchangeEmbeddedSignupCode({
+        code,
+        state,
+        providedWabaId,
+    }: {
+        code: string
+        state: string
+        providedWabaId?: string
+    }): Promise<CallbackResponse> {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 120000)
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/v1/waba/signup/callback?code=${encodeURIComponent(
+                    code
+                )}&state=${encodeURIComponent(state)}${providedWabaId ? `&providedWabaId=${encodeURIComponent(providedWabaId)}` : ''}`,
                 {
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -281,6 +386,61 @@ export const wabaApi = {
         if (!response.ok) {
             const error = await response.json().catch(() => ({}))
             throw new Error(error.error?.message || 'Failed to sync history')
+        }
+
+        const result = await response.json()
+        return result.data
+    },
+
+    // Manual login methods
+    async manualConnect(accessToken: string, wabaId: string): Promise<ManualConnectResponse> {
+        const response = await fetch(`${API_URL}/api/v1/waba/manual/connect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ accessToken, wabaId }),
+        })
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}))
+            throw new Error(error.error?.message || 'Failed to connect WABA')
+        }
+
+        const result = await response.json()
+        return result.data
+    },
+
+    async getWebhookInfo(accountId: string): Promise<WebhookInfoResponse> {
+        const response = await fetch(
+            `${API_URL}/api/v1/waba/manual/webhook-info/${accountId}`,
+            {
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            }
+        )
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}))
+            throw new Error(error.error?.message || 'Failed to get webhook info')
+        }
+
+        const result = await response.json()
+        return result.data
+    },
+
+    async regenerateVerifyToken(accountId: string): Promise<{ webhook: { url: string; verifyToken: string; message: string } }> {
+        const response = await fetch(
+            `${API_URL}/api/v1/waba/manual/regenerate-verify-token/${accountId}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            }
+        )
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}))
+            throw new Error(error.error?.message || 'Failed to regenerate verify token')
         }
 
         const result = await response.json()

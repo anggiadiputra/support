@@ -6,6 +6,7 @@ export interface AuthenticatedSocket extends Socket {
   userId: string
   sessionId: string
   userAgent?: string
+  businessOwnerId: string
 }
 
 // WebSocket event types
@@ -15,13 +16,15 @@ export type WebSocketEventType =
   | 'conversation_updated'
   | 'typing_indicator'
   | 'assignment_changed'
+  | 'outbound_message'
+  | 'new_notification'
 
 // ============================================
 // Zod Validation Schemas
 // ============================================
 
 // Channel schema
-const channelSchema = z.enum(['whatsapp', 'instagram'])
+const channelSchema = z.enum(['whatsapp', 'instagram', 'messenger'])
 
 // Message direction schema
 const messageDirectionSchema = z.enum(['inbound', 'outbound'])
@@ -57,7 +60,10 @@ export const conversationUpdatedPayloadSchema = z.object({
 export const messageStatusPayloadSchema = z.object({
   messageId: z.string().min(1),
   conversationId: z.string().min(1),
-  status: messageStatusSchema
+  status: messageStatusSchema,
+  // Error details for failed messages
+  errorCode: z.string().optional(),
+  errorMessage: z.string().optional()
 })
 
 // Typing indicator event payload schema
@@ -67,10 +73,24 @@ export const typingIndicatorPayloadSchema = z.object({
 })
 
 // Conversation type schema for assignment
-const conversationTypeSchema = z.enum(['whatsapp', 'instagram'])
+const conversationTypeSchema = z.enum(['whatsapp', 'instagram', 'messenger'])
 
 // Assignment action schema
 const assignmentActionSchema = z.enum(['assigned', 'unassigned'])
+
+// Assignment history item schema (for realtime updates)
+const assignmentHistoryItemSchema = z.object({
+  id: z.string().min(1),
+  assigneeId: z.string().nullable(),
+  assigneeName: z.string().nullable(),
+  assigneeType: z.enum(['HUMAN', 'AI_AGENT']),
+  aiAgentId: z.string().nullable(),
+  aiAgentName: z.string().nullable(),
+  assignedById: z.string().min(1),
+  assignedByName: z.string().nullable(),
+  assignedAt: z.string().datetime(),
+  unassignedAt: z.string().datetime().nullable(),
+})
 
 // Assignment changed event payload schema
 export const assignmentChangedPayloadSchema = z.object({
@@ -78,8 +98,42 @@ export const assignmentChangedPayloadSchema = z.object({
   conversationType: conversationTypeSchema,
   assigneeId: z.string().nullable(),
   assigneeName: z.string().nullable(),
+  assigneeType: z.enum(['HUMAN', 'AI_AGENT']).optional(),
+  aiAgentId: z.string().nullable().optional(),
+  aiAgentName: z.string().nullable().optional(),
   assignedById: z.string().min(1),
-  action: assignmentActionSchema
+  assignedByName: z.string().nullable().optional(),
+  action: assignmentActionSchema,
+  // History item for realtime updates
+  historyItem: assignmentHistoryItemSchema.optional(),
+})
+
+// Outbound message event payload schema
+export const outboundMessagePayloadSchema = z.object({
+  conversationId: z.string().min(1),
+  channel: channelSchema,
+  message: z.object({
+    id: z.string().min(1),
+    content: z.string(),
+    contentType: z.enum(['text', 'image', 'video', 'audio', 'document', 'template', 'interactive']),
+    timestamp: z.string().datetime(),
+    senderId: z.string().min(1),
+    senderName: z.string(),
+    senderType: z.enum(['human', 'ai_agent'])
+  })
+})
+
+// New notification event payload schema
+export const newNotificationPayloadSchema = z.object({
+  id: z.string().min(1),
+  type: z.string(),
+  title: z.string(),
+  message: z.string(),
+  priority: z.string(),
+  actionUrl: z.string().nullable().optional(),
+  actionLabel: z.string().nullable().optional(),
+  isRead: z.boolean(),
+  createdAt: z.string().datetime(),
 })
 
 // Full event schemas with type discriminator
@@ -118,13 +172,27 @@ export const assignmentChangedEventSchema = z.object({
   payload: assignmentChangedPayloadSchema
 })
 
+export const outboundMessageEventSchema = z.object({
+  type: z.literal('outbound_message'),
+  timestamp: z.string().datetime(),
+  userId: z.string().min(1),
+  payload: outboundMessagePayloadSchema
+})
+
+export const newNotificationEventSchema = z.object({
+  type: z.literal('new_notification'),
+  payload: newNotificationPayloadSchema
+})
+
 // Union schema for all WebSocket events
 export const webSocketEventSchema = z.discriminatedUnion('type', [
   newMessageEventSchema,
   conversationUpdatedEventSchema,
   messageStatusEventSchema,
   typingIndicatorEventSchema,
-  assignmentChangedEventSchema
+  assignmentChangedEventSchema,
+  outboundMessageEventSchema,
+  newNotificationEventSchema
 ])
 
 // ============================================
@@ -168,6 +236,18 @@ export interface AssignmentChangedEvent extends BaseEvent {
   payload: z.infer<typeof assignmentChangedPayloadSchema>
 }
 
+// Outbound message event payload
+export interface OutboundMessageEvent extends BaseEvent {
+  type: 'outbound_message'
+  payload: z.infer<typeof outboundMessagePayloadSchema>
+}
+
+// New notification event payload (simpler - no timestamp/userId needed at top level)
+export interface NewNotificationEvent {
+  type: 'new_notification'
+  payload: z.infer<typeof newNotificationPayloadSchema>
+}
+
 // Union type for all WebSocket events
 export type WebSocketEvent = 
   | NewMessageEvent 
@@ -175,6 +255,8 @@ export type WebSocketEvent =
   | MessageStatusEvent
   | TypingIndicatorEvent
   | AssignmentChangedEvent
+  | OutboundMessageEvent
+  | NewNotificationEvent
 
 // ============================================
 // Server Configuration & Connection Types
@@ -194,6 +276,7 @@ export interface WebSocketServerConfig {
 export interface UserConnection {
   socketId: string
   userId: string
+  businessOwnerId: string
   connectedAt: Date
   lastHeartbeat: Date
   userAgent?: string

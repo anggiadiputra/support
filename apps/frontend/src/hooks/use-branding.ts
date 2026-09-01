@@ -3,6 +3,7 @@ import {
   brandingApi,
   DEFAULT_BRANDING,
   type BrandingSettings,
+  type ExternalLink,
 } from "@/lib/api/branding-api"
 
 export interface UseBrandingReturn {
@@ -11,6 +12,10 @@ export interface UseBrandingReturn {
   logoUrl: string
   supportEmail: string
   supportWhatsapp: string
+  termsUrl: string
+  privacyUrl: string
+  n8nPackageName: string
+  externalLinks: ExternalLink[]
   isLoading: boolean
   error: Error | null
   refetch: () => void
@@ -47,6 +52,10 @@ export function useBranding(): UseBrandingReturn {
     logoUrl: branding.logoUrl,
     supportEmail: branding.supportEmail,
     supportWhatsapp: branding.supportWhatsapp,
+    termsUrl: branding.termsUrl,
+    privacyUrl: branding.privacyUrl,
+    n8nPackageName: branding.n8nPackageName,
+    externalLinks: branding.externalLinks || [],
     isLoading,
     error: error as Error | null,
     refetch,

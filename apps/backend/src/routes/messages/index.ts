@@ -5,6 +5,7 @@ import { requirePermission } from '../../middleware/permissions.js'
 import listMessages from './list.js'
 import sendMessage from './send.js'
 import readMessages from './read.js'
+import reactionMessages from './reaction.js'
 
 const app = new Hono()
 
@@ -23,5 +24,9 @@ app.route('/', sendMessage)
 // Mark messages as read - requires messages:write permission
 app.use('/read', requirePermission('messages:write'))
 app.route('/read', readMessages)
+
+// Reaction - requires messages:write permission
+app.use('/:messageId/react', requirePermission('messages:write'))
+app.route('/', reactionMessages)
 
 export default app

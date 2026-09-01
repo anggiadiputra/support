@@ -33,7 +33,6 @@ app.get('/:id', async (c: Context) => {
           select: {
             id: true,
             name: true,
-            wabaId: true
           }
         },
         templateQualityLogs: {

@@ -1,0 +1,57 @@
+{
+  "title": "Affiliate Program",
+  "subtitle": "Earn commission from every payment made by users you refer",
+  "notAffiliate": {
+    "title": "Join Our Affiliate Program",
+    "description": "Earn commission from every payment made by users you refer!",
+    "benefits": {
+      "title": "Benefits",
+      "commission": "5-20% recurring commission",
+      "instant": "Directly added to your credit balance",
+      "useForSubscription": "Use credits to pay for subscription"
+    },
+    "registerButton": "Register Now",
+    "registering": "Registering...",
+    "registerSuccess": "Successfully registered as affiliate!",
+    "registerError": "Failed to register as affiliate"
+  },
+  "dashboard": {
+    "referralLink": "Your Referral Link",
+    "copyLink": "Copy",
+    "linkCopied": "Link copied to clipboard!",
+    "stats": {
+      "totalEarned": "Total Earned",
+      "pending": "Pending",
+      "referrals": "Referrals"
+    }
+  },
+  "referrals": {
+    "title": "Your Referrals",
+    "empty": "No referrals yet",
+    "emptyDescription": "Share your referral link to start earning commissions",
+    "name": "Name",
+    "email": "Email",
+    "joinedAt": "Joined"
+  },
+  "earnings": {
+    "title": "Earnings History",
+    "empty": "No earnings yet",
+    "emptyDescription": "Your commission history will appear here",
+    "type": "Type",
+    "amount": "Transaction",
+    "commission": "Commission",
+    "status": "Status",
+    "date": "Date",
+    "types": {
+      "SUBSCRIPTION": "Subscription",
+      "TOP_UP": "Top Up"
+    },
+    "statuses": {
+      "PENDING": "Pending",
+      "CREDITED": "Credited",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "loading": "Loading affiliate data...",
+  "error": "Failed to load affiliate data"
+}

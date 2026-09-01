@@ -29,7 +29,9 @@
     "linkedSuccessDesc": "Your account has been linked to the team. Please log in to continue.",
     "goToLogin": "Go to Login",
     "error": "Failed to accept invitation",
-    "alreadyAgent": "You are already a member of another team. Please contact support if you need to switch teams."
+    "alreadyAgent": "You are already a member of another team. Please contact support if you need to switch teams.",
+    "oauthAccountDesc": "You signed up using Google. Please continue with Google to link your account to this team.",
+    "continueWithGoogle": "Continue with Google"
   },
   "members": {
     "title": "Team Members",

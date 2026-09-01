@@ -31,7 +31,7 @@ export const apiKeyExpiringTemplate: EmailTemplate = (params: ApiKeyExpiringPara
       
       <h3>How to Fix:</h3>
       <ol>
-        <li>Go to Settings → API Keys in KirimChat</li>
+        <li>Go to Settings → API Keys in your dashboard</li>
         <li>Create a new API key before the current one expires</li>
         <li>Update your integrations with the new key</li>
         <li>Optionally revoke the old key once migrated</li>
@@ -39,7 +39,7 @@ export const apiKeyExpiringTemplate: EmailTemplate = (params: ApiKeyExpiringPara
       
       <p>If you need help, please check our documentation or contact support.</p>
       
-      <p>Best regards,<br>The KirimChat Team</p>
+      <p>Best regards,<br>The ${process.env.APP_NAME || 'Messaging Platform'} Team</p>
     `
   };
 };

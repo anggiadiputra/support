@@ -3,9 +3,7 @@
 import { HTMLAttributes, useState, useEffect } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
-import { Link, useRouter } from "@/i18n/routing"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, Mail, RefreshCw, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -18,8 +16,10 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { OTPInput } from "@/components/ui/otp-input"
 import { PasswordInput } from "@/components/password-input"
+import { OTPInput } from "@/components/ui/otp-input"
+import { Link, useRouter } from "@/i18n/routing"
+import { IconArrowLeft, IconMail, IconRefresh, IconCheck } from "@tabler/icons-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
@@ -32,16 +32,14 @@ function useEmailSchema() {
 
 function useResetSchema() {
   const t = useTranslations("validation")
-  return z
-    .object({
-      otp: z.string().length(6, t("required")),
-      newPassword: z.string().min(8, t("minLength", { min: 8 })),
-      confirmPassword: z.string(),
-    })
-    .refine((data) => data.newPassword === data.confirmPassword, {
-      message: t("passwordMismatch"),
-      path: ["confirmPassword"],
-    })
+  return z.object({
+    otp: z.string().length(6, t("required")),
+    newPassword: z.string().min(8, t("minLength", { min: 8 })),
+    confirmPassword: z.string(),
+  }).refine((data) => data.newPassword === data.confirmPassword, {
+    message: t("passwordMismatch"),
+    path: ["confirmPassword"],
+  })
 }
 
 type Step = "email" | "otp" | "success"
@@ -116,9 +114,7 @@ export function ForgotPasswordForm({
 
       if (!res.ok) {
         if (result.error?.code === "RateLimitExceeded") {
-          setError(
-            tErrors("tooManyAttempts", { seconds: result.error.retryAfter })
-          )
+          setError(tErrors("tooManyAttempts", { seconds: result.error.retryAfter }))
         } else {
           setError(result.error?.message || tErrors("failedToSendReset"))
         }
@@ -170,7 +166,7 @@ export function ForgotPasswordForm({
 
   async function handleResendOTP() {
     if (resendCooldown > 0) return
-
+    
     setIsLoading(true)
     setError("")
     try {
@@ -208,13 +204,11 @@ export function ForgotPasswordForm({
       <div className={cn("grid gap-6", className)} {...props}>
         <div className="flex flex-col items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-            <Check className="h-8 w-8 text-green-500" />
+            <IconCheck className="h-8 w-8 text-green-500" />
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-semibold">
-              {t("passwordResetSuccess")}
-            </h2>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <h2 className="text-xl font-semibold">{t("passwordResetSuccess")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
               {t("passwordResetSuccessDesc")}
             </p>
           </div>
@@ -231,23 +225,20 @@ export function ForgotPasswordForm({
     return (
       <div className={cn("grid gap-6", className)} {...props}>
         <div className="flex flex-col items-center gap-4">
-          <div className="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">
-            <Mail className="text-primary h-8 w-8" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <IconMail className="h-8 w-8 text-primary" />
           </div>
           <div className="text-center">
             <h2 className="text-xl font-semibold">{t("resetPassword")}</h2>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="mt-1 text-sm text-muted-foreground">
               {t("enterOtpCode")}
             </p>
-            <p className="text-primary font-medium">{email}</p>
+            <p className="font-medium text-primary">{email}</p>
           </div>
         </div>
 
         <Form {...resetForm}>
-          <form
-            onSubmit={resetForm.handleSubmit(onResetSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4">
             <div className="space-y-2">
               <OTPInput
                 value={otp}
@@ -263,16 +254,16 @@ export function ForgotPasswordForm({
 
             {/* Countdown timer */}
             {timeRemaining > 0 && (
-              <p className="text-muted-foreground text-center text-sm">
+              <p className="text-center text-sm text-muted-foreground">
                 {t("codeValidFor")}{" "}
-                <span className="text-foreground font-medium">
+                <span className="font-medium text-foreground">
                   {formatTime(timeRemaining)}
                 </span>
               </p>
             )}
 
             {timeRemaining === 0 && (
-              <p className="text-destructive text-center text-sm">
+              <p className="text-center text-sm text-destructive">
                 {t("codeExpired")}
               </p>
             )}
@@ -284,11 +275,7 @@ export function ForgotPasswordForm({
                 <FormItem className="space-y-2">
                   <FormLabel>{t("newPassword")}</FormLabel>
                   <FormControl>
-                    <PasswordInput
-                      placeholder={t("minChars", { min: 8 })}
-                      className="h-11"
-                      {...field}
-                    />
+                    <PasswordInput placeholder={t("minChars", { min: 8 })} className="h-11" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -302,11 +289,7 @@ export function ForgotPasswordForm({
                 <FormItem className="space-y-2">
                   <FormLabel>{t("confirmNewPassword")}</FormLabel>
                   <FormControl>
-                    <PasswordInput
-                      placeholder={t("confirmNewPassword")}
-                      className="h-11"
-                      {...field}
-                    />
+                    <PasswordInput placeholder={t("confirmNewPassword")} className="h-11" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -315,21 +298,17 @@ export function ForgotPasswordForm({
 
             {/* Error message */}
             {error && (
-              <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm">
+              <div className="rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
                 {error}
                 {attemptsRemaining < 5 && attemptsRemaining > 0 && (
-                  <span className="mt-1 block text-xs">
+                  <span className="block mt-1 text-xs">
                     {t("remainingAttempts", { count: attemptsRemaining })}
                   </span>
                 )}
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="h-11 w-full"
-              disabled={isLoading || otp.length !== 6}
-            >
+            <Button type="submit" className="w-full h-11" disabled={isLoading || otp.length !== 6}>
               {isLoading ? t("processing") : t("resetPassword")}
             </Button>
           </form>
@@ -337,9 +316,7 @@ export function ForgotPasswordForm({
 
         {/* Resend OTP */}
         <div className="flex flex-col items-center gap-2">
-          <p className="text-muted-foreground text-sm">
-            {t("didntReceiveCode")}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("didntReceiveCode")}</p>
           <Button
             type="button"
             variant="ghost"
@@ -348,15 +325,15 @@ export function ForgotPasswordForm({
             disabled={isLoading || resendCooldown > 0 || resendsRemaining === 0}
             className="gap-2"
           >
-            <RefreshCw className="h-4 w-4" />
+            <IconRefresh className="h-4 w-4" />
             {resendCooldown > 0
               ? t("resendIn", { seconds: resendCooldown })
               : resendsRemaining === 0
-                ? t("resendLimitReached")
-                : t("resendCode")}
+              ? t("resendLimitReached")
+              : t("resendCode")}
           </Button>
           {resendsRemaining > 0 && resendsRemaining < 5 && (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               {t("remainingResends", { count: resendsRemaining })}
             </p>
           )}
@@ -370,7 +347,7 @@ export function ForgotPasswordForm({
           onClick={() => setStep("email")}
           disabled={isLoading}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <IconArrowLeft className="h-4 w-4" />
           {t("changeEmail")}
         </Button>
       </div>
@@ -388,10 +365,7 @@ export function ForgotPasswordForm({
       </div>
 
       <Form {...emailForm}>
-        <form
-          onSubmit={emailForm.handleSubmit(onEmailSubmit)}
-          className="space-y-4"
-        >
+        <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-4">
           <FormField
             control={emailForm.control}
             name="email"
@@ -399,11 +373,7 @@ export function ForgotPasswordForm({
               <FormItem className="space-y-2">
                 <FormLabel>{t("email")}</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder={tCommon("emailPlaceholder")}
-                    className="h-11"
-                    {...field}
-                  />
+                  <Input placeholder={tCommon("emailPlaceholder")} className="h-11" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -411,12 +381,12 @@ export function ForgotPasswordForm({
           />
 
           {error && (
-            <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm">
+            <div className="rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
               {error}
             </div>
           )}
 
-          <Button type="submit" className="h-11 w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full h-11" disabled={isLoading}>
             {isLoading ? t("sending") : t("sendResetCode")}
           </Button>
         </form>

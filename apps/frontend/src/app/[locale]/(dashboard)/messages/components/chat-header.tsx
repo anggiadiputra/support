@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Phone, Video, MoreVertical, ArrowLeft } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { Customer } from "../hooks/use-chat"
 
 interface ChatHeaderProps {
@@ -16,7 +16,7 @@ export function ChatHeader({ customer, onBack }: ChatHeaderProps) {
     }
 
     return (
-        <div className="px-4 sm:px-6 py-4 border-b flex items-center gap-3 sm:gap-4 shadow-sm">
+        <div className="p-4 border-b flex items-center gap-3 bg-background">
             {/* Back button for mobile */}
             <Button
                 variant="ghost"
@@ -40,18 +40,6 @@ export function ChatHeader({ customer, onBack }: ChatHeaderProps) {
                 <p className="text-xs text-muted-foreground">
                     {customer.phoneNumber}
                 </p>
-            </div>
-
-            <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="text-muted-foreground">
-                    <Phone className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground">
-                    <Video className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground">
-                    <MoreVertical className="h-5 w-5" />
-                </Button>
             </div>
         </div>
     )

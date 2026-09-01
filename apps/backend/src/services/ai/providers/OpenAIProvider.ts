@@ -3,21 +3,33 @@ import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages
 import { ILLMProvider } from './ILLMProvider.js';
 import { AIChatMessage } from '../types.js';
 
+export const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+
 export class OpenAIProvider implements ILLMProvider {
-  private embeddingModel: OpenAIEmbeddings;
+  private embeddingModelInstance: OpenAIEmbeddings;
   private chatModel: ChatOpenAI;
 
   private apiKey: string;
+  private baseUrl?: string;
+  private embeddingModel: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseUrl?: string, embeddingModel?: string) {
     this.apiKey = apiKey;
-    this.embeddingModel = new OpenAIEmbeddings({
+    this.baseUrl = baseUrl;
+    this.embeddingModel = embeddingModel || DEFAULT_EMBEDDING_MODEL;
+
+    const baseConfig = {
       apiKey: apiKey,
-      model: 'text-embedding-3-small',
+      ...(baseUrl && { configuration: { baseURL: baseUrl } }),
+    };
+
+    this.embeddingModelInstance = new OpenAIEmbeddings({
+      ...baseConfig,
+      model: this.embeddingModel,
     });
 
     this.chatModel = new ChatOpenAI({
-      apiKey: apiKey,
+      ...baseConfig,
       model: 'gpt-4.1-nano-2025-04-14', // Default
     });
   }
@@ -32,6 +44,7 @@ export class OpenAIProvider implements ILLMProvider {
       apiKey: this.apiKey,
       model: config.model,
       temperature: config.temperature,
+      ...(this.baseUrl && { configuration: { baseURL: this.baseUrl } }),
     });
 
     const formattedMessages = messages.map((msg) => {
@@ -68,12 +81,12 @@ export class OpenAIProvider implements ILLMProvider {
   async generateEmbedding(text: string): Promise<number[]> {
     // Replace newlines to improve embedding quality
     const cleanText = text.replace(/\n/g, ' ');
-    return await this.embeddingModel.embedQuery(cleanText);
+    return await this.embeddingModelInstance.embedQuery(cleanText);
   }
 
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
     // Replace newlines in all texts
     const cleanTexts = texts.map(text => text.replace(/\n/g, ' '));
-    return await this.embeddingModel.embedDocuments(cleanTexts);
+    return await this.embeddingModelInstance.embedDocuments(cleanTexts);
   }
 }

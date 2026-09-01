@@ -15,6 +15,7 @@ interface BaseNavItem {
   badge?: string
   icon?: React.ElementType
   roles?: string[] // Optional: restrict to specific roles
+  external?: boolean // Optional: open in new tab (for external links)
 }
 
 export type NavItem =

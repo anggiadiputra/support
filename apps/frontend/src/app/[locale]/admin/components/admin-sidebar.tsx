@@ -1,18 +1,5 @@
 "use client"
 
-import { Link, usePathname } from "@/i18n/routing"
-import {
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  Activity,
-  FileText,
-  ArrowLeft,
-  ShieldAlert,
-  Settings,
-  Banknote,
-  Palette,
-} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -25,57 +12,113 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useBrandingContext } from "@/components/branding-provider"
+import {
+  IconLayoutDashboard,
+  IconUsers,
+  IconCreditCard,
+  IconActivity,
+  IconFileText,
+  IconArrowLeft,
+  IconShieldLock,
+  IconSettings,
+  IconCash,
+  IconPalette,
+  IconTrash,
+  IconBell,
+  IconMail,
+  IconUsersGroup,
+} from "@tabler/icons-react"
+import { usePathname } from "@/i18n/routing"
+import { OptimizedLink } from "@/components/optimized-link"
+import { useBranding } from "@/hooks/use-branding"
 
-const adminNavItems = [
+const adminNavGroups = [
   {
-    title: "Overview",
-    url: "/admin",
-    icon: LayoutDashboard,
+    label: "Dashboard",
+    items: [
+      {
+        title: "Overview",
+        url: "/admin",
+        icon: IconLayoutDashboard,
+      },
+    ],
   },
   {
-    title: "Users",
-    url: "/admin/users",
-    icon: Users,
+    label: "User Management",
+    items: [
+      {
+        title: "Users",
+        url: "/admin/users",
+        icon: IconUsers,
+      },
+      {
+        title: "Subscriptions",
+        url: "/admin/subscriptions",
+        icon: IconCreditCard,
+      },
+      {
+        title: "Affiliates",
+        url: "/admin/affiliates",
+        icon: IconUsersGroup,
+      },
+      {
+        title: "Revenue",
+        url: "/admin/revenue",
+        icon: IconCash,
+      },
+    ],
   },
   {
-    title: "Subscriptions",
-    url: "/admin/subscriptions",
-    icon: CreditCard,
+    label: "Monitoring",
+    items: [
+      {
+        title: "System Health",
+        url: "/admin/system",
+        icon: IconActivity,
+      },
+      {
+        title: "Audit Logs",
+        url: "/admin/audit",
+        icon: IconFileText,
+      },
+      {
+        title: "Notifications",
+        url: "/admin/notifications/history",
+        icon: IconBell,
+      },
+    ],
   },
   {
-    title: "Revenue",
-    url: "/admin/revenue",
-    icon: Banknote,
-  },
-  {
-    title: "System Health",
-    url: "/admin/system",
-    icon: Activity,
-  },
-  {
-    title: "Audit Logs",
-    url: "/admin/audit",
-    icon: FileText,
-  },
-  {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: Settings,
-  },
-  {
-    title: "Branding",
-    url: "/admin/settings/branding",
-    icon: Palette,
+    label: "Configuration",
+    items: [
+      {
+        title: "Settings",
+        url: "/admin/settings",
+        icon: IconSettings,
+      },
+      {
+        title: "Branding",
+        url: "/admin/settings/branding",
+        icon: IconPalette,
+      },
+      {
+        title: "Message Retention",
+        url: "/admin/settings/message-retention",
+        icon: IconTrash,
+      },
+      {
+        title: "Email Templates",
+        url: "/admin/email-templates",
+        icon: IconMail,
+      },
+    ],
   },
 ]
 
-export function AdminSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setOpenMobile } = useSidebar()
   const pathname = usePathname()
-  const { websiteName } = useBrandingContext()
+  const { websiteName } = useBranding()
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -87,50 +130,47 @@ export function AdminSidebar({
               className="ring-sidebar-primary/50 focus-visible:ring-1"
             >
               <div className="flex aspect-square size-8 items-center justify-center">
-                <ShieldAlert className="text-primary size-5" />
+                <IconShieldLock className="size-5 text-primary" />
               </div>
               <div className="grid flex-1 text-left text-xs leading-tight">
                 <span className="truncate font-semibold">Admin Panel</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {websiteName || "Management"}
-                </span>
+                <span className="truncate text-xs text-muted-foreground">{websiteName}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Management</SidebarGroupLabel>
-          <SidebarMenu>
-            {adminNavItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === item.url ||
-                    (item.url !== "/admin" && pathname.startsWith(item.url))
-                  }
-                  tooltip={item.title}
-                >
-                  <Link href={item.url} onClick={() => setOpenMobile(false)}>
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {adminNavGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarMenu>
+              {group.items.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.url || (item.url !== "/admin" && pathname.startsWith(item.url))}
+                    tooltip={item.title}
+                  >
+                    <OptimizedLink href={item.url} onClick={() => setOpenMobile(false)}>
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </OptimizedLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Back to Dashboard">
-                <Link href="/dashboard" onClick={() => setOpenMobile(false)}>
-                  <ArrowLeft className="size-4" />
+                <OptimizedLink href="/dashboard" onClick={() => setOpenMobile(false)}>
+                  <IconArrowLeft className="size-4" />
                   <span>Back to Dashboard</span>
-                </Link>
+                </OptimizedLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

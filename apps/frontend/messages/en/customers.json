@@ -1,5 +1,9 @@
 {
   "title": "Customers",
+  "description": "Manage your WhatsApp contacts and consent preferences",
+  "updating": "Updating...",
+  "noCustomers": "No customers yet",
+  "noCustomersDescription": "Add your first customer to start sending WhatsApp messages",
   "addCustomer": "Add Customer",
   "editCustomer": "Edit Customer",
   "deleteCustomer": "Delete Customer",
@@ -14,5 +18,27 @@
   "removeTag": "Remove Tag",
   "lastContact": "Last Contact",
   "totalMessages": "Total Messages",
-  "assignedTo": "Assigned To"
+  "assignedTo": "Assigned To",
+  "viewDetails": "View Details",
+  "sendMessage": "Send Message",
+  "deleting": "Deleting...",
+  "deleteConfirmTitle": "Delete Customer?",
+  "deleteConfirmDescription": "Are you sure you want to delete {name}? This action cannot be undone.",
+  "deleteWarningTitle": "The following data will be permanently deleted:",
+  "deleteWarningMessages": "All chat messages",
+  "deleteWarningConsentLogs": "Consent history logs",
+  "deleteWarningNotes": "Customer notes",
+  "deleteWarningCustomFields": "Custom field values",
+  "deleteWarningActivities": "Activity history",
+  "deleteSuccess": "Customer Deleted",
+  "deleteSuccessDescription": "The customer and all associated data have been deleted successfully.",
+  "deleteError": "Delete Failed",
+  "deleteErrorDescription": "Failed to delete customer. Please try again.",
+  "cancel": "Cancel",
+  "stats": {
+    "total": "Total Customers",
+    "consented": "Consented",
+    "activeWindow": "Active Window",
+    "blacklisted": "Blacklisted"
+  }
 }

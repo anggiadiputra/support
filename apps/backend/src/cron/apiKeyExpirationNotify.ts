@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { prisma } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { emailService } from '../services/email/index.js';
+import { notificationService } from '../services/notification-service.js';
 
 /**
  * Find API keys expiring within 30 days and send email notifications
@@ -55,8 +56,15 @@ export async function notifyExpiringApiKeys(): Promise<number> {
         key.user.email
       );
 
+      // Create in-app notification alongside email
+      await notificationService.createApiKeyExpiryWarning(
+        key.user.id,
+        key.name,
+        daysUntilExpiry
+      );
+
       notificationsSent++;
-      
+
       logger.info(`Sent API key expiration notification`, {
         keyId: key.id,
         keyName: key.name,

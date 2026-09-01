@@ -1,36 +1,55 @@
 #!/bin/sh
 set -e
 
-echo "🔄 KirimChat Backend - Starting..."
-echo "=================================="
+echo "🚀 Starting KirimChat Backend..."
 
 # Wait for database to be ready
 echo "⏳ Waiting for PostgreSQL..."
-until npx prisma db execute --stdin <<< "SELECT 1" > /dev/null 2>&1; do
-  echo "⏳ PostgreSQL is unavailable - sleeping"
-  sleep 2
+MAX_RETRIES=30
+RETRY_COUNT=0
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if npx tsx -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$connect().then(() => { console.log('DB OK'); process.exit(0); }).catch(() => process.exit(1));
+" 2>/dev/null; then
+        echo "✅ PostgreSQL is ready"
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "   Waiting for database... ($RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
 done
-echo "✅ PostgreSQL is ready!"
 
-# Check if database already has tables (existing deployment)
-echo "🔍 Checking database status..."
-TABLE_COUNT=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';" 2>/dev/null | tail -n 1 | tr -d ' ' || echo "0")
-
-if [ "$TABLE_COUNT" -gt "0" ]; then
-  echo "✅ Database already initialized with $TABLE_COUNT tables"
-  echo "⚠️  Skipping schema push to preserve existing data"
-  echo "💡 If you need to update schema, run: docker compose exec backend npx prisma db push"
-else
-  echo "🔄 First-time setup: Creating database schema..."
-  if npx prisma db push --accept-data-loss --skip-generate; then
-    echo "✅ Database schema created successfully!"
-  else
-    echo "❌ Failed to setup database schema"
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo "❌ Database connection timeout"
     exit 1
-  fi
 fi
 
-# Start the application
-echo "🚀 Starting backend server..."
-echo "=================================="
-exec node dist/index.js
+# Sync database schema (no migration files, using db push)
+echo "📦 Syncing database schema..."
+DB_PUSH_FAILED=0
+npx prisma db push || {
+    echo "⚠️  DB push failed, continuing anyway..."
+    DB_PUSH_FAILED=1
+    # Create marker file for install.sh to detect
+    touch /tmp/.db_push_failed
+}
+
+# Enable pgvector extension
+echo "🔧 Enabling pgvector extension..."
+npx tsx -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector')
+  .then(() => console.log('✅ pgvector extension enabled'))
+  .catch(err => console.log('⚠️  pgvector:', err.message))
+  .finally(() => prisma.\$disconnect());
+" 2>/dev/null || echo "⚠️  Could not enable pgvector"
+
+echo "✅ Database setup complete!"
+
+# Start the application using tsx (same as PM2)
+echo "🚀 Starting server with tsx..."
+exec npx tsx src/index.ts

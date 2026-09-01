@@ -218,7 +218,7 @@ export function CustomerProfilePanel({
           <>
             {/* Panel header with close button */}
             {loading ? (
-              <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center justify-between p-4 border-b bg-background">
                 <Skeleton className="h-5 w-32" />
                 <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
                   <X className="h-4 w-4" />
@@ -227,7 +227,7 @@ export function CustomerProfilePanel({
             ) : crmCustomer ? (
               <PanelHeader customer={crmCustomer} onClose={onToggle} />
             ) : (
-              <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center justify-between p-4 border-b bg-background">
                 <h3 className="font-semibold">Customer Profile</h3>
                 <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
                   <X className="h-4 w-4" />
@@ -280,6 +280,11 @@ export function CustomerProfilePanel({
                     onUnassign={handleUnassign}
                     loading={assignmentLoading}
                   />
+                  {/* Contact Information - moved to top for quick access */}
+                  <ContactSection
+                    customer={crmCustomer}
+                    onUpdate={handleContactUpdate}
+                  />
                   <TagsSection
                     tags={crmCustomer.tags}
                     availableTags={availableTags}
@@ -294,10 +299,6 @@ export function CustomerProfilePanel({
                   <NotesSection
                     notes={crmCustomer.notes}
                     onAddNote={handleAddNote}
-                  />
-                  <ContactSection
-                    customer={crmCustomer}
-                    onUpdate={handleContactUpdate}
                   />
                   {/* Assignment History (Requirements: 8.2, 8.3) */}
                   <AssignmentHistorySection

@@ -1,15 +1,15 @@
 "use client"
 
-import { format, formatDistanceToNow } from "date-fns"
 import { ColumnDef } from "@tanstack/react-table"
-import { Clock } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { consentStatuses, windowStatuses } from "../data/data"
 import { Customer } from "../data/schema"
 import { DataTableColumnHeader } from "./data-table-column-header"
 import { DataTableRowActions } from "./data-table-row-actions"
+import { format, formatDistanceToNow } from "date-fns"
+import { IconClock } from "@tabler/icons-react"
 
 export const columns: ColumnDef<Customer>[] = [
   {
@@ -43,24 +43,33 @@ export const columns: ColumnDef<Customer>[] = [
     ),
     cell: ({ row }) => {
       const name = row.getValue("name") as string | null
-      const initials =
-        (name || "")
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2) || "U"
+      const initials = (name || "")
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "U"
 
       return (
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
-            <AvatarFallback className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-xs font-semibold">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{name || "Unnamed Customer"}</span>
-            <span className="text-muted-foreground text-xs font-mono">
+            <span className="flex items-center gap-1.5 font-semibold">
+              {name || "Unnamed Customer"}
+              {row.original.marketingOptOut && (
+                <span
+                  className="rounded border border-amber-300 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                  title="Opted out of marketing messages"
+                >
+                  Opt-out
+                </span>
+              )}
+            </span>
+            <span className="text-muted-foreground text-xs">
               {row.original.phoneNumber}
             </span>
           </div>
@@ -98,6 +107,29 @@ export const columns: ColumnDef<Customer>[] = [
     },
   },
   {
+    accessorKey: "channels",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Channel" />
+    ),
+    cell: ({ row }) => {
+      const channels = (row.getValue("channels") as string[]) || []
+      if (!channels.length) return <span className="text-muted-foreground text-xs">-</span>
+      return (
+        <div className="flex flex-wrap gap-1">
+          {channels.map((ch) => (
+            <Badge key={ch} variant="secondary" className="text-xs">
+              {ch}
+            </Badge>
+          ))}
+        </div>
+      )
+    },
+    filterFn: (row, id, value) => {
+      const channels = (row.getValue(id) as string[]) || []
+      return value.some((v: string) => channels.includes(v))
+    },
+  },
+  {
     accessorKey: "hasActiveWindow",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Message Window" />
@@ -113,8 +145,8 @@ export const columns: ColumnDef<Customer>[] = [
 
         return (
           <div className="flex items-center gap-2">
-            <Badge variant="active">
-              <Clock className="mr-1 h-3 w-3" />
+            <Badge variant="default" className="bg-emerald-600">
+              <IconClock className="mr-1 h-3 w-3" />
               Active
             </Badge>
             <span className="text-muted-foreground text-xs">

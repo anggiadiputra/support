@@ -1,9 +1,8 @@
 declare module "better-auth/types" {
   interface User {
     role?: string | null
-    wabaId?: string | null
-    phoneNumberId?: string | null
-    wabaConnectionStatus?: string | null
+    whatsappAccountCount?: number
+    hasConnectedWhatsApp?: boolean
     subscription?: {
       tier: "FREE" | "LITE" | "PRO"
       status: string

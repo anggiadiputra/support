@@ -159,13 +159,24 @@ export class SMTPProvider implements EmailProvider {
  * Create SMTP provider from environment variables
  */
 export function createSMTPProviderFromEnv(): SMTPProvider {
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  // SMTP_SECURE explicit override wins; otherwise auto-detect based on port:
+  //  - 465 = implicit TLS (secure=true)
+  //  - 587/25 = STARTTLS (secure=false)
+  // Previously this always defaulted to `false` when SMTP_SECURE was unset,
+  // which broke port 465 providers (nodemailer would attempt plaintext
+  // handshake against a TLS-only port → "Greeting never received").
+  const secure = process.env.SMTP_SECURE !== undefined
+    ? process.env.SMTP_SECURE === 'true'
+    : port === 465;
+
   return new SMTPProvider({
     host: process.env.SMTP_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    port,
     user: process.env.SMTP_USER || '',
     password: process.env.SMTP_PASSWORD || '',
     fromEmail: process.env.SMTP_FROM_EMAIL || '',
-    fromName: process.env.SMTP_FROM_NAME || 'KirimChat',
-    secure: process.env.SMTP_SECURE === 'true',
+    fromName: process.env.SMTP_FROM_NAME || process.env.APP_NAME || 'Messaging Platform',
+    secure,
   });
 }

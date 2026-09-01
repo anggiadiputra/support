@@ -1,140 +1,122 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Settings, ShieldCheck } from "lucide-react"
-import { wabaApi, type PhoneNumberDetails } from "@/lib/api/waba"
-import { useBusinessAccount } from "@/hooks/use-business-account"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RoleGuard } from "@/components/auth/role-guard"
-import { DisconnectModal } from "@/components/disconnect-modal"
 import { Header } from "@/components/layout/header"
-import { PageHeader } from "@/components/page-header"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
-import { EmbeddedSignupCard } from "./components/embedded-signup-card"
-import { PhoneNumberCard } from "./components/phone-number-card"
-import { QualityMetricsCard } from "./components/quality-metrics-card"
-import { WABAConnectionCard } from "./components/waba-connection-card"
+import { WABAConnectCard } from "./components/waba-connect-card"
+import { DisconnectModal } from "@/components/disconnect-modal"
+import { useBusinessAccount } from "@/hooks/use-business-account"
+import {
+  wabaApi,
+  type WhatsAppAccountWithPhoneNumbers,
+  type PhoneNumberStats,
+} from "@/lib/api/waba"
+import { RoleGuard } from "@/components/auth/role-guard"
+import { WABAStatusBanner } from "@/components/waba/waba-status-banner"
+import { DeviceInfoCard } from "@/components/waba/device-info-card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react"
+import { useSubscription } from "@/hooks/use-subscription"
 
 export default function WABAPage() {
-  const {
-    wabaId,
-    phoneNumberId,
-    isLoading,
-    hasWABA,
-    isWABAConnected,
-    wabaConnectionStatus,
-  } = useBusinessAccount()
-  const [wabaDetails, setWabaDetails] = useState<any>(null)
-  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumberDetails[]>([])
+  const { isLoading } = useBusinessAccount()
+  const { getChannelUsageText, canAddChannel, refetch: refetchSubscription } = useSubscription()
+  const [accounts, setAccounts] = useState<WhatsAppAccountWithPhoneNumbers[]>([])
   const [loading, setLoading] = useState(false)
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [selectedWabaId, setSelectedWabaId] = useState<string | null>(null)
+  const [showAddAccount, setShowAddAccount] = useState(false)
 
-  // Use isWABAConnected instead of hasWABA to check actual connection status
-  const isConnected = isWABAConnected && wabaConnectionStatus === "connected"
+  // Stats per phone number (keyed by phoneNumberId)
+  const [allStats, setAllStats] = useState<Record<string, PhoneNumberStats>>({})
+
+  const loadAccounts = async () => {
+    setLoading(true)
+    try {
+      const data = await wabaApi.getAccounts()
+      setAccounts(data)
+      // Refetch subscription to update channel usage
+      refetchSubscription()
+    } catch (error: any) {
+      console.error("Error loading accounts:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadStats = async (accountsList: WhatsAppAccountWithPhoneNumbers[]) => {
+    const connected = accountsList.filter((a) => a.connectionStatus === "connected")
+    for (const account of connected) {
+      try {
+        const stats = await wabaApi.getPhoneNumberStats(account.wabaId)
+        setAllStats((prev) => ({ ...prev, ...stats }))
+      } catch {
+        // Stats are optional, silently fail
+      }
+    }
+  }
 
   useEffect(() => {
-    if (isConnected && wabaId) {
-      loadWABADetails()
+    if (!isLoading) {
+      loadAccounts()
     }
-  }, [isConnected, wabaId])
+  }, [isLoading])
 
-  const loadWABADetails = async () => {
-    if (!wabaId) {
-      setLoading(false)
-      return
+  useEffect(() => {
+    if (accounts.length > 0) {
+      loadStats(accounts)
     }
+  }, [accounts])
 
-    setLoading(true)
+  const handleRefresh = async (wabaId: string) => {
     try {
-      // Fetch phone numbers from database (no sync with Meta)
-      const phoneNumbersData = await wabaApi.getPhoneNumbers(wabaId)
-      setPhoneNumbers(phoneNumbersData)
-
-      // Set WABA details
-      setWabaDetails({
-        name: "My Business",
-        timezone: "Asia/Jakarta",
-        currency: "IDR",
-        lastSynced: new Date(),
-      })
+      await wabaApi.syncPhoneNumbers(wabaId)
+      await loadAccounts()
     } catch (error: any) {
-      console.error("Error loading WABA details:", error)
-      console.error("Error message:", error.message)
-    } finally {
-      setLoading(false)
+      console.error("Error syncing:", error)
     }
   }
 
-  const handleRefresh = async () => {
-    if (!wabaId) return
-
-    setLoading(true)
+  const handleSetPrimary = async (wabaId: string, phoneNumberId: string) => {
     try {
-      // Sync phone numbers from Meta when user clicks refresh
-      const syncResult = await wabaApi.syncPhoneNumbers(wabaId)
-      setPhoneNumbers(syncResult.phoneNumbers)
-
-      // Update WABA details
-      setWabaDetails({
-        name: "My Business",
-        timezone: "Asia/Jakarta",
-        currency: "IDR",
-        lastSynced: new Date(),
-      })
+      await wabaApi.setPrimaryPhoneNumber(wabaId, phoneNumberId)
+      await loadAccounts()
     } catch (error: any) {
-      console.error("Error syncing WABA:", error)
-    } finally {
-      setLoading(false)
+      console.error("Failed to set primary phone number", error)
     }
   }
 
-  const handleOpenDisconnectModal = () => {
-    if (!wabaId) {
-      console.error("No WABA ID available")
-      alert("No WABA ID found. Please refresh the page.")
-      return
-    }
+  const handleOpenDisconnectModal = (wabaId: string) => {
+    setSelectedWabaId(wabaId)
     setDisconnectModalOpen(true)
   }
 
   const handleDisconnect = async (mode: "soft" | "hard") => {
-    if (!wabaId) {
-      console.error("No WABA ID available")
-      return
-    }
+    if (!selectedWabaId) return
 
     try {
       setDisconnecting(true)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
-      const response = await fetch(
-        `${apiUrl}/api/v1/waba/${wabaId}/disconnect`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ mode }),
-        }
-      )
+      const response = await fetch(`${apiUrl}/api/v1/waba/${selectedWabaId}/disconnect`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      })
 
       const result = await response.json().catch(() => ({}))
 
       if (response.ok) {
         setDisconnectModalOpen(false)
-
-        // Force clear any cached session data
-        localStorage.removeItem("waba-session")
-        sessionStorage.clear()
-
-        // Hard reload to fetch fresh session
-        window.location.href = window.location.href
+        setSelectedWabaId(null)
+        await loadAccounts()
       } else {
         console.error("Failed to disconnect WABA:", result)
-        alert(
-          `Failed to disconnect: ${result.error?.message || "Unknown error"}`
-        )
+        alert(`Failed to disconnect: ${result.error?.message || "Unknown error"}`)
       }
     } catch (error) {
       console.error("Error disconnecting WABA:", error)
@@ -151,10 +133,10 @@ export default function WABAPage() {
         <div className="space-y-4 p-4">
           <div className="animate-pulse space-y-4">
             <div className="bg-muted h-8 w-64 rounded"></div>
-            <div className="bg-muted h-48 w-full rounded"></div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="bg-muted h-48 rounded"></div>
-              <div className="bg-muted h-48 rounded"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-muted h-72 rounded-lg"></div>
+              ))}
             </div>
           </div>
         </div>
@@ -162,94 +144,86 @@ export default function WABAPage() {
     )
   }
 
-  // Get phone number details from fetched data
-  const phoneInfo =
-    phoneNumbers.find((phone) => phone.phoneNumberId === phoneNumberId) ||
-    phoneNumbers[0] ||
-    null
-
-  const wabaInfo =
-    isConnected && wabaId
-      ? {
-          id: wabaId,
-          name:
-            phoneInfo?.verifiedName || wabaDetails?.name || "WhatsApp Business",
-          status: "CONNECTED" as const,
-          timezone: wabaDetails?.timezone || "UTC",
-          currency: wabaDetails?.currency || "USD",
-          lastSynced: wabaDetails?.lastSynced,
-        }
-      : null
-
-  // Mock quality data for now
-  const qualityData = isConnected
-    ? {
-        overall: "HIGH" as const,
-        score: 95,
-        templateQuality: "HIGH" as const,
-        phoneQuality: "GREEN" as const,
-        trend: "UP" as const,
-        lastUpdated: new Date(),
-      }
-    : null
+  const connectedAccounts = accounts.filter((a) => a.connectionStatus === "connected")
+  // Flatten: one card per phone number
+  const allPhoneCards = connectedAccounts.flatMap((account) =>
+    account.phoneNumbers.map((pn) => ({ account, phoneNumber: pn }))
+  )
 
   return (
     <RoleGuard>
       <Header />
-      <div className="space-y-6 p-6">
-        <PageHeader
-          title={
-            <div className="flex items-center gap-2.5">
-              <WhatsAppIcon size={26} className="text-emerald-600" />
-              <span>WhatsApp Business Account</span>
-            </div>
-          }
-          description="Manage your WABA connection, settings, and quality metrics"
-        />
+      <div className="space-y-6 p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              WhatsApp Business Accounts
+            </h2>
+            <p className="text-muted-foreground">
+              Manage your WABA connections and phone numbers
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-sm">
+              {getChannelUsageText("whatsappDevices")}
+            </Badge>
+            <Button 
+              size="sm"
+              onClick={() => setShowAddAccount(true)}
+              disabled={!canAddChannel("whatsappDevices")}
+            >
+              <IconPlus className="h-4 w-4" />
+              Add Account
+            </Button>
+          </div>
+        </div>
 
-        {/* Embedded Signup Card (if not connected) */}
-        {!isConnected && (
-          <div className="max-w-2xl">
-            <EmbeddedSignupCard
-              hasWABA={isConnected}
+        {/* Add Account Card */}
+        {(showAddAccount || connectedAccounts.length === 0) && (
+          <div className="relative">
+            {showAddAccount && connectedAccounts.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-2 z-10"
+                onClick={() => setShowAddAccount(false)}
+              >
+                <IconX className="h-4 w-4" />
+              </Button>
+            )}
+            <WABAConnectCard
+              hasWABA={!showAddAccount && connectedAccounts.length > 0}
               onSuccess={() => {
-                // Reload page after successful connection
-                window.location.reload()
+                setShowAddAccount(false)
+                loadAccounts()
               }}
             />
           </div>
         )}
 
-        {/* WABA Management (if connected) */}
-        {isConnected && (
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="w-full justify-start overflow-x-auto md:w-auto">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Settings size={14} />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="quality" className="flex items-center gap-2">
-                <ShieldCheck size={16} />
-                Quality
-              </TabsTrigger>
-            </TabsList>
+        {/* Health Status Banners */}
+        {connectedAccounts.map((account) => (
+          <WABAStatusBanner key={account.wabaId} wabaId={account.wabaId} />
+        ))}
 
-            <TabsContent value="overview" className="space-y-4">
-              <WABAConnectionCard
-                wabaInfo={wabaInfo}
-                onRefresh={handleRefresh}
-                onDisconnect={handleOpenDisconnectModal}
+        {/* Device Info Cards Grid */}
+        {allPhoneCards.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {allPhoneCards.map(({ account, phoneNumber }) => (
+              <DeviceInfoCard
+                key={phoneNumber.phoneNumberId}
+                account={account}
+                phoneNumber={phoneNumber}
+                stats={allStats[phoneNumber.phoneNumberId]}
+                onSync={() => handleRefresh(account.wabaId)}
+                onDisconnect={() => handleOpenDisconnectModal(account.wabaId)}
+                onSetPrimary={() =>
+                  handleSetPrimary(account.wabaId, phoneNumber.phoneNumberId)
+                }
               />
-              <PhoneNumberCard phoneInfo={phoneInfo} />
-            </TabsContent>
-
-            <TabsContent value="quality" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <QualityMetricsCard metrics={qualityData} />
-                <PhoneNumberCard phoneInfo={phoneInfo} />
-              </div>
-            </TabsContent>
-          </Tabs>
+            ))}
+          </div>
         )}
 
         {/* Disconnect Modal */}

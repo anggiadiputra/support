@@ -1,0 +1,57 @@
+{
+  "title": "Program Afiliasi",
+  "subtitle": "Dapatkan komisi dari setiap pembayaran yang dilakukan oleh pengguna yang Anda referensikan",
+  "notAffiliate": {
+    "title": "Bergabung dengan Program Afiliasi",
+    "description": "Dapatkan komisi dari setiap pembayaran yang dilakukan oleh pengguna yang Anda referensikan!",
+    "benefits": {
+      "title": "Keuntungan",
+      "commission": "Komisi berulang 5-20%",
+      "instant": "Langsung masuk ke saldo kredit",
+      "useForSubscription": "Gunakan kredit untuk bayar langganan"
+    },
+    "registerButton": "Daftar Sekarang",
+    "registering": "Mendaftar...",
+    "registerSuccess": "Berhasil terdaftar sebagai afiliasi!",
+    "registerError": "Gagal mendaftar sebagai afiliasi"
+  },
+  "dashboard": {
+    "referralLink": "Link Referral Anda",
+    "copyLink": "Salin",
+    "linkCopied": "Link berhasil disalin!",
+    "stats": {
+      "totalEarned": "Total Pendapatan",
+      "pending": "Tertunda",
+      "referrals": "Referral"
+    }
+  },
+  "referrals": {
+    "title": "Referral Anda",
+    "empty": "Belum ada referral",
+    "emptyDescription": "Bagikan link referral Anda untuk mulai mendapatkan komisi",
+    "name": "Nama",
+    "email": "Email",
+    "joinedAt": "Bergabung"
+  },
+  "earnings": {
+    "title": "Riwayat Pendapatan",
+    "empty": "Belum ada pendapatan",
+    "emptyDescription": "Riwayat komisi Anda akan muncul di sini",
+    "type": "Tipe",
+    "amount": "Transaksi",
+    "commission": "Komisi",
+    "status": "Status",
+    "date": "Tanggal",
+    "types": {
+      "SUBSCRIPTION": "Langganan",
+      "TOP_UP": "Top Up"
+    },
+    "statuses": {
+      "PENDING": "Tertunda",
+      "CREDITED": "Dikreditkan",
+      "CANCELLED": "Dibatalkan"
+    }
+  },
+  "loading": "Memuat data afiliasi...",
+  "error": "Gagal memuat data afiliasi"
+}

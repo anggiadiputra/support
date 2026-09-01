@@ -14,6 +14,7 @@ import { authMiddleware } from '../../middleware/auth.js'
 import { teamService } from '../../services/team-service.js'
 import { invitationService } from '../../services/invitation-service.js'
 import { z } from 'zod'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
 
 const app = new Hono()
 
@@ -42,7 +43,7 @@ app.get('/members', requirePermission('team:manage'), async (c: Context) => {
       data: teamMembers
     })
   } catch (error) {
-    console.error('List team members error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch team members' }
     }, 500)
@@ -71,8 +72,8 @@ app.delete('/members/:id', requirePermission('team:manage'), async (c: Context) 
       message: 'Agent removed successfully'
     })
   } catch (error) {
-    console.error('Remove agent error:', error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     if (error instanceof Error) {
       if (error.message === 'AGENT_NOT_FOUND') {
         return c.json({
@@ -114,12 +115,7 @@ app.post('/invitations', authMiddleware, requirePermission('team:manage'), async
     const validation = createInvitationSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: { 
-          code: 'ValidationError', 
-          message: validation.error.issues[0]?.message || 'Invalid input' 
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { email } = validation.data
@@ -147,7 +143,7 @@ app.post('/invitations', authMiddleware, requirePermission('team:manage'), async
       data: invitation
     }, 201)
   } catch (error) {
-    console.error('Create invitation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error) {
       switch (error.message) {
@@ -200,7 +196,7 @@ app.get('/invitations', authMiddleware, requirePermission('team:manage'), async 
       data: invitations
     })
   } catch (error) {
-    console.error('List invitations error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch invitations' }
     }, 500)
@@ -229,7 +225,7 @@ app.delete('/invitations/:id', authMiddleware, requirePermission('team:manage'),
       message: 'Invitation cancelled successfully'
     })
   } catch (error) {
-    console.error('Cancel invitation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error && error.message === 'INVITATION_NOT_FOUND') {
       return c.json({
@@ -265,7 +261,7 @@ app.post('/invitations/:id/resend', authMiddleware, requirePermission('team:mana
       message: 'Invitation resent successfully'
     })
   } catch (error) {
-    console.error('Resend invitation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error) {
       if (error.message === 'INVITATION_NOT_FOUND') {
@@ -315,8 +311,8 @@ app.get('/invitations/validate/:token', async (c: Context) => {
       }, 404)
     }
 
-    // Check if user with this email already exists (for link account flow)
-    const userExists = await invitationService.checkUserExists(invitation.email)
+    // Check if user with this email already exists and their auth method
+    const authInfo = await invitationService.checkUserAuthInfo(invitation.email)
 
     // Return invitation details (without sensitive token)
     return c.json({
@@ -326,11 +322,12 @@ app.get('/invitations/validate/:token', async (c: Context) => {
         email: invitation.email,
         businessOwnerName: invitation.businessOwner.name,
         expiresAt: invitation.expiresAt,
-        userExists
+        userExists: authInfo.exists,
+        hasPassword: authInfo.hasPassword
       }
     })
   } catch (error) {
-    console.error('Validate token error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to validate invitation' }
     }, 500)
@@ -348,12 +345,7 @@ app.post('/invitations/accept', async (c: Context) => {
     const validation = acceptInvitationSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid input'
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { token, name, password } = validation.data
@@ -375,13 +367,13 @@ app.post('/invitations/accept', async (c: Context) => {
       data: {
         userId: result.userId,
         isNewUser: result.isNewUser,
-        message: result.isNewUser 
+        message: result.isNewUser
           ? 'Account created successfully. You can now log in.'
           : 'You have been added to the team. Please log in to continue.'
       }
     })
   } catch (error) {
-    console.error('Accept invitation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error) {
       switch (error.message) {
@@ -426,7 +418,7 @@ app.get('/limit', requirePermission('team:manage'), async (c: Context) => {
       data: limitInfo
     })
   } catch (error) {
-    console.error('Get agent limit error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to get agent limit' }
     }, 500)

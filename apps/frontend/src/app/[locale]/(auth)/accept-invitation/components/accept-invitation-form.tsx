@@ -3,13 +3,11 @@
 import { useState } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
-import { useRouter } from "@/i18n/routing"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { UserPlus } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { authClient } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
+import { useRouter } from "@/i18n/routing"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
@@ -20,6 +18,8 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
+import { IconUserPlus } from "@tabler/icons-react"
+import { authClient } from "@/lib/auth-client"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
@@ -80,18 +80,15 @@ export function AcceptInvitationForm({
     setError(null)
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/team/invitations/accept`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            name: data.name,
-            password: data.password,
-          }),
-        }
-      )
+      const response = await fetch(`${API_URL}/api/v1/team/invitations/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          name: data.name,
+          password: data.password,
+        }),
+      })
 
       const result = await response.json()
 
@@ -136,22 +133,22 @@ export function AcceptInvitationForm({
     <div className="space-y-6" data-auth-content>
       <Card className="border-border/50 bg-card/50 p-8 shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl">
         <div className="mb-6 flex flex-col items-center gap-4 text-center">
-          <div className="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">
-            <UserPlus className="text-primary h-8 w-8" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <IconUserPlus className="h-8 w-8 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">{t("title")}</h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="mt-1 text-muted-foreground">
               {t("subtitle")}{" "}
-              <span className="text-foreground font-semibold">
+              <span className="font-semibold text-foreground">
                 {invitation.businessOwnerName}
               </span>
             </p>
           </div>
         </div>
 
-        <div className="bg-muted/50 mb-6 rounded-lg p-4">
-          <p className="text-muted-foreground text-sm">
+        <div className="mb-6 rounded-lg bg-muted/50 p-4">
+          <p className="text-sm text-muted-foreground">
             {t("createAccountDesc")}
           </p>
           <p className="mt-2 text-sm">
@@ -227,7 +224,7 @@ export function AcceptInvitationForm({
               />
 
               {error && (
-                <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm">
+                <div className="rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
                   {error}
                 </div>
               )}

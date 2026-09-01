@@ -4,10 +4,8 @@ import { useState, useRef, useEffect } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2, Check, Copy, Key } from "lucide-react"
-import { apiKeysApi, type ApiKey } from "@/lib/api/api-keys-api"
-import { toast } from "@/hooks/use-toast"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { IconCheck, IconCopy, IconKey } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -28,12 +26,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "@/hooks/use-toast"
+import { useBranding } from "@/hooks/use-branding"
+import { apiKeysApi, type ApiKey } from "@/lib/api/api-keys-api"
 
 const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, "API key name is required")
-    .max(100, "Name must be 100 characters or less"),
+  name: z.string().min(1, "API key name is required").max(100, "Name must be 100 characters or less"),
 })
 
 interface Props {
@@ -46,6 +45,7 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [isCopied, setIsCopied] = useState(false)
   const apiKeyInputRef = useRef<HTMLInputElement>(null)
+  const { websiteName } = useBranding()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,8 +68,7 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
       onKeyCreated?.(newKey)
       toast({
         title: "API Key Created",
-        description:
-          "Your new API key has been created. Make sure to copy it now!",
+        description: "Your new API key has been created. Make sure to copy it now!",
       })
     } catch (error: any) {
       toast({
@@ -109,28 +108,25 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
   }
 
   return (
-    <Dialog
-      open={opened}
-      onOpenChange={(open) => {
-        // Prevent closing if showing created key (user must click Done)
-        if (!open && createdKey) {
-          return
-        }
-        if (!open) {
-          handleClose()
-        } else {
-          setOpened(true)
-        }
-      }}
-    >
+    <Dialog open={opened} onOpenChange={(open) => {
+      // Prevent closing if showing created key (user must click Done)
+      if (!open && createdKey) {
+        return
+      }
+      if (!open) {
+        handleClose()
+      } else {
+        setOpened(true)
+      }
+    }}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm">
-          <Key className="mr-2 h-4 w-4" />
+        <Button size="sm">
+          <IconKey className="h-4 w-4" />
           Create API Key
         </Button>
       </DialogTrigger>
-      <DialogContent
-        className="sm:max-w-[500px]"
+      <DialogContent 
+        className="sm:max-w-[500px]" 
         onInteractOutside={(e) => {
           // Prevent closing on outside click if showing created key
           if (createdKey) {
@@ -151,7 +147,7 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
           <DialogDescription>
             {createdKey
               ? "Your API key has been created. Copy it now - you won't be able to see it again!"
-              : "Generate a new API key to securely access the Public API."}
+              : `Generate a new API key to securely access the ${websiteName} Public API.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,7 +158,7 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
                 This is the only time you'll see this key. Store it securely!
               </AlertDescription>
             </Alert>
-
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Your API Key</label>
               <div className="flex gap-2">
@@ -180,17 +176,21 @@ export function CreateApiKeyDialog({ onKeyCreated }: Props) {
                   className="shrink-0"
                 >
                   {isCopied ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <IconCheck className="h-4 w-4 text-green-500" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <IconCopy className="h-4 w-4" />
                   )}
                 </Button>
               </div>
             </div>
 
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={handleCopy} className="flex-1">
-                <Copy className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                onClick={handleCopy}
+                className="flex-1"
+              >
+                <IconCopy className="mr-2 h-4 w-4" />
                 {isCopied ? "Copied!" : "Copy to Clipboard"}
               </Button>
               <Button onClick={handleClose} className="flex-1">

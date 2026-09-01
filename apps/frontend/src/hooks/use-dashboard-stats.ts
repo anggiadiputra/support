@@ -24,10 +24,19 @@ import { CACHE_TIMES } from '@/lib/cache-config'
  * Caches data for 2 minutes (stale time) and keeps in memory for 10 minutes (gc time).
  * Returns cached data immediately on subsequent visits while revalidating in background.
  */
-export function useDashboardStats() {
+export function useDashboardStats(filters?: { 
+  whatsappPhoneNumberId?: string
+  startDate?: string
+  endDate?: string 
+}) {
   return useQuery<EnhancedDashboardStats, Error>({
-    queryKey: queryKeys.dashboard.stats(),
-    queryFn: dashboardApi.getStats,
+    queryKey: [
+      ...queryKeys.dashboard.stats(), 
+      filters?.whatsappPhoneNumberId || 'all',
+      filters?.startDate || 'default',
+      filters?.endDate || 'default'
+    ],
+    queryFn: () => dashboardApi.getStats(filters),
     ...CACHE_TIMES.dashboard,
     // Show cached data on error
     placeholderData: (previousData) => previousData,
@@ -42,10 +51,10 @@ export function useDashboardStats() {
  *
  * @param days - Number of days to fetch (default: 30)
  */
-export function useMessageVolume(days: number = 30) {
+export function useMessageVolume(days: number = 30, filters?: { whatsappPhoneNumberId?: string }) {
   return useQuery<MessageVolumeData[], Error>({
-    queryKey: queryKeys.dashboard.messageVolume(days),
-    queryFn: () => dashboardApi.getMessageVolume(days),
+    queryKey: queryKeys.dashboard.messageVolume(days, filters?.whatsappPhoneNumberId),
+    queryFn: () => dashboardApi.getMessageVolume(days, filters),
     ...CACHE_TIMES.dashboard,
     placeholderData: (previousData) => previousData,
   })
@@ -56,10 +65,10 @@ export function useMessageVolume(days: number = 30) {
  *
  * Provides pipeline stage distribution and top leads data.
  */
-export function useCustomerInsights() {
+export function useCustomerInsights(filters?: { whatsappPhoneNumberId?: string }) {
   return useQuery<CustomerInsights, Error>({
-    queryKey: queryKeys.dashboard.customerInsights(),
-    queryFn: dashboardApi.getCustomerInsights,
+    queryKey: queryKeys.dashboard.customerInsights(filters?.whatsappPhoneNumberId),
+    queryFn: () => dashboardApi.getCustomerInsights(filters),
     ...CACHE_TIMES.dashboard,
     placeholderData: (previousData) => previousData,
   })
@@ -70,10 +79,10 @@ export function useCustomerInsights() {
  *
  * Provides WhatsApp quality rating and messaging tier information.
  */
-export function useQualityMetrics() {
+export function useQualityMetrics(filters?: { whatsappPhoneNumberId?: string }) {
   return useQuery<QualityMetrics, Error>({
-    queryKey: queryKeys.dashboard.qualityMetrics(),
-    queryFn: dashboardApi.getQualityMetrics,
+    queryKey: queryKeys.dashboard.qualityMetrics(filters?.whatsappPhoneNumberId),
+    queryFn: () => dashboardApi.getQualityMetrics(filters),
     ...CACHE_TIMES.dashboard,
     placeholderData: (previousData) => previousData,
   })

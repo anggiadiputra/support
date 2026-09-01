@@ -11,7 +11,7 @@ export interface OTPVerificationParams {
   otp: string;
   /** Minutes until OTP expires */
   expiresInMinutes: number;
-  /** Application name (defaults to KirimChat) */
+  /** Application name */
   appName?: string;
 }
 
@@ -26,7 +26,7 @@ export interface OTPVerificationTemplate {
  * All user-provided content is sanitized before inclusion
  */
 export function otpVerificationTemplate(params: OTPVerificationParams): OTPVerificationTemplate {
-  const { otp, expiresInMinutes, appName = 'KirimChat' } = params;
+  const { otp, expiresInMinutes, appName = process.env.APP_NAME || 'Messaging Platform' } = params;
   
   // Sanitize inputs before including in template
   const sanitizedOTP = sanitizeOTP(otp) || escapeHtml(otp);

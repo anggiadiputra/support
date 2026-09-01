@@ -1,46 +1,59 @@
 "use client"
 
-import {
-  BrainCircuit,
-  HelpCircle,
-  LayoutDashboard,
-  Settings,
-  MessageSquare,
-  Users,
-  BarChart3,
-  Instagram,
-  MessageCircle,
-  Inbox,
-  Code,
-  LayoutTemplate,
-  CreditCard,
-  Shield,
-  RadioTower,
-  LineChart,
-  Users as UsersGroupIcon,
-} from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useBranding } from "@/hooks/use-branding"
-import { useBusinessAccount } from "@/hooks/use-business-account"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import {
+  IconLayoutDashboard,
+  IconSettings,
+  IconMessage,
+  IconUsers,
+  IconChartBar,
+  IconBrandInstagram,
+  IconBrandWhatsapp,
+  IconBrandFacebook,
+  IconInbox,
+  IconCode,
+  IconTemplate,
+  IconCreditCard,
+  IconUsersGroup,
+  IconShieldCog,
+  IconBroadcast,
+  IconChartLine,
+  IconTags,
+  IconHeartHandshake,
+  IconBolt,
+  IconAdjustments,
+  IconExternalLink,
+} from "@tabler/icons-react"
+import { BrainCircuit, HelpCircle } from "lucide-react"
 import { type SidebarData, type NavItem } from "../types"
+import { useBusinessAccount } from "@/hooks/use-business-account"
+import { useBranding } from "@/hooks/use-branding"
+import { useChannelStatus } from "@/hooks/use-channel-status"
 
-// Extended NavItem with optional roles for filtering
-type NavItemWithRoles = NavItem & { roles?: string[] }
+// Extended NavItem with optional roles and channel for filtering
+type NavItemWithRoles = NavItem & { 
+  roles?: string[]
+  channel?: 'instagram' | 'messenger'
+}
 
 export function useSidebarData(): SidebarData {
   const t = useTranslations("navigation")
   const { userRole } = useBusinessAccount()
-  const { websiteName, logoUrl } = useBranding()
+  const { websiteName, logoUrl, externalLinks } = useBranding()
+  const { instagramEnabled, messengerEnabled } = useChannelStatus()
 
-  // Filter items based on user role
+  // Filter items based on user role and channel enabled status
   const filterByRole = (items: NavItemWithRoles[]): NavItem[] => {
-    return items
-      .filter((item) => {
-        if (!item.roles || item.roles.length === 0) return true
-        return item.roles.includes(userRole || "")
-      })
-      .map(({ roles, ...rest }) => rest as NavItem)
+    return items.filter(item => {
+      // Check role first
+      if (item.roles && item.roles.length > 0) {
+        if (!item.roles.includes(userRole || '')) return false
+      }
+      // Check channel enabled status
+      if (item.channel === 'instagram' && !instagramEnabled) return false
+      if (item.channel === 'messenger' && !messengerEnabled) return false
+      return true
+    }).map(({ roles, channel, ...rest }) => rest as NavItem)
   }
 
   const navGroups = [
@@ -50,29 +63,29 @@ export function useSidebarData(): SidebarData {
         {
           title: t("dashboard"),
           url: "/dashboard",
-          icon: LayoutDashboard,
+          icon: IconLayoutDashboard,
         },
         {
           title: t("inbox"),
           url: "/oneinbox",
-          icon: Inbox,
+          icon: IconInbox,
         },
         {
           title: t("templates"),
           url: "/templates",
-          icon: LayoutTemplate,
+          icon: IconTemplate,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
         {
           title: t("broadcast"),
           url: "/broadcast",
-          icon: RadioTower,
-          roles: ["BUSINESS_OWNER", "ADMIN"],
+          icon: IconBroadcast,
+          roles: ["BUSINESS_OWNER", "ADMIN", "AGENT"],
         },
         {
           title: t("insights"),
           url: "/insights",
-          icon: LineChart,
+          icon: IconChartLine,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
       ]),
@@ -83,12 +96,25 @@ export function useSidebarData(): SidebarData {
         {
           title: t("customers"),
           url: "/customers",
-          icon: Users,
+          icon: IconUsers,
         },
         {
           title: t("pipeline"),
           url: "/crm/pipeline",
-          icon: BarChart3,
+          icon: IconChartBar,
+          roles: ["BUSINESS_OWNER", "ADMIN", "AGENT"],
+        },
+        {
+          title: t("automation"),
+          url: "/automation",
+          icon: IconBolt,
+          badge: "New",
+          roles: ["BUSINESS_OWNER", "ADMIN", "AGENT"],
+        },
+        {
+          title: t("crmSettings"),
+          url: "/crm-settings",
+          icon: IconAdjustments,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
       ]),
@@ -99,14 +125,22 @@ export function useSidebarData(): SidebarData {
         {
           title: t("whatsapp"),
           url: "/waba",
-          icon: WhatsAppIcon,
+          icon: IconBrandWhatsapp,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
-        {
+{
           title: t("instagram"),
           url: "/instagram",
-          icon: Instagram,
+          icon: IconBrandInstagram,
           roles: ["BUSINESS_OWNER", "ADMIN"],
+          channel: "instagram",
+        },
+        {
+          title: t("messenger"),
+          url: "/messenger",
+          icon: IconBrandFacebook,
+          roles: ["BUSINESS_OWNER", "ADMIN"],
+          channel: "messenger",
         },
       ]),
     },
@@ -116,7 +150,7 @@ export function useSidebarData(): SidebarData {
         {
           title: t("team"),
           url: "/team",
-          icon: UsersGroupIcon,
+          icon: IconUsersGroup,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
         {
@@ -128,32 +162,49 @@ export function useSidebarData(): SidebarData {
         {
           title: t("developers"),
           url: "/developers",
-          icon: Code,
+          icon: IconCode,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
         {
           title: t("subscription"),
           url: "/subscription",
-          icon: CreditCard,
+          icon: IconCreditCard,
+          roles: ["BUSINESS_OWNER", "ADMIN"],
+        },
+        {
+          title: t("affiliate"),
+          url: "/affiliate",
+          icon: IconHeartHandshake,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
         {
           title: t("settings"),
           url: "/settings",
-          icon: Settings,
+          icon: IconSettings,
           roles: ["BUSINESS_OWNER", "ADMIN"],
         },
       ]),
     },
     {
       title: t("support"),
-      items: filterByRole([
-        {
-          title: t("helpSupport"),
-          url: "/help-support",
-          icon: HelpCircle,
-        },
-      ]),
+      items: [
+        ...filterByRole([
+          {
+            title: t("helpSupport"),
+            url: "/help-support",
+            icon: HelpCircle,
+          },
+        ]),
+        // Add external links from branding settings
+        ...(Array.isArray(externalLinks) ? externalLinks : [])
+          .filter((link) => link.label && link.url)
+          .map((link) => ({
+            title: link.label,
+            url: link.url,
+            icon: IconExternalLink,
+            external: true,
+          })),
+      ],
     },
     {
       title: t("administration"),
@@ -161,7 +212,7 @@ export function useSidebarData(): SidebarData {
         {
           title: t("adminPanel"),
           url: "/admin",
-          icon: Shield,
+          icon: IconShieldCog,
           roles: ["ADMIN"],
         },
       ]),
@@ -169,12 +220,12 @@ export function useSidebarData(): SidebarData {
   ]
 
   // Filter out empty groups
-  const filteredNavGroups = navGroups.filter((group) => group.items.length > 0)
+  const filteredNavGroups = navGroups.filter(group => group.items.length > 0)
 
   return {
     user: {
       name: "User",
-      email: "user@example.com",
+      email: "user@yourdomain.com",
       avatar: "/favicon.svg",
     },
     teams: [
@@ -186,7 +237,7 @@ export function useSidebarData(): SidebarData {
               <img src={logoUrl} alt={websiteName} className={className} />
             )
           : ({ className }: { className: string }) => (
-              <MessageSquare className={className} />
+              <IconMessage className={className} />
             ),
         plan: "WhatsApp Business",
       },

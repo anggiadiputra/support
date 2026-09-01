@@ -1,7 +1,7 @@
 /**
  * Admin Settings Routes
  * 
- * API endpoints for managing admin settings (WhatsApp, Instagram, SMTP, OpenAI)
+ * API endpoints for managing admin settings (WhatsApp, Instagram, SMTP, OpenAI, Duitku, Xendit, Branding)
  * Note: Google OAuth is configured via .env only (Better Auth limitation)
  */
 
@@ -9,12 +9,40 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { requireRole } from '../../middleware/auth.js'
 import { adminSettingsService } from '../../services/admin/settings-service.js'
-import { VALID_SETTINGS_CATEGORIES, isValidCategory, type SettingCategory } from '../../types/admin-settings.js'
+import { isValidCategory, type SettingCategory } from '../../types/admin-settings.js'
 
 const app = new Hono()
 
+// Valid categories for error messages
+const VALID_CATEGORIES_MSG = 'whatsapp, instagram, smtp, openai, duitku, xendit, branding'
+
 // All settings routes require ADMIN role
 app.use('/*', requireRole(['ADMIN']))
+
+/**
+ * GET /api/v1/admin/settings/openai/models
+ * Fetch available models from configured OpenAI-compatible endpoint
+ * NOTE: This route MUST be defined BEFORE /:category to avoid route conflicts
+ */
+app.get('/openai/models', async (c: Context) => {
+  try {
+    const result = await adminSettingsService.fetchOpenAIModels()
+
+    return c.json({
+      success: true,
+      data: result
+    })
+  } catch (error) {
+    console.error('Admin fetch OpenAI models error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to fetch models'
+    return c.json({
+      error: {
+        code: 'InternalServerError',
+        message
+      }
+    }, 500)
+  }
+})
 
 /**
  * GET /api/v1/admin/settings/:category
@@ -23,19 +51,18 @@ app.use('/*', requireRole(['ADMIN']))
 app.get('/:category', async (c: Context) => {
   try {
     const category = c.req.param('category')
-    const normalizedCategory = category.trim().toLowerCase()
 
     // Validate category
-    if (!isValidCategory(normalizedCategory)) {
+    if (!isValidCategory(category)) {
       return c.json({
         error: {
           code: 'ValidationError',
-          message: `Invalid settings category: ${normalizedCategory}. Valid categories: ${VALID_SETTINGS_CATEGORIES.join(', ')}`
+          message: `Invalid settings category: ${category}. Valid categories: ${VALID_CATEGORIES_MSG}`
         }
       }, 400)
     }
 
-    const result = await adminSettingsService.getSettings(normalizedCategory as SettingCategory)
+    const result = await adminSettingsService.getSettings(category as SettingCategory)
 
     return c.json({
       success: true,
@@ -62,14 +89,13 @@ app.get('/:category', async (c: Context) => {
 app.put('/:category', async (c: Context) => {
   try {
     const category = c.req.param('category')
-    const normalizedCategory = category.trim().toLowerCase()
 
     // Validate category
-    if (!isValidCategory(normalizedCategory)) {
+    if (!isValidCategory(category)) {
       return c.json({
         error: {
           code: 'ValidationError',
-          message: `Invalid settings category: ${normalizedCategory}. Valid categories: ${VALID_SETTINGS_CATEGORIES.join(', ')}`
+          message: `Invalid settings category: ${category}. Valid categories: ${VALID_CATEGORIES_MSG}`
         }
       }, 400)
     }
@@ -102,7 +128,7 @@ app.put('/:category', async (c: Context) => {
       || 'unknown'
 
     const result = await adminSettingsService.updateSettings(
-      normalizedCategory as SettingCategory,
+      category as SettingCategory,
       body,
       adminId,
       ipAddress
@@ -132,14 +158,13 @@ app.put('/:category', async (c: Context) => {
 app.post('/:category/test', async (c: Context) => {
   try {
     const category = c.req.param('category')
-    const normalizedCategory = category.trim().toLowerCase()
 
     // Validate category
-    if (!isValidCategory(normalizedCategory)) {
+    if (!isValidCategory(category)) {
       return c.json({
         error: {
           code: 'ValidationError',
-          message: `Invalid settings category: ${normalizedCategory}. Valid categories: ${VALID_SETTINGS_CATEGORIES.join(', ')}`
+          message: `Invalid settings category: ${category}. Valid categories: ${VALID_CATEGORIES_MSG}`
         }
       }, 400)
     }
@@ -156,7 +181,7 @@ app.post('/:category/test', async (c: Context) => {
     }
 
     const result = await adminSettingsService.testConnection(
-      normalizedCategory as SettingCategory,
+      category as SettingCategory,
       testEmail
     )
 
@@ -184,14 +209,13 @@ app.post('/:category/test', async (c: Context) => {
 app.post('/:category/reset', async (c: Context) => {
   try {
     const category = c.req.param('category')
-    const normalizedCategory = category.trim().toLowerCase()
 
     // Validate category
-    if (!isValidCategory(normalizedCategory)) {
+    if (!isValidCategory(category)) {
       return c.json({
         error: {
           code: 'ValidationError',
-          message: `Invalid settings category: ${normalizedCategory}. Valid categories: ${VALID_SETTINGS_CATEGORIES.join(', ')}`
+          message: `Invalid settings category: ${category}. Valid categories: ${VALID_CATEGORIES_MSG}`
         }
       }, 400)
     }
@@ -212,7 +236,7 @@ app.post('/:category/reset', async (c: Context) => {
       || 'unknown'
 
     const result = await adminSettingsService.resetToDefault(
-      normalizedCategory as SettingCategory,
+      category as SettingCategory,
       adminId,
       ipAddress
     )

@@ -1,4 +1,5 @@
 import type { VariableType, TemplateVariable } from '@prisma/client';
+import { WhatsAppErrorService } from './whatsapp-error-service.js';
 
 /**
  * Validation result for a single variable
@@ -440,34 +441,25 @@ export class TemplateValidatorService {
 
   /**
    * Get human-readable error message for WhatsApp API error
+   * Uses WhatsAppErrorService for consistent error handling (Requirement 7.1)
    * 
    * @param errorCode - WhatsApp API error code
    * @param errorMessage - Original error message
    * @returns User-friendly error message
-   * Requirements: 7.3
+   * Requirements: 7.1, 7.3
    */
   getReadableErrorMessage(errorCode: string | number, errorMessage: string): string {
-    const errorCodeStr = String(errorCode);
+    const code = typeof errorCode === 'string' ? parseInt(errorCode, 10) : errorCode;
     
-    // Common WhatsApp template parameter errors
-    const errorMap: Record<string, string> = {
-      '131009': 'Parameter format does not match template. Please check variable values.',
-      '131026': 'Message failed to send. The recipient may have blocked messages.',
-      '131047': 'Re-engagement message required. Customer has not messaged in 24 hours.',
-      '131051': 'Unsupported message type for this recipient.',
-      '132000': 'Template parameter count mismatch. Please check all variables are filled.',
-      '132001': 'Template not found or not approved.',
-      '132005': 'Template parameter format invalid.',
-      '132007': 'Template is paused due to quality issues.',
-      '132012': 'Template parameter value too long.',
-      '132015': 'Template is disabled.',
-      '133000': 'Recipient phone number is not valid.',
-      '133004': 'Server temporarily unavailable. Please try again.',
-      '133010': 'Phone number not registered on WhatsApp.',
-      '135000': 'Generic error. Please try again later.',
-    };
-
-    return errorMap[errorCodeStr] || `WhatsApp error: ${errorMessage}`;
+    // Use WhatsAppErrorService for consistent error handling
+    if (!isNaN(code)) {
+      const errorInfo = WhatsAppErrorService.getErrorInfo(code);
+      // Return the i18n message key - frontend will translate it
+      return errorInfo.messageKey;
+    }
+    
+    // Fallback for non-numeric error codes
+    return `WhatsApp error: ${errorMessage}`;
   }
 }
 

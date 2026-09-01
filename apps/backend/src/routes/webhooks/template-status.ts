@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/database.js'
+import { auditLog } from '../../utils/auditLog.js'
 
 export async function handleTemplateStatus(
   templateStatus: any,
@@ -43,6 +44,21 @@ export async function handleTemplateStatus(
 
     if (result.count > 0) {
       console.log('✅ Template status updated:', templateStatus.message_template_name, '→', newStatus)
+
+      // Audit log for template approval/rejection
+      if (newStatus === 'APPROVED' || newStatus === 'REJECTED') {
+        await auditLog(
+          newStatus === 'APPROVED' ? 'TEMPLATE_APPROVED' : 'TEMPLATE_REJECTED',
+          'MessageTemplate',
+          templateStatus.message_template_name,
+          {
+            templateName: templateStatus.message_template_name,
+            language: templateStatus.message_template_language,
+            reason: templateStatus.reason || null
+          },
+          user.id
+        )
+      }
     } else {
       console.log('⚠️ Template not found:', templateStatus.message_template_name)
     }

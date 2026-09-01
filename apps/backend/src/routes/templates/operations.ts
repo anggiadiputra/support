@@ -15,9 +15,10 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../../utils/database.js'
-import { getWhatsAppClientAsync } from '../../utils/whatsapp.js'
+import { assertCanSend, type TemplateCategory } from '../../services/compliance/assert-can-send.js'
+import { WhatsAppAPI } from '../../utils/whatsapp.js'
 import { auditLog } from '../../utils/auditLog.js'
-import { templateRendererService, type WhatsAppTemplate, type WhatsAppTemplateComponent } from '../../services/template-renderer-service.js'
+import { templateRendererService, isIndexBasedVariableValues, type WhatsAppTemplate, type WhatsAppTemplateComponent } from '../../services/template-renderer-service.js'
 import { templateValidatorService } from '../../services/template-validator-service.js'
 import { templateVariableService } from '../../services/template-variable-service.js'
 import { LeadScoringService } from '../../services/lead-scoring.js'
@@ -25,6 +26,8 @@ import { ActivityService } from '../../services/activity-service.js'
 import { webhookService } from '../../services/webhook-service.js'
 import { getEffectiveUserId, getActingAgentId } from '../../middleware/resolveContext.js'
 import { resolveContext } from '../../middleware/resolveContext.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
+import { resolveCredentialsForSending } from '../../utils/whatsapp-account-helper.js'
 
 const app = new Hono()
 
@@ -154,13 +157,7 @@ app.post('/render-preview', async (c: Context) => {
     const validation = renderPreviewSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data',
-          details: validation.error.issues
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { templateName, languageCode, variableValues, template: providedTemplate } = validation.data
@@ -209,7 +206,11 @@ app.post('/render-preview', async (c: Context) => {
       data: rendered
     })
   } catch (error) {
-    console.error('Render preview error:', error)
+    if (error instanceof z.ZodError) {
+      return handleValidationError(error, c)
+    }
+
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -252,46 +253,19 @@ app.post('/send', async (c: Context) => {
     const validation = sendTemplateSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data',
-          details: validation.error.issues
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { customerId, templateName, languageCode, variableValues } = validation.data
 
-    // Get user (business owner)
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    })
+    // Resolve WhatsApp account credentials for sending
+    const credentials = await resolveCredentialsForSending(userId)
 
-    if (!user || !user.wabaId) {
+    if (!credentials) {
       return c.json({
         error: {
           code: 'ConfigurationError',
-          message: 'WhatsApp Business Account not connected'
-        }
-      }, 400)
-    }
-
-    // Check if WABA is connected
-    if (user.wabaConnectionStatus === 'disconnected') {
-      return c.json({
-        error: {
-          code: 'ConnectionError',
-          message: 'WhatsApp Business Account is disconnected. Please reconnect to send messages.'
-        }
-      }, 403)
-    }
-
-    if (!user.wabaAccessToken || !user.phoneNumberId) {
-      return c.json({
-        error: {
-          code: 'ConfigurationError',
-          message: 'WhatsApp configuration incomplete'
+          message: 'WhatsApp Business Account not connected or configuration incomplete'
         }
       }, 400)
     }
@@ -318,16 +292,6 @@ app.post('/send', async (c: Context) => {
           message: 'Access denied to this customer'
         }
       }, 403)
-    }
-
-    // Check consent for template messages
-    if (!customer.consentStatus) {
-      return c.json({
-        error: {
-          code: 'ConsentRequired',
-          message: 'Customer has not consented to receive messages'
-        }
-      }, 400)
     }
 
     // Get template from database
@@ -358,35 +322,60 @@ app.post('/send', async (c: Context) => {
       }, 400)
     }
 
+    // Centralized compliance check (blacklist, consent, marketing opt-out)
+    const complianceCheck = await assertCanSend(customer.id, {
+      kind: 'template',
+      category: ((dbTemplate.category as string)?.toUpperCase() as TemplateCategory) || 'UTILITY',
+    })
+    if (!complianceCheck.ok) {
+      return c.json(
+        {
+          error: {
+            code: complianceCheck.code,
+            message: complianceCheck.message,
+            ...(complianceCheck.meta || {}),
+          },
+        },
+        complianceCheck.httpStatus,
+      )
+    }
+
     // Convert DB template to WhatsAppTemplate format
     const template = dbTemplateToWhatsAppTemplate(dbTemplate)
 
     // Get variable mappings
     const mappings = await templateVariableService.getMappings(userId, templateName)
 
-    // Get variables for validation
-    const variableIds = Object.keys(variableValues)
-    const variables = await prisma.templateVariable.findMany({
-      where: {
-        id: { in: variableIds },
-        userId
-      }
-    })
+    // Check if using index-based variableValues (e.g., {"1": "value1", "2": "value2"})
+    // This allows users to send templates without setting up variable library
+    const usingIndexBasedValues = isIndexBasedVariableValues(variableValues)
 
-    // Validate all variable values (Requirement 4.1)
-    const validationResult = templateValidatorService.validateAllVariables(
-      variableValues,
-      variables
-    )
-
-    if (!validationResult.valid) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Variable validation failed',
-          details: validationResult.errors
+    // Only validate against variable library if NOT using index-based values
+    if (!usingIndexBasedValues && Object.keys(variableValues).length > 0) {
+      // Get variables for validation
+      const variableIds = Object.keys(variableValues)
+      const variables = await prisma.templateVariable.findMany({
+        where: {
+          id: { in: variableIds },
+          userId
         }
-      }, 400)
+      })
+
+      // Validate all variable values (Requirement 4.1)
+      const validationResult = templateValidatorService.validateAllVariables(
+        variableValues,
+        variables
+      )
+
+      if (!validationResult.valid) {
+        return c.json({
+          error: {
+            code: 'ValidationError',
+            message: 'Variable validation failed',
+            details: validationResult.errors
+          }
+        }, 400)
+      }
     }
 
     // Build WhatsApp API payload (Requirement 4.2, 4.3)
@@ -398,10 +387,10 @@ app.post('/send', async (c: Context) => {
       mappings
     )
 
-    // Send via WhatsApp API
-    const whatsapp = await getWhatsAppClientAsync()
+    // Send via WhatsApp API with per-account token
+    const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
     const result = await whatsapp.sendMessage({
-      phoneNumberId: user.phoneNumberId,
+      phoneNumberId: credentials.phoneNumberId,
       to: customer.phoneNumber,
       type: 'template',
       template: payload
@@ -437,21 +426,25 @@ app.post('/send', async (c: Context) => {
       }
     })
 
-    // Save variable history for suggestions
-    const historyEntries = Object.entries(variableValues).map(([variableId, value]) => ({
-      templateName,
-      variableId,
-      value,
-      customerId: customer.id
-    }))
-    
-    await templateVariableService.saveVariableHistoryBatch(userId, historyEntries)
+    // Only save variable history and increment usage for variable library (not index-based)
+    if (!usingIndexBasedValues && Object.keys(variableValues).length > 0) {
+      // Save variable history for suggestions
+      const historyEntries = Object.entries(variableValues).map(([variableId, value]) => ({
+        templateName,
+        variableId,
+        value,
+        customerId: customer.id
+      }))
 
-    // Increment usage count for variables
-    for (const variableId of variableIds) {
-      await templateVariableService.incrementUsageCount(variableId).catch(err => 
-        console.error(`Failed to increment usage count for variable ${variableId}:`, err)
-      )
+      await templateVariableService.saveVariableHistoryBatch(userId, historyEntries)
+
+      // Increment usage count for variables
+      const variableIds = Object.keys(variableValues)
+      for (const variableId of variableIds) {
+        await templateVariableService.incrementUsageCount(variableId).catch(err =>
+          logDetailedError(err, { path: c.req.path, method: c.req.method })
+        )
+      }
     }
 
     // Audit log
@@ -471,7 +464,7 @@ app.post('/send', async (c: Context) => {
 
     // Update lead scoring
     LeadScoringService.updateCustomerScore(customer.id).catch(err =>
-      console.error(`Failed to update lead score for customer ${customer.id}:`, err)
+      logDetailedError(err, { path: c.req.path, method: c.req.method })
     )
 
     // Log activity
@@ -482,7 +475,7 @@ app.post('/send', async (c: Context) => {
         'sent',
         message.id,
         content?.substring(0, 100)
-      ).catch(err => console.error('Failed to log message activity:', err))
+      ).catch(err => logDetailedError(err, { path: c.req.path, method: c.req.method }))
     }
 
     // Emit webhook event
@@ -490,15 +483,18 @@ app.post('/send', async (c: Context) => {
       userId,
       'message.sent',
       'whatsapp',
+      credentials.phoneNumberRecordId,
       {
         message_id: message.id,
         customer_id: customer.id,
         customer_phone: customer.phoneNumber,
         direction: 'outbound',
         message_type: 'template',
-        content: content || undefined
+        content: content || undefined,
+        phone_number_id: credentials.phoneNumberRecordId,
+        business_phone: credentials.displayPhoneNumber,
       }
-    ).catch(err => console.error('Failed to emit message.sent webhook:', err))
+    ).catch(err => logDetailedError(err, { path: c.req.path, method: c.req.method }))
 
     return c.json({
       success: true,
@@ -509,8 +505,8 @@ app.post('/send', async (c: Context) => {
       }
     })
   } catch (error: any) {
-    console.error('Send template error:', error.response?.data || error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     // Handle WhatsApp API errors (Requirement 4.5)
     if (error.response?.data?.error) {
       const waError = error.response.data.error
@@ -567,13 +563,7 @@ app.post('/validate', async (c: Context) => {
     const validation = validateVariablesSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data',
-          details: validation.error.issues
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { variableValues, variableIds } = validation.data
@@ -611,7 +601,11 @@ app.post('/validate', async (c: Context) => {
       data: result
     })
   } catch (error) {
-    console.error('Validate variables error:', error)
+    if (error instanceof z.ZodError) {
+      return handleValidationError(error, c)
+    }
+
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',

@@ -103,3 +103,131 @@ export function useAdminHealth(): UseAdminHealthReturn {
     refetch: fetchHealth,
   }
 }
+
+// Failed Jobs Types
+export interface FailedJobDetails {
+  id: string | number
+  name: string
+  queue: string
+  data: unknown
+  failedReason: string | undefined
+  stacktrace: string[] | undefined
+  attemptsMade: number
+  failedAt: string | undefined
+}
+
+export interface FailedJobsResponse {
+  failedJobs: FailedJobDetails[]
+  totalFailed: number
+}
+
+interface UseFailedJobsReturn {
+  failedJobs: FailedJobsResponse | null
+  isLoading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+  retryJob: (queue: string, jobId: string) => Promise<void>
+  deleteJob: (queue: string, jobId: string) => Promise<void>
+  deleteAllJobs: () => Promise<void>
+}
+
+export function useFailedJobs(limit: number = 20): UseFailedJobsReturn {
+  const [failedJobs, setFailedJobs] = useState<FailedJobsResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchFailedJobs = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const response = await fetch(`${API_URL}/api/v1/admin/health/failed-jobs?limit=${limit}`, {
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch failed jobs")
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        setFailedJobs(data.data)
+      } else {
+        throw new Error(data.error?.message || "Failed to fetch failed jobs")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [limit])
+
+  const retryJob = useCallback(async (queue: string, jobId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/health/failed-jobs/${queue}/${jobId}/retry`, {
+        method: "POST",
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to retry job")
+      }
+
+      // Refresh failed jobs list
+      await fetchFailedJobs()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchFailedJobs])
+
+  const deleteJob = useCallback(async (queue: string, jobId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/health/failed-jobs/${queue}/${jobId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete job')
+      }
+
+      // Refresh failed jobs list
+      await fetchFailedJobs()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchFailedJobs])
+
+  const deleteAllJobs = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/health/failed-jobs`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete all jobs')
+      }
+
+      // Refresh failed jobs list
+      await fetchFailedJobs()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchFailedJobs])
+
+  useEffect(() => {
+    fetchFailedJobs()
+  }, [fetchFailedJobs])
+
+  return {
+    failedJobs,
+    isLoading,
+    error,
+    refetch: fetchFailedJobs,
+    retryJob,
+    deleteJob,
+    deleteAllJobs,
+  }
+}

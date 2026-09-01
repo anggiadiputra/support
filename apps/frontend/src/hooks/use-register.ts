@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "@/i18n/routing"
+import { useQueryClient } from "@tanstack/react-query"
+import { SESSION_QUERY_KEY } from "@/hooks/use-cached-session"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
@@ -11,6 +13,7 @@ interface RegistrationState {
   step: RegistrationStep
   loading: boolean
   error: string | null
+  errorCode: string | null
   email: string
   expiresAt: Date | null
   resendCooldown: number
@@ -68,10 +71,12 @@ interface ResendResponse {
 
 export function useRegister() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [state, setState] = useState<RegistrationState>({
     step: "form",
     loading: false,
     error: null,
+    errorCode: null,
     email: "",
     expiresAt: null,
     resendCooldown: 0,
@@ -129,22 +134,20 @@ export function useRegister() {
   }, [state.expiresAt, getTimeRemaining])
 
   const initiateRegistration = useCallback(
-    async (data: { email: string; password: string; name: string; turnstileToken: string }) => {
+    async (data: {
+      email: string
+      password: string
+      name: string
+      referralCode?: string
+    }) => {
       setState((prev) => ({ ...prev, loading: true, error: null }))
 
       try {
         const response = await fetch(`${API_URL}/api/v1/auth/register/initiate`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Turnstile-Token": data.turnstileToken,
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            name: data.name,
-          }),
+          body: JSON.stringify(data),
         })
 
         const result: InitiateResponse = await response.json()
@@ -153,7 +156,8 @@ export function useRegister() {
           setState((prev) => ({
             ...prev,
             loading: false,
-            error: result.error?.message || "Gagal mengirim kode OTP",
+            error: result.error?.message || null,
+            errorCode: result.error?.code || "UnknownError",
           }))
           return { success: false, error: result.error }
         }
@@ -170,9 +174,9 @@ export function useRegister() {
 
         return { success: true }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Terjadi kesalahan"
-        setState((prev) => ({ ...prev, loading: false, error: message }))
-        return { success: false, error: { code: "NetworkError", message } }
+        const message = error instanceof Error ? error.message : null
+        setState((prev) => ({ ...prev, loading: false, error: message, errorCode: "NetworkError" }))
+        return { success: false, error: { code: "NetworkError", message: message || "Network error" } }
       }
     },
     []
@@ -196,7 +200,8 @@ export function useRegister() {
           setState((prev) => ({
             ...prev,
             loading: false,
-            error: result.error?.message || "Kode OTP tidak valid",
+            error: result.error?.message || null,
+            errorCode: result.error?.code || "InvalidOTP",
             attemptsRemaining: result.error?.attemptsRemaining ?? prev.attemptsRemaining,
           }))
           return { success: false, error: result.error }
@@ -204,22 +209,26 @@ export function useRegister() {
 
         setState((prev) => ({ ...prev, loading: false, error: null }))
         
+        // Invalidate and refetch session cache, wait for completion before redirect
+        await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+        await queryClient.refetchQueries({ queryKey: SESSION_QUERY_KEY })
+        
         // Redirect to dashboard on success
         router.push("/dashboard")
         
         return { success: true, data: result.data }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Terjadi kesalahan"
-        setState((prev) => ({ ...prev, loading: false, error: message }))
-        return { success: false, error: { code: "NetworkError", message } }
+        const message = error instanceof Error ? error.message : null
+        setState((prev) => ({ ...prev, loading: false, error: message, errorCode: "NetworkError" }))
+        return { success: false, error: { code: "NetworkError", message: message || "Network error" } }
       }
     },
-    [state.email, router]
+    [state.email, router, queryClient]
   )
 
   const resendOTP = useCallback(async () => {
     if (state.resendCooldown > 0) {
-      return { success: false, error: { code: "CooldownActive", message: "Tunggu sebelum mengirim ulang" } }
+      return { success: false, error: { code: "CooldownActive", message: "Cooldown active" } }
     }
 
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -238,7 +247,8 @@ export function useRegister() {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: result.error?.message || "Gagal mengirim ulang kode OTP",
+          error: result.error?.message || null,
+          errorCode: result.error?.code || "ResendFailed",
           resendCooldown: result.error?.retryAfter || 0,
         }))
         return { success: false, error: result.error }
@@ -255,9 +265,9 @@ export function useRegister() {
 
       return { success: true }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Terjadi kesalahan"
-      setState((prev) => ({ ...prev, loading: false, error: message }))
-      return { success: false, error: { code: "NetworkError", message } }
+      const message = error instanceof Error ? error.message : null
+      setState((prev) => ({ ...prev, loading: false, error: message, errorCode: "NetworkError" }))
+      return { success: false, error: { code: "NetworkError", message: message || "Network error" } }
     }
   }, [state.email, state.resendCooldown])
 
@@ -266,13 +276,14 @@ export function useRegister() {
       ...prev,
       step: "form",
       error: null,
+      errorCode: null,
       expiresAt: null,
       resendCooldown: 0,
     }))
   }, [])
 
   const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }))
+    setState((prev) => ({ ...prev, error: null, errorCode: null }))
   }, [])
 
   return {

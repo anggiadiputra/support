@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react"
 import { ChevronRight } from "lucide-react"
-import { Link, usePathname } from "@/i18n/routing"
+import { usePathname } from "@/i18n/routing"
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,12 +21,12 @@ import {
 } from "@/components/ui/sidebar"
 import { Badge } from "../ui/badge"
 import { NavItem, type NavGroup } from "./types"
-import { PrefetchLink } from "@/components/prefetch-link"
+import { OptimizedLink } from "@/components/optimized-link"
 import type { PrefetchType } from "@/hooks/use-prefetch"
 
 /**
  * Map of routes to their prefetch types
- * Only high-priority pages are prefetched on hover
+ * High-priority pages get data prefetched on hover
  */
 const PREFETCH_MAP: Record<string, PrefetchType> = {
   '/dashboard': 'dashboard',
@@ -44,6 +44,30 @@ export function NavGroup({ title, items }: NavGroup) {
         {items.map((item) => {
           if (!item.items) {
             const prefetchType = PREFETCH_MAP[item.url]
+            
+            // Handle external links
+            if (item.external) {
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                  >
+                    <a 
+                      href={item.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={() => setOpenMobile(false)}
+                    >
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      {item.badge && <NavBadge>{item.badge}</NavBadge>}
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            }
+            
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
@@ -52,7 +76,7 @@ export function NavGroup({ title, items }: NavGroup) {
                   tooltip={item.title}
                 >
                   {prefetchType ? (
-                    <PrefetchLink 
+                    <OptimizedLink 
                       href={item.url} 
                       prefetchType={prefetchType}
                       onClick={() => setOpenMobile(false)}
@@ -60,13 +84,13 @@ export function NavGroup({ title, items }: NavGroup) {
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       {item.badge && <NavBadge>{item.badge}</NavBadge>}
-                    </PrefetchLink>
+                    </OptimizedLink>
                   ) : (
-                    <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                    <OptimizedLink href={item.url} onClick={() => setOpenMobile(false)}>
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       {item.badge && <NavBadge>{item.badge}</NavBadge>}
-                    </Link>
+                    </OptimizedLink>
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -96,7 +120,7 @@ export function NavGroup({ title, items }: NavGroup) {
                           asChild
                           isActive={checkIsActive(pathname, subItem)}
                         >
-                          <Link
+                          <OptimizedLink
                             href={subItem.url}
                             onClick={() => setOpenMobile(false)}
                           >
@@ -105,7 +129,7 @@ export function NavGroup({ title, items }: NavGroup) {
                             {subItem.badge && (
                               <NavBadge>{subItem.badge}</NavBadge>
                             )}
-                          </Link>
+                          </OptimizedLink>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}

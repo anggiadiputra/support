@@ -40,6 +40,9 @@ interface Props {
   columns: ColumnDef<AdminUser>[]
   data: AdminUser[]
   isLoading?: boolean
+  onSearch?: (search: string) => void
+  searchValue?: string
+  isSearching?: boolean
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
@@ -58,15 +61,15 @@ function TableSkeleton({ columns }: { columns: number }) {
   )
 }
 
-export function UsersTable({ columns = [], data = [], isLoading }: Props) {
+export function UsersTable({ columns, data, isLoading, onSearch, searchValue, isSearching }: Props) {
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
 
   const table = useReactTable({
-    data: data || [],
-    columns: columns || [],
+    data,
+    columns,
     state: {
       sorting,
       columnVisibility,
@@ -88,7 +91,12 @@ export function UsersTable({ columns = [], data = [], isLoading }: Props) {
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar table={table} />
+      <DataTableToolbar
+        table={table}
+        onSearch={onSearch}
+        searchValue={searchValue}
+        isSearching={isSearching}
+      />
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -104,9 +112,9 @@ export function UsersTable({ columns = [], data = [], isLoading }: Props) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   )
                 })}

@@ -2,23 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { format, differenceInDays } from "date-fns"
+import { IconKey, IconTrash, IconAlertTriangle } from "@tabler/icons-react"
+import { Terminal, Loader2 } from "lucide-react"
 import { Link } from "@/i18n/routing"
-import { Terminal, Loader2, Key, Trash2, AlertTriangle } from "lucide-react"
-import { apiKeysApi, type ApiKey } from "@/lib/api/api-keys-api"
-import { useSubscription } from "@/hooks/use-subscription"
-import { toast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -27,7 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { toast } from "@/hooks/use-toast"
+import { apiKeysApi, type ApiKey } from "@/lib/api/api-keys-api"
+import { useSubscription } from "@/hooks/use-subscription"
 import { UpgradePrompt } from "@/components/subscription/upgrade-prompt"
 import { CreateApiKeyDialog } from "./components/create-api-key-dialog"
 
@@ -39,13 +32,7 @@ export default function ApiKeysPage() {
   const [isRevoking, setIsRevoking] = useState(false)
 
   // Subscription feature gating
-  const {
-    tier,
-    hasFeature,
-    canCreate,
-    getUsageText,
-    refetch: refetchSubscription,
-  } = useSubscription()
+  const { tier, hasFeature, canCreate, getUsageText, refetch: refetchSubscription } = useSubscription()
   const hasApiAccess = hasFeature("apiAccess")
   const canCreateApiKey = canCreate("apiKeys")
   const usageText = getUsageText("apiKeys")
@@ -109,70 +96,39 @@ export default function ApiKeysPage() {
     const daysUntilExpiry = differenceInDays(new Date(expiresAt), new Date())
 
     if (daysUntilExpiry < 0) {
-      return {
-        status: "expired",
-        label: "Expired",
-        variant: "destructive" as const,
-      }
+      return { status: "expired", label: "Expired", variant: "destructive" as const }
     }
     if (daysUntilExpiry <= 30) {
-      return {
-        status: "expiring",
-        label: `Expires in ${daysUntilExpiry} days`,
-        variant: "warning" as const,
-      }
+      return { status: "expiring", label: `Expires in ${daysUntilExpiry} days`, variant: "warning" as const }
     }
     return { status: "active", label: "Active", variant: "default" as const }
   }
 
   return (
-    <>
-      <div className="flex w-full flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/developers">Developers</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>API Keys</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-2xl font-bold">API Keys</h2>
-            <p className="text-muted-foreground text-sm">
-              Secure, manage, and monitor your API keys for external
-              integrations.
-            </p>
-          </div>
-          {hasApiAccess && (
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground text-sm">{usageText}</span>
-              {canCreateApiKey ? (
-                <CreateApiKeyDialog onKeyCreated={handleKeyCreated} />
-              ) : (
-                <Button variant="default" size="sm" disabled>
-                  <Key className="mr-2 h-4 w-4" />
-                  Limit Reached
-                </Button>
-              )}
-            </div>
-          )}
+    <div className="flex w-full flex-1 flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">API Keys</h2>
+          <p className="text-muted-foreground text-sm">
+            Secure, manage, and monitor your API keys for external integrations.
+          </p>
         </div>
+        {hasApiAccess && (
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground text-sm">{usageText}</span>
+            {canCreateApiKey ? (
+              <CreateApiKeyDialog onKeyCreated={handleKeyCreated} />
+            ) : (
+              <Button size="sm" disabled>
+                <IconKey className="h-4 w-4" />
+                Limit Reached
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="my-8 w-full max-w-4xl">
+      <div className="w-full max-w-4xl">
         <Alert className="mb-6">
           <Terminal className="h-4 w-4" />
           <AlertTitle>API Authentication</AlertTitle>
@@ -189,7 +145,7 @@ export default function ApiKeysPage() {
             <UpgradePrompt
               feature="apiAccess"
               currentTier={tier}
-              requiredTier="LITE"
+              requiredTier="BASIC"
             />
           </div>
         ) : isLoading ? (
@@ -207,11 +163,10 @@ export default function ApiKeysPage() {
           </div>
         ) : apiKeys.length === 0 ? (
           <div className="border-border flex flex-col items-center gap-4 rounded-lg border border-dashed px-6 py-10">
-            <Key className="text-muted-foreground size-16" />
+            <IconKey className="text-muted-foreground size-16" />
             <h3 className="text-lg font-semibold">No API Keys Yet</h3>
             <p className="text-muted-foreground text-center">
-              Create an API key to start integrating with external services like
-              n8n or Zapier.
+              Create an API key to start integrating with external services like n8n or Zapier.
             </p>
           </div>
         ) : (
@@ -243,23 +198,16 @@ export default function ApiKeysPage() {
                       </TableCell>
                       <TableCell>
                         {key.lastUsedAt
-                          ? format(
-                              new Date(key.lastUsedAt),
-                              "MMM d, yyyy HH:mm"
-                            )
+                          ? format(new Date(key.lastUsedAt), "MMM d, yyyy HH:mm")
                           : "Never"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {expStatus.status === "expiring" && (
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            <IconAlertTriangle className="h-4 w-4 text-yellow-500" />
                           )}
                           <Badge
-                            variant={
-                              expStatus.variant === "warning"
-                                ? "outline"
-                                : expStatus.variant
-                            }
+                            variant={expStatus.variant === "warning" ? "outline" : expStatus.variant}
                             className={
                               expStatus.variant === "warning"
                                 ? "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
@@ -277,7 +225,7 @@ export default function ApiKeysPage() {
                           onClick={() => handleRevokeClick(key)}
                           className="text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <IconTrash className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -290,11 +238,7 @@ export default function ApiKeysPage() {
 
         {hasApiAccess && apiKeys.length > 0 && !canCreateApiKey && (
           <p className="text-muted-foreground mt-4 text-sm">
-            You've reached your API key limit ({usageText}).{" "}
-            <Link href="/subscription" className="text-primary underline">
-              Upgrade your plan
-            </Link>{" "}
-            to create more.
+            You've reached your API key limit ({usageText}). <Link href="/subscription" className="text-primary underline">Upgrade your plan</Link> to create more.
           </p>
         )}
       </div>
@@ -305,9 +249,9 @@ export default function ApiKeysPage() {
         title="Revoke API Key"
         desc={
           <span>
-            Are you sure you want to revoke <strong>{keyToRevoke?.name}</strong>
-            ? This action cannot be undone and any integrations using this key
-            will stop working immediately.
+            Are you sure you want to revoke <strong>{keyToRevoke?.name}</strong>?
+            This action cannot be undone and any integrations using this key will
+            stop working immediately.
           </span>
         }
         confirmText={
@@ -324,6 +268,6 @@ export default function ApiKeysPage() {
         isLoading={isRevoking}
         handleConfirm={handleRevokeConfirm}
       />
-    </>
+    </div>
   )
 }

@@ -1,133 +1,61 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Plus, Webhook } from "lucide-react"
 import { Link } from "@/i18n/routing"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/hooks/use-toast"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useWebhooks } from "@/hooks/use-webhooks"
 import { UpgradePrompt } from "@/components/subscription/upgrade-prompt"
-import { webhooksApi, type WebhookEndpoint } from "@/lib/api/webhooks-api"
-import { AddWebhook } from "./components/add-webhook"
+import { MutateWebhook } from "./components/mutate-webhook"
 import { columns } from "./components/webhooks-columns"
 import { WebhooksTable } from "./components/webhooks-table"
-import { WebhooksContext } from "./components/webhooks-context"
 
 export default function WebhooksPage() {
-  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Lift sheet state to page level to prevent unmounting when subscription updates
+  const [createOpen, setCreateOpen] = useState(false)
+  
+  // TanStack Query - handles loading, caching, and refetching automatically
+  const { data: webhooks = [], isLoading } = useWebhooks()
 
   // Subscription feature gating
-  const { tier, hasFeature, canCreate, getUsageText, refetch: refetchSubscription } = useSubscription()
+  const { tier, hasFeature, canCreate, getUsageText } = useSubscription()
   const hasWebhooksAccess = hasFeature("webhooksEnabled")
   const canCreateWebhook = canCreate("webhookEndpoints")
   const usageText = getUsageText("webhookEndpoints")
 
-  const fetchWebhooks = async () => {
-    try {
-      setIsLoading(true)
-      const data = await webhooksApi.list()
-      setWebhooks(data)
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch webhooks",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchWebhooks()
-  }, [])
-
-  const handleWebhookCreated = (webhook: WebhookEndpoint) => {
-    setWebhooks((prev) => [webhook, ...prev])
-    refetchSubscription() // Refresh usage counts
-  }
-
-  const handleWebhookUpdated = (webhook: WebhookEndpoint) => {
-    setWebhooks((prev) =>
-      prev.map((w) => (w.id === webhook.id ? webhook : w))
-    )
-  }
-
-  const handleWebhookDeleted = (id: string) => {
-    setWebhooks((prev) => prev.filter((w) => w.id !== id))
-    refetchSubscription() // Refresh usage counts
-  }
-
   return (
-    <WebhooksContext.Provider
-      value={{
-        webhooks,
-        onWebhookCreated: handleWebhookCreated,
-        onWebhookUpdated: handleWebhookUpdated,
-        onWebhookDeleted: handleWebhookDeleted,
-        refreshWebhooks: fetchWebhooks,
-      }}
-    >
-      <div className="flex w-full flex-1 flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/developers">Developers</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Webhooks</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-2xl font-bold">Webhooks</h2>
-            <p className="text-muted-foreground text-sm">
-              Setup webhook endpoints to receive real-time event notifications.
-            </p>
-          </div>
-          {hasWebhooksAccess && (
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground text-sm">{usageText}</span>
-              {canCreateWebhook ? (
-                <AddWebhook />
-              ) : (
-                <Button variant="default" size="sm" disabled>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Limit Reached
-                </Button>
-              )}
-            </div>
-          )}
+    <div className="flex w-full flex-1 flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Webhooks</h2>
+          <p className="text-muted-foreground text-sm">
+            Setup webhook endpoints to receive real-time event notifications.
+          </p>
         </div>
+        {hasWebhooksAccess && (
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground text-sm">{usageText}</span>
+            <Button 
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              disabled={!canCreateWebhook}
+            >
+              <Plus className="h-4 w-4" />
+              {canCreateWebhook ? "Add Webhook" : "Limit Reached"}
+            </Button>
+          </div>
+        )}
+      </div>
 
-        <div className="h-full flex-1 mt-6">
+      <div className="h-full flex-1">
           {!hasWebhooksAccess ? (
             <div className="max-w-md">
               <UpgradePrompt
                 feature="webhooksEnabled"
                 currentTier={tier}
-                requiredTier="LITE"
+                requiredTier="BASIC"
               />
             </div>
           ) : isLoading ? (
@@ -154,14 +82,14 @@ export default function WebhooksPage() {
                 <br className="hidden sm:block" /> receive real-time event
                 notifications.
               </p>
-              {canCreateWebhook ? (
-                <AddWebhook />
-              ) : (
-                <Button variant="default" disabled>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Limit Reached
-                </Button>
-              )}
+              <Button 
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                disabled={!canCreateWebhook}
+              >
+                <Plus className="h-4 w-4" />
+                {canCreateWebhook ? "Add Webhook" : "Limit Reached"}
+              </Button>
             </div>
           )}
         </div>
@@ -171,7 +99,9 @@ export default function WebhooksPage() {
             You've reached your webhook limit ({usageText}). <Link href="/subscription" className="text-primary underline">Upgrade your plan</Link> to create more.
           </p>
         )}
+
+        {/* Render sheet at page level to prevent unmount when subscription updates */}
+        <MutateWebhook open={createOpen} setOpen={setCreateOpen} />
       </div>
-    </WebhooksContext.Provider>
   )
 }

@@ -11,6 +11,7 @@ import { requireRole } from '../../middleware/auth.js'
 import { prisma } from '../../utils/database.js'
 import { instagramService, InstagramError, IGErrorCode, MediaType } from '../../services/InstagramService.js'
 import { webhookService } from '../../services/webhook-service.js'
+import { auditLog } from '../../utils/auditLog.js'
 
 const app = new Hono()
 
@@ -231,6 +232,7 @@ app.post('/conversations/:id/messages', requireRole(['ADMIN', 'BUSINESS_OWNER'])
           c.user!.id,
           'message.failed',
           'instagram',
+          igAccount.id,
           {
             message_id: failedMessage.id,
             customer_id: conversationId,
@@ -275,6 +277,7 @@ app.post('/conversations/:id/messages', requireRole(['ADMIN', 'BUSINESS_OWNER'])
       c.user!.id,
       'message.sent',
       'instagram',
+      igAccount.id,
       {
         message_id: message.id,
         customer_id: conversation.id, // Use conversation id as customer reference
@@ -285,6 +288,13 @@ app.post('/conversations/:id/messages', requireRole(['ADMIN', 'BUSINESS_OWNER'])
         media_url: savedMediaUrl || undefined,
       }
     ).catch(err => console.error('[IG Messages] Failed to emit message.sent webhook:', err))
+
+    // Audit log
+    await auditLog('INSTAGRAM_MESSAGE_SENT', 'Instagram', message.id, {
+      conversationId,
+      messageType,
+      igMessageId: sendResult.messageId
+    }, c.user!.id)
 
     return c.json({
       success: true,

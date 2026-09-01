@@ -58,6 +58,8 @@ export { WABATokenManager, wabaTokenManager } from './token-manager.js';
 export { WABAResourceDiscovery, wabaResources } from './resources.js';
 export { WABAWebhook, wabaWebhook } from './webhook.js';
 export { WABACoexistence, wabaCoexistence } from './coexistence.js';
+export { WABAHealthService, wabaHealthService } from './health-service.js';
+export type { AccountStatusDTO, WABAHealthResult } from './health-service.js';
 
 
 // ============================================================================
@@ -137,8 +139,8 @@ export class WABAService {
   /**
    * Discover WABA resources (WABA details and phone numbers)
    */
-  async discoverWABAResources(accessToken: string): Promise<WABAResources> {
-    return wabaResources.discoverWABAResources(accessToken);
+  async discoverWABAResources(accessToken: string, excludeWabaIds?: string[], providedWabaId?: string): Promise<WABAResources> {
+    return wabaResources.discoverWABAResources(accessToken, excludeWabaIds, providedWabaId);
   }
 
   // ==========================================================================

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
-import { useBrandingContext } from "@/components/branding-provider";
 
 // SVG Component for Smart Automation background
 const SmartAutomationSVG = () => (
@@ -218,16 +217,13 @@ const MultiAgentSVG = () => (
 );
 
 const Hero203 = () => {
-  const { websiteName } = useBrandingContext();
-  const brand = websiteName || process.env.NEXT_PUBLIC_APP_NAME || "App";
-
   return (
     <section className="bg-background py-16 md:py-32">
       <div className="container relative mx-auto flex max-w-7xl flex-col items-center px-4">
         <div className="container flex w-full flex-col justify-between px-4 md:px-10 lg:flex-row">
           <div className="flex w-full flex-col gap-8">
             <a href="#" className="text-2xl font-semibold tracking-tighter">
-              {brand}
+              {process.env.NEXT_PUBLIC_APP_NAME || "Messaging Platform"}
             </a>
             <h1 className="bg-re relative z-20 text-4xl font-semibold tracking-tighter md:text-6xl lg:text-8xl">
               Kelola WhatsApp Mudah.

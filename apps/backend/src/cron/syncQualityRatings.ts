@@ -2,18 +2,23 @@ import cron from 'node-cron';
 import axios from 'axios';
 import https from 'https';
 import { logger } from '../utils/logger.js';
-import { PrismaClient, QualityRatingEnum } from '@prisma/client';
-import { TokenEncryptionService } from '../utils/tokenEncryption.js';
+import { QualityRatingEnum } from '@prisma/client';
 import { emailService } from '../services/email/index.js';
-
-const prisma = new PrismaClient();
-const tokenEncryption = new TokenEncryptionService();
+import { prisma } from '../utils/database.js';
+import { decryptAccountToken } from '../utils/whatsapp-account-helper.js';
 
 // Create HTTPS agent that forces IPv4 (fixes ETIMEDOUT on some servers)
 const httpsAgent = new https.Agent({
   family: 4,
   rejectUnauthorized: true,
 });
+
+// Meta API returns GREEN/YELLOW/RED, Prisma enum expects HIGH/MEDIUM/LOW
+const metaRatingToEnum: Record<string, QualityRatingEnum> = {
+  GREEN: QualityRatingEnum.HIGH,
+  YELLOW: QualityRatingEnum.MEDIUM,
+  RED: QualityRatingEnum.LOW,
+};
 
 /**
  * Cron job to sync quality ratings from Meta
@@ -27,21 +32,26 @@ export function startQualityRatingSyncJob() {
     logger.info('Starting quality rating sync job');
 
     try {
-      // Get all connected users with WABA
-      const users = await prisma.user.findMany({
+      // Get all phone numbers linked to connected WhatsApp accounts
+      const phoneNumbers = await prisma.phoneNumber.findMany({
         where: {
-          wabaConnectionStatus: 'connected',
-          wabaAccessToken: { not: null },
-          phoneNumberId: { not: null },
-        }
+          whatsappAccount: {
+            connectionStatus: 'connected',
+            accessToken: { not: '' },
+          },
+        },
+        include: {
+          whatsappAccount: true,
+          user: true,
+        },
       });
 
-      if (users.length === 0) {
+      if (phoneNumbers.length === 0) {
         logger.info('No connected WABAs found for quality rating sync');
         return;
       }
 
-      logger.info(`Syncing quality ratings for ${users.length} users with WABA`);
+      logger.info(`Syncing quality ratings for ${phoneNumbers.length} phone numbers`);
 
       const results = {
         success: 0,
@@ -50,29 +60,19 @@ export function startQualityRatingSyncJob() {
         errors: [] as Array<{ wabaId: string; error: string }>,
       };
 
-      for (const user of users) {
+      for (const phone of phoneNumbers) {
         try {
-          // Skip if no phone number ID
-          if (!user.phoneNumberId) {
+          // Skip if no linked WhatsApp account
+          if (!phone.whatsappAccount) {
             continue;
           }
 
-          // Decrypt access token
-          if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
-            logger.warn(`No access token found for user ${user.id}`);
-            continue;
-          }
-
-          const accessToken = tokenEncryption.decrypt({
-            ciphertext: user.wabaAccessToken,
-            iv: user.wabaAccessTokenIV,
-            authTag: user.wabaAccessTokenTag,
-            algorithm: 'aes-256-gcm',
-          });
+          // Decrypt access token from WhatsApp account
+          const accessToken = decryptAccountToken(phone.whatsappAccount);
 
           // Fetch quality rating from Meta
           const response = await axios.get(
-            `https://graph.facebook.com/v23.0/${user.phoneNumberId}`,
+            `https://graph.facebook.com/v23.0/${phone.phoneNumberId}`,
             {
               params: {
                 fields: 'quality_rating,code_verification_status',
@@ -83,13 +83,18 @@ export function startQualityRatingSyncJob() {
             }
           );
 
-          const qualityRating = response.data.quality_rating as QualityRatingEnum;
+          const rawRating = response.data.quality_rating as string;
+          const qualityRating = metaRatingToEnum[rawRating];
+          if (!qualityRating) {
+            logger.warn(`Unknown quality rating "${rawRating}" for phone ${phone.phoneNumberId}, skipping`);
+            continue;
+          }
 
           // Get previous rating
           const previousRating = await prisma.qualityRating.findFirst({
             where: {
-              userId: user.id,
-              phoneNumberId: user.phoneNumberId,
+              userId: phone.userId,
+              phoneNumberId: phone.phoneNumberId,
             },
             orderBy: {
               createdAt: 'desc',
@@ -99,10 +104,10 @@ export function startQualityRatingSyncJob() {
           // Store new rating
           await prisma.qualityRating.create({
             data: {
-              phoneNumberId: user.phoneNumberId,
+              phoneNumberId: phone.phoneNumberId,
               rating: qualityRating,
               status: 'Connected',
-              userId: user.id,
+              userId: phone.userId,
             },
           });
 
@@ -114,37 +119,37 @@ export function startQualityRatingSyncJob() {
 
             if (newRatingValue < oldRatingValue) {
               logger.warn(
-                `Quality rating dropped for user ${user.id}: ${previousRating.rating} -> ${qualityRating}`
+                `Quality rating dropped for phone ${phone.phoneNumberId}: ${previousRating.rating} -> ${qualityRating}`
               );
               results.ratingsDropped++;
 
               // Send email notification
               await emailService.sendQualityRatingDrop(
-                user.phoneNumberId,
+                phone.phoneNumberId,
                 previousRating.rating,
                 qualityRating,
-                user.name || 'User',
-                user.email
+                phone.user.name || 'User',
+                phone.user.email
               );
             }
           }
 
-          // Update last sync timestamp
-          await prisma.user.update({
-            where: { id: user.id },
+          // Update last sync timestamp on the WhatsApp account
+          await prisma.whatsAppAccount.update({
+            where: { id: phone.whatsappAccount.id },
             data: {
-              wabaLastSyncAt: new Date(),
+              lastSyncAt: new Date(),
             },
           });
 
           results.success++;
-          logger.info(`Quality rating synced for user ${user.id}: ${qualityRating}`);
+          logger.info(`Quality rating synced for phone ${phone.phoneNumberId}: ${qualityRating}`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(`Failed to sync quality rating for user ${user.id}: ${errorMessage}`);
+          logger.error(`Failed to sync quality rating for phone ${phone.phoneNumberId}: ${errorMessage}`);
           results.failed++;
-          if (user.wabaId) {
-            results.errors.push({ wabaId: user.wabaId, error: errorMessage });
+          if (phone.whatsappAccount?.wabaId) {
+            results.errors.push({ wabaId: phone.whatsappAccount.wabaId, error: errorMessage });
           }
         }
       }

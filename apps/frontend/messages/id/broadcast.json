@@ -36,7 +36,8 @@
     "title": "Variabel Template",
     "description": "Isi nilai variabel untuk template Anda",
     "placeholder": "Masukkan nilai untuk {{variable}}",
-    "required": "Field ini wajib diisi"
+    "required": "Field ini wajib diisi",
+    "customerPlaceholderHint": "Gunakan tombol 'Sisipkan Field' untuk menambahkan data customer seperti nama, email, dll. Data akan otomatis diisi dari database."
   },
   "recipientSelector": {
     "title": "Pilih Penerima",
@@ -68,7 +69,11 @@
     "clear": "Hapus",
     "validCount": "{count} valid",
     "invalidCount": "{count} tidak valid",
-    "invalidNumbers": "Nomor telepon tidak valid:"
+    "invalidNumbers": "Nomor telepon tidak valid:",
+    "extractedNumbers": "{count} nomor telepon ditemukan",
+    "selectAll": "Pilih Semua",
+    "deselectAll": "Batalkan Semua",
+    "selectedForBroadcast": "{selected} dari {total} dipilih untuk broadcast"
   },
   "form": {
     "send": "Kirim Broadcast",
@@ -84,20 +89,101 @@
     "pending": "Menunggu",
     "processing": "Memproses",
     "completed": "Selesai",
+    "partialSuccess": "Sebagian Berhasil",
+    "mostlyFailed": "Sebagian Besar Gagal",
     "failed": "Gagal",
-    "cancelled": "Dibatalkan"
+    "cancelled": "Dibatalkan",
+    "stuck": "Terhenti"
   },
   "jobCard": {
     "recipients": "Penerima",
     "success": "Berhasil",
+    "sent": "Terkirim",
+    "delivered": "Diterima",
+    "read": "Dibaca",
     "failed": "Gagal",
     "progress": "Progress",
     "cancelJob": "Batalkan Job",
-    "viewDetails": "Lihat Detail"
+    "viewDetails": "Lihat Detail",
+    "successRate": "berhasil",
+    "resume": "Lanjutkan",
+    "stuckWarning": "Broadcast terhenti. Klik Lanjutkan untuk melanjutkan pengiriman.",
+    "resumeTitle": "Lanjutkan Broadcast",
+    "resumeConfirm": "Lanjutkan Broadcast",
+    "resumeSuccess": "Broadcast dilanjutkan",
+    "resumeSuccessDesc": "Broadcast akan segera dilanjutkan",
+    "resumeFailed": "Gagal melanjutkan",
+    "totalRecipients": "Total",
+    "pending": "Belum Terkirim",
+    "sentRecipients": "Sudah Terkirim",
+    "pendingRecipients": "Belum Terkirim",
+    "noSentYet": "Belum ada yang terkirim",
+    "allSent": "Semua sudah terkirim",
+    "failedLoadDetail": "Gagal memuat detail broadcast"
+  },
+  "jobDetail": {
+    "deliveryRate": "Tingkat Pengiriman",
+    "criticalIssues": "Masalah Kritis Terdeteksi",
+    "paymentIssueDesc": "Pesan gagal karena metode pembayaran belum dikonfigurasi di Meta Business. Silakan tambahkan metode pembayaran untuk melanjutkan pengiriman.",
+    "templateIssueDesc": "Template memiliki masalah yang mencegah pengiriman pesan. Periksa konfigurasi template di Meta.",
+    "authIssueDesc": "Otorisasi gagal. Silakan hubungkan kembali WhatsApp Business Account Anda.",
+    "integrityIssueDesc": "Akun dibatasi karena pelanggaran kebijakan. Tinjau panduan Meta.",
+    "errorSummary": "Ringkasan Error",
+    "detailedResults": "Hasil Detail",
+    "recipients": "penerima",
+    "sent": "Terkirim",
+    "delivered": "Diterima",
+    "read": "Dibaca",
+    "failedBadge": "Gagal",
+    "recoveryAction": "Saran",
+    "noResultsForFilter": "Tidak ada hasil yang cocok dengan filter ini",
+    "exportCSV": "Ekspor {filter} ({count})",
+    "filter": {
+      "all": "Semua"
+    }
+  },
+  "errors": {
+    "categories": {
+      "payment": "Masalah Pembayaran",
+      "paymentDesc": "Metode pembayaran belum dikonfigurasi di Meta Business",
+      "rateLimit": "Limit Tercapai",
+      "rateLimitDesc": "Terlalu banyak pesan dikirim terlalu cepat",
+      "template": "Masalah Template",
+      "templateDesc": "Ada masalah dengan konfigurasi template",
+      "recipient": "Masalah Penerima",
+      "recipientDesc": "Penerima memblokir atau nomor tidak valid",
+      "authorization": "Error Otorisasi",
+      "authorizationDesc": "Token akses kadaluarsa atau izin ditolak",
+      "integrity": "Pelanggaran Kebijakan",
+      "integrityDesc": "Akun dibatasi karena kebijakan",
+      "other": "Error Lainnya",
+      "otherDesc": "Terjadi error yang tidak terduga"
+    },
+    "actions": {
+      "setupPayment": "Tambahkan metode pembayaran di Meta Business Manager",
+      "checkTemplate": "Tinjau template di Meta",
+      "reconnect": "Hubungkan kembali WhatsApp Business Account",
+      "reviewPolicy": "Tinjau kebijakan pengiriman pesan Meta"
+    },
+    "recovery": {
+      "PAYMENT": "Periksa metode pembayaran di Meta Business Suite",
+      "RATE_LIMIT": "Tunggu beberapa saat dan kurangi kecepatan pengiriman",
+      "TEMPLATE": "Periksa konfigurasi template dan parameter",
+      "RECIPIENT": "Verifikasi nomor penerima dan status WhatsApp mereka",
+      "AUTHORIZATION": "Hubungkan ulang akun WhatsApp Business",
+      "INTEGRITY": "Tinjau kebijakan Meta dan ajukan banding jika perlu",
+      "OTHER": "Coba lagi nanti atau hubungi dukungan"
+    }
   },
   "preview": {
     "title": "Pratinjau Pesan",
     "description": "Lihat tampilan pesan yang akan diterima",
     "placeholder": "Pilih template untuk melihat pratinjau"
+  },
+  "pricingInfo": {
+    "title": "Informasi Biaya",
+    "description": "Pengiriman pesan template WhatsApp dikenakan biaya oleh Meta. Biaya bervariasi berdasarkan kategori (Marketing, Utility, Authentication) dan negara tujuan.",
+    "pricingLink": "Lihat Tarif WhatsApp",
+    "paymentLink": "Tambah Metode Pembayaran di Meta Business"
   }
 }

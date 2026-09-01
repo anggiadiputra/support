@@ -18,7 +18,7 @@
   "officialApi": {
     "badge": "API Resmi Meta",
     "title": "Didukung oleh WhatsApp Cloud API Resmi",
-    "description": "Platform kami menggunakan WhatsApp Business Cloud API resmi dari Meta. Data Anda aman dan sesuai dengan kebijakan Meta.",
+    "description": "{websiteName} menggunakan WhatsApp Business Cloud API resmi dari Meta. Data Anda aman dan sesuai dengan kebijakan Meta.",
     "benefits": {
       "official": "Integrasi langsung dengan API resmi Meta",
       "compliant": "Sepenuhnya sesuai ketentuan Meta"

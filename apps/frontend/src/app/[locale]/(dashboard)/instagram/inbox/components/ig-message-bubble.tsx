@@ -1,15 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Heart, Check, CheckCheck, AlertCircle } from "lucide-react"
+import { Heart, Check, CheckCheck, AlertCircle, Clock, RotateCcw, Info } from "lucide-react"
 import type { IGMessage } from "@/lib/api/instagram"
 import { format } from "date-fns"
 import { MediaPreview, MediaType } from "@/app/[locale]/(dashboard)/messages/components/media-preview"
+import { WABAErrorDialog } from "@/components/waba/waba-error-dialog"
 
 interface Props {
   message: IGMessage
   onReact: () => void
+  onRetry?: (message: IGMessage) => void
 }
 
 // Map Instagram message types to MediaPreview types
@@ -26,27 +29,46 @@ function getMediaType(messageType: string): MediaType | null {
   }
 }
 
-export function IGMessageBubble({ message, onReact }: Props) {
+export function IGMessageBubble({ message, onReact, onRetry }: Props) {
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
   const isOutbound = message.direction === "OUTBOUND"
   const isMedia = ["IMAGE", "VIDEO", "AUDIO"].includes(message.messageType)
   const isSticker = message.messageType === "STICKER"
   const isStoryReply = message.messageType === "STORY_REPLY"
   const isStoryMention = message.messageType === "STORY_MENTION"
+  const isPending = message.status === "PENDING"
+  const isFailed = message.status === "FAILED"
+
+  // Extract error code from errorMessage if present (e.g., "(#131031)")
+  const extractErrorCode = (errorMsg: string | null | undefined): number | null => {
+    if (!errorMsg) return null
+    const match = errorMsg.match(/\(#(\d+)\)/)
+    return match ? parseInt(match[1], 10) : null
+  }
+  const errorCode = extractErrorCode(message.errorMessage)
 
   const renderStatus = () => {
     if (!isOutbound) return null
 
     switch (message.status) {
       case "PENDING":
-        return <Check className="h-3 w-3 text-muted-foreground" />
+        return (
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3 text-white/70 animate-pulse" />
+          </span>
+        )
       case "SENT":
-        return <Check className="h-3 w-3 text-muted-foreground" />
+        return <Check className="h-3 w-3 text-white/70" />
       case "DELIVERED":
-        return <CheckCheck className="h-3 w-3 text-muted-foreground" />
+        return <CheckCheck className="h-3 w-3 text-white/70" />
       case "READ":
-        return <CheckCheck className="h-3 w-3 text-blue-500" />
+        return <CheckCheck className="h-3 w-3 text-blue-300" />
       case "FAILED":
-        return <AlertCircle className="h-3 w-3 text-red-500" />
+        return (
+          <span className="flex items-center gap-1">
+            <AlertCircle className="h-3 w-3 text-red-300" />
+          </span>
+        )
       default:
         return null
     }
@@ -86,7 +108,7 @@ export function IGMessageBubble({ message, onReact }: Props) {
     }
 
     // Text message
-    return <p className="whitespace-pre-wrap break-words">{message.text}</p>
+    return <p className="whitespace-pre-wrap break-words break-all">{message.text}</p>
   }
 
   return (
@@ -112,11 +134,13 @@ export function IGMessageBubble({ message, onReact }: Props) {
 
         <div
           className={cn(
-            "px-4 py-2 rounded-2xl",
+            "px-4 py-2 rounded-2xl transition-opacity",
             isOutbound
               ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-br-md"
               : "bg-muted rounded-bl-md",
-            isSticker && "bg-transparent px-2 py-1"
+            isSticker && "bg-transparent px-2 py-1",
+            isPending && "opacity-70",
+            isFailed && "from-red-500/50 to-red-600/50 border border-red-500/50"
           )}
         >
           {renderContent()}
@@ -146,12 +170,41 @@ export function IGMessageBubble({ message, onReact }: Props) {
             {renderStatus()}
           </div>
 
-          {/* Error message */}
-          {message.status === "FAILED" && message.errorMessage && (
-            <p className="text-xs text-red-300 mt-1">{message.errorMessage}</p>
+          {/* Error message and retry button */}
+          {isFailed && (
+            <div className="mt-1 space-y-1">
+              {message.errorMessage && (
+                <p className="text-xs text-red-200">{message.errorMessage}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowErrorDialog(true)}
+                  className="flex items-center gap-1 text-xs text-red-200 hover:text-white transition-colors"
+                >
+                  <Info className="h-3 w-3" />
+                  Lihat Detail
+                </button>
+                {onRetry && (
+                  <button
+                    onClick={() => onRetry(message)}
+                    className="flex items-center gap-1 text-xs text-red-200 hover:text-white transition-colors"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Coba Lagi
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      <WABAErrorDialog
+        open={showErrorDialog}
+        onOpenChange={setShowErrorDialog}
+        errorCode={errorCode}
+        errorMessage={message.errorMessage}
+      />
     </div>
   )
 }

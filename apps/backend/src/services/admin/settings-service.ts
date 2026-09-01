@@ -10,7 +10,7 @@
 import { prisma } from '../../utils/database.js';
 import { EncryptionService } from '../encryption-service.js';
 import { auditLog } from '../../utils/auditLog.js';
-import { logger } from '../../utils/logger.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
 import axios from 'axios';
 import https from 'https';
 import * as nodemailer from 'nodemailer';
@@ -22,7 +22,7 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: true,
 });
 import { invalidateBrandingCache } from '../../routes/branding.js';
-import { invalidateTurnstileCache } from '../../routes/turnstile.js';
+import { invalidateChannelStatusCache } from '../../routes/channels.js';
 import type {
   SettingCategory,
   SettingsResponse,
@@ -115,7 +115,11 @@ export class AdminSettingsService {
 
       return setting.value;
     } catch (error) {
-      logger.error('Failed to get raw setting value', { category, key, error });
+      logger.error('Failed to get raw setting value', {
+        category,
+        key,
+        error: extractAxiosError(error),
+      });
       return null;
     }
   }
@@ -143,17 +147,18 @@ export class AdminSettingsService {
         if (dbSetting.isSensitive && dbSetting.value) {
           try {
             const decrypted = this.encryptionService.decryptFromString(dbSetting.value);
-            logger.debug('Decrypted sensitive value', { 
-              key: config.key, 
+            logger.debug('Decrypted sensitive value', {
+              key: config.key,
               category,
               decryptedPreview: decrypted ? decrypted.slice(0, 10) + '...' : 'empty'
             });
             value = maskSensitive ? this.encryptionService.mask(decrypted) : decrypted;
           } catch (decryptError) {
-            logger.error('Failed to decrypt sensitive value', { 
-              key: config.key, 
+            logger.error('Failed to decrypt sensitive value - likely encrypted with different key', {
+              key: config.key,
               category,
-              error: decryptError instanceof Error ? decryptError.message : 'Unknown error'
+              error: decryptError instanceof Error ? decryptError.message : 'Unknown error',
+              suggestion: 'Please re-enter this value in admin settings to re-encrypt with current encryption key'
             });
             value = maskSensitive ? '****' : '';
           }
@@ -264,7 +269,12 @@ export class AdminSettingsService {
         }
 
         // Convert value to string for storage
-        let stringValue = String(value);
+        let stringValue: string;
+        if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+          stringValue = JSON.stringify(value);
+        } else {
+          stringValue = String(value);
+        }
 
         // Encrypt sensitive values
         if (keyConfig.sensitive && stringValue) {
@@ -310,9 +320,9 @@ export class AdminSettingsService {
         invalidateBrandingCache();
       }
 
-      // Also invalidate public turnstile cache if turnstile was updated
-      if (category === 'turnstile') {
-        invalidateTurnstileCache();
+      // Also invalidate channel status cache if instagram/messenger settings were updated
+      if (category === 'instagram' || category === 'messenger') {
+        invalidateChannelStatusCache();
       }
 
       logger.info('Settings updated', { category, changedFields, adminId });
@@ -355,115 +365,63 @@ export class AdminSettingsService {
         return this.testOpenAIConnection();
       case 'duitku':
         return this.testDuitkuConnection();
-      case 'turnstile':
-        return this.testTurnstileConnection();
+      case 'xendit':
+        return this.testXenditConnection();
       default:
         return { success: false, message: `Test not available for ${category}` };
     }
   }
 
   /**
-   * Test Cloudflare Turnstile connection and Secret Key
-   */
-  private async testTurnstileConnection(): Promise<TestConnectionResult> {
-    try {
-      const secretKey = await this.getRawValue('turnstile', 'secret_key');
-      const siteKey = await this.getRawValue('turnstile', 'site_key');
-
-      if (!secretKey) {
-        return {
-          success: false,
-          message: 'Cloudflare Turnstile Secret Key is not configured',
-        };
-      }
-
-      // Test against Cloudflare siteverify endpoint with dummy response
-      const response = await axios.post(
-        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-        new URLSearchParams({
-          secret: secretKey,
-          response: 'TEST_TOKEN_VERIFICATION',
-        }).toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          timeout: 15000,
-        }
-      );
-
-      const data = response.data;
-      const errorCodes: string[] = data['error-codes'] || [];
-
-      if (errorCodes.includes('invalid-input-secret')) {
-        return {
-          success: false,
-          message: 'Cloudflare Secret Key is invalid (rejected by Cloudflare)',
-        };
-      }
-
-      // If Cloudflare returns invalid-input-response or missing-input-response, it means secret key was accepted!
-      return {
-        success: true,
-        message: 'Cloudflare Turnstile connection and Secret Key verified successfully',
-        details: {
-          siteKeyConfigured: !!siteKey,
-          secretKeyValid: true,
-        },
-      };
-    } catch (error) {
-      logger.error('Failed to test Turnstile connection', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      return {
-        success: false,
-        message: `Failed to connect to Cloudflare: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
-
-  /**
    * Test WhatsApp/Meta API connection
+   * 
+   * NOTE: access_token is NOT stored in system settings anymore.
+   * Each WABA uses its own OAuth token stored in WhatsAppAccount table (per Meta policy).
+   * This test validates that the Meta App credentials (app_id, app_secret) are configured.
    */
   private async testWhatsAppConnection(): Promise<TestConnectionResult> {
     try {
-      const accessToken = await this.getRawValue('whatsapp', 'access_token');
       const appId = await this.getRawValue('whatsapp', 'app_id');
+      const appSecret = await this.getRawValue('whatsapp', 'app_secret');
 
-      if (!accessToken || !appId) {
+      if (!appId || !appSecret) {
         return {
           success: false,
-          message: 'WhatsApp credentials not configured',
+          message: 'WhatsApp credentials not configured (App ID and App Secret required)',
         };
       }
 
+      // Generate app access token for validation (app_id|app_secret)
+      // This validates that the Meta App credentials are correct
+      const appAccessToken = `${appId}|${appSecret}`;
+
       const response = await axios.get(
-        `https://graph.facebook.com/v23.0/debug_token`,
+        `https://graph.facebook.com/v23.0/${appId}`,
         {
           params: {
-            input_token: accessToken,
-            access_token: accessToken,
+            access_token: appAccessToken,
+            fields: 'id,name',
           },
           timeout: 30000,
           httpsAgent,
         }
       );
 
-      if (response.data?.data?.is_valid) {
+      if (response.data?.id) {
         return {
           success: true,
-          message: 'WhatsApp API connection successful',
+          message: 'WhatsApp/Meta App credentials verified successfully',
           details: {
-            appId: response.data.data.app_id,
-            expiresAt: response.data.data.expires_at,
+            appId: response.data.id,
+            appName: response.data.name,
+            note: 'Individual WABA tokens are stored per-account after OAuth',
           },
         };
       }
 
       return {
         success: false,
-        message: 'WhatsApp token is invalid',
+        message: 'Failed to verify Meta App credentials',
         details: response.data,
       };
     } catch (error) {
@@ -570,11 +528,12 @@ export class AdminSettingsService {
   }
 
   /**
-   * Test OpenAI API connection
+   * Test OpenAI API connection (supports custom base URL)
    */
   private async testOpenAIConnection(): Promise<TestConnectionResult> {
     try {
       const apiKey = await this.getRawValue('openai', 'api_key');
+      const baseUrl = await this.getRawValue('openai', 'base_url');
       const enabled = await this.getRawValue('openai', 'enabled');
 
       if (!apiKey) {
@@ -591,18 +550,24 @@ export class AdminSettingsService {
         };
       }
 
-      const response = await axios.get('https://api.openai.com/v1/models', {
+      // Use configured base URL or default to OpenAI
+      const modelsUrl = baseUrl
+        ? `${baseUrl.replace(/\/$/, '')}/models`
+        : 'https://api.openai.com/v1/models';
+
+      const response = await axios.get(modelsUrl, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },
-        timeout: 10000,
+        timeout: 15000,
       });
 
       return {
         success: true,
-        message: 'OpenAI API connection successful',
+        message: baseUrl ? 'OpenAI-compatible API connection successful' : 'OpenAI API connection successful',
         details: {
           modelsCount: response.data?.data?.length || 0,
+          endpoint: baseUrl || 'OpenAI (default)',
         },
       };
     } catch (error) {
@@ -614,6 +579,50 @@ export class AdminSettingsService {
         success: false,
         message: `OpenAI connection failed: ${message}`,
       };
+    }
+  }
+
+  /**
+   * Fetch available models from OpenAI-compatible endpoint
+   * Returns list of models that can be used for chat and embedding
+   */
+  async fetchOpenAIModels(): Promise<{ models: Array<{ id: string; owned_by: string }> }> {
+    try {
+      const apiKey = await this.getRawValue('openai', 'api_key');
+      const baseUrl = await this.getRawValue('openai', 'base_url');
+
+      if (!apiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      // Use configured base URL or default to OpenAI
+      const modelsUrl = baseUrl
+        ? `${baseUrl.replace(/\/$/, '')}/models`
+        : 'https://api.openai.com/v1/models';
+
+      const response = await axios.get(modelsUrl, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        timeout: 15000,
+      });
+
+      // Extract model list from response
+      const models = (response.data?.data || []).map((model: any) => ({
+        id: model.id,
+        owned_by: model.owned_by || 'unknown',
+      }));
+
+      // Sort models by id for consistent ordering
+      models.sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id));
+
+      return { models };
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error?.message || error.message
+        : error instanceof Error ? error.message : 'Unknown error';
+
+      throw new Error(`Failed to fetch models: ${message}`);
     }
   }
 
@@ -641,13 +650,13 @@ export class AdminSettingsService {
         };
       }
 
-      const baseUrl = environment === 'production' 
-        ? 'https://snap.duitku.com' 
+      const baseUrl = environment === 'production'
+        ? 'https://snap.duitku.com'
         : 'https://snapdev.duitku.com';
-      
+
       const timestamp = new Date().toISOString();
       const stringToSign = `${merchantCode}|${timestamp}`;
-      
+
       const crypto = await import('crypto');
       const signature = crypto
         .createHmac('sha256', apiKey)
@@ -694,6 +703,67 @@ export class AdminSettingsService {
       return {
         success: false,
         message: `Duitku connection failed: ${message}`,
+      };
+    }
+  }
+
+  /**
+   * Test Xendit payment gateway connection
+   * Requirements: 6.1, 6.2, 6.3, 6.4
+   */
+  private async testXenditConnection(): Promise<TestConnectionResult> {
+    try {
+      const secretKey = await this.getRawValue('xendit', 'secret_key');
+      const enabled = await this.getRawValue('xendit', 'enabled');
+      const environment = await this.getRawValue('xendit', 'environment') || 'sandbox';
+
+      if (!secretKey) {
+        return {
+          success: false,
+          message: 'Xendit credentials not configured',
+        };
+      }
+
+      if (enabled === 'false') {
+        return {
+          success: true,
+          message: 'Xendit is disabled but credentials are configured',
+        };
+      }
+
+      // Test connection by fetching balance (simple API call to verify credentials)
+      const response = await axios.get('https://api.xendit.co/balance', {
+        auth: {
+          username: secretKey,
+          password: '',
+        },
+        timeout: 15000,
+      });
+
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: 'Xendit API connection successful',
+          details: {
+            environment,
+            balance: response.data?.balance,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        message: 'Failed to verify Xendit credentials',
+        details: response.data,
+      };
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error ? error.message : 'Unknown error';
+
+      return {
+        success: false,
+        message: `Xendit connection failed: ${message}`,
       };
     }
   }
@@ -768,9 +838,9 @@ export class AdminSettingsService {
         invalidateBrandingCache();
       }
 
-      // Also invalidate public turnstile cache if turnstile was reset
-      if (category === 'turnstile') {
-        invalidateTurnstileCache();
+      // Also invalidate channel status cache if instagram/messenger settings were reset
+      if (category === 'instagram' || category === 'messenger') {
+        invalidateChannelStatusCache();
       }
 
       logger.info('Settings reset to default', { category, resetFields, adminId });
@@ -820,7 +890,16 @@ export class AdminSettingsService {
       for (const setting of dbSettings) {
         const propName = dbKeyToCamelCase(setting.key) as keyof BrandingSettings;
         if (propName in branding && setting.value) {
-          branding[propName] = setting.value;
+          // Parse JSON for externalLinks
+          if (propName === 'externalLinks') {
+            try {
+              branding.externalLinks = JSON.parse(setting.value);
+            } catch {
+              branding.externalLinks = [];
+            }
+          } else {
+            (branding as unknown as Record<string, string>)[propName] = setting.value;
+          }
         }
       }
 
@@ -873,6 +952,44 @@ export class AdminSettingsService {
         throw new Error('Invalid URL format for logo URL');
       }
     }
+
+    // Validate Terms URL if provided
+    if (settings.termsUrl && settings.termsUrl.trim() !== '') {
+      try {
+        new URL(settings.termsUrl);
+      } catch {
+        throw new Error('Invalid URL format for Terms URL');
+      }
+    }
+
+    // Validate Privacy URL if provided
+    if (settings.privacyUrl && settings.privacyUrl.trim() !== '') {
+      try {
+        new URL(settings.privacyUrl);
+      } catch {
+        throw new Error('Invalid URL format for Privacy URL');
+      }
+    }
+
+    // Validate external links if provided
+    if (settings.externalLinks && Array.isArray(settings.externalLinks)) {
+      if (settings.externalLinks.length > 3) {
+        throw new Error('Maximum 3 external links allowed');
+      }
+      for (const link of settings.externalLinks) {
+        if (!link.label || link.label.trim() === '') {
+          throw new Error('External link label is required');
+        }
+        if (!link.url || link.url.trim() === '') {
+          throw new Error('External link URL is required');
+        }
+        try {
+          new URL(link.url);
+        } catch {
+          throw new Error(`Invalid URL format for external link: ${link.label}`);
+        }
+      }
+    }
   }
 
   /**
@@ -881,6 +998,19 @@ export class AdminSettingsService {
   private invalidateSettingsCache(category: SettingCategory): void {
     settingsCache.invalidate(CACHE_KEYS.category(category));
     logger.debug('Settings cache invalidated', { category });
+
+    // Also clear messenger-specific webhook settings cache
+    if (category === 'messenger') {
+      try {
+        const messengerService = require('../messenger/index.js');
+        if (messengerService && typeof messengerService.clearWebhookCache === 'function') {
+          messengerService.clearWebhookCache();
+          logger.info('Messenger webhook cache cleared after settings update');
+        }
+      } catch (error) {
+        // Module might not be loaded yet, skip
+      }
+    }
   }
 }
 

@@ -1,14 +1,14 @@
 "use client"
 
 import {
-  MessageCircle,
-  Percent,
-  MessagesSquare,
-  DollarSign,
-} from "lucide-react"
-import type { InsightsOverviewData } from "@/lib/api/insights-api"
+  IconMessageCircle,
+  IconPercentage,
+  IconMessages,
+  IconCurrencyDollar,
+} from "@tabler/icons-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { InsightsOverviewData } from "@/lib/api/insights-api"
 
 interface InsightsOverviewCardsProps {
   data: InsightsOverviewData | null
@@ -23,13 +23,7 @@ interface StatCardProps {
   isLoading: boolean
 }
 
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  isLoading,
-}: StatCardProps) {
+function StatCard({ title, value, subtitle, icon: Icon, isLoading }: StatCardProps) {
   if (isLoading) {
     return (
       <Card>
@@ -38,7 +32,7 @@ function StatCard({
           <Skeleton className="h-4 w-4" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="mb-1 h-8 w-20" />
+          <Skeleton className="h-8 w-20 mb-1" />
           <Skeleton className="h-3 w-32" />
         </CardContent>
       </Card>
@@ -49,12 +43,12 @@ function StatCard({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="text-muted-foreground h-4 w-4" />
+        <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         {subtitle && (
-          <p className="text-muted-foreground text-xs">{subtitle}</p>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
         )}
       </CardContent>
     </Card>
@@ -66,18 +60,15 @@ function StatCard({
  * Displays 4 key metrics: Messages Sent, Delivery Rate, Total Conversations, Estimated Cost
  * Requirements: 4.2, 4.4
  */
-export function InsightsOverviewCards({
-  data,
-  isLoading,
-}: InsightsOverviewCardsProps) {
+export function InsightsOverviewCards({ data, isLoading }: InsightsOverviewCardsProps) {
   const formatNumber = (num: number): string => {
     return num.toLocaleString()
   }
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -92,37 +83,29 @@ export function InsightsOverviewCards({
       <StatCard
         title="Messages Sent"
         value={data ? formatNumber(data.messages.totalSent) : 0}
-        subtitle={
-          data
-            ? `${formatNumber(data.messages.totalDelivered)} delivered`
-            : undefined
-        }
-        icon={MessageCircle}
+        subtitle={data ? `${formatNumber(data.messages.totalDelivered)} delivered` : undefined}
+        icon={IconMessageCircle}
         isLoading={isLoading}
       />
       <StatCard
         title="Delivery Rate"
         value={data ? formatPercentage(data.messages.deliveryRate) : "0%"}
         subtitle="Messages successfully delivered"
-        icon={Percent}
+        icon={IconPercentage}
         isLoading={isLoading}
       />
       <StatCard
         title="Total Conversations"
         value={data ? formatNumber(data.conversations.total) : 0}
         subtitle="Billable conversations"
-        icon={MessagesSquare}
+        icon={IconMessages}
         isLoading={isLoading}
       />
       <StatCard
         title="Estimated Cost"
-        value={
-          data
-            ? formatCurrency(data.conversations.estimatedCost)
-            : formatCurrency(0)
-        }
+        value={data ? formatCurrency(data.conversations.estimatedCost) : formatCurrency(0)}
         subtitle="Based on conversation pricing"
-        icon={DollarSign}
+        icon={IconCurrencyDollar}
         isLoading={isLoading}
       />
     </div>

@@ -1,14 +1,14 @@
 "use client"
 
 import {
-  MessageCircle,
-  Users,
-  Clock,
-  ShieldCheck,
-  ChevronUp,
-  ChevronDown,
-  Info,
-} from "lucide-react"
+  IconMessageCircle,
+  IconUsers,
+  IconClock,
+  IconShieldCheck,
+  IconCaretUpFilled,
+  IconCaretDownFilled,
+  IconInfoCircle,
+} from "@tabler/icons-react"
 import { Line, LineChart } from "recharts"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useDashboardStats } from "../hooks/use-dashboard-stats"
+import { useDashboardFilter } from "../context/dashboard-filter-context"
 
 interface StatsCardData {
   label: string
@@ -47,15 +48,22 @@ const qualityColors = {
 
 // Quality rating badge colors
 const badgeColorClasses = {
-  green:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  yellow:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  yellow: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 }
 
 export default function StatsCards() {
   const { stats, isLoading } = useDashboardStats()
+  const { days } = useDashboardFilter()
+
+  // Generate simple label based on days
+  const getDateRangeLabel = () => {
+    if (days === 1) return "Today"
+    return `${days}D`
+  }
+
+  const dateRangeLabel = getDateRangeLabel()
 
   if (isLoading) {
     return (
@@ -82,21 +90,25 @@ export default function StatsCards() {
   // Calculate new customers trend
   const newCustomersThisWeek = stats?.customers?.newThisWeek ?? 0
   const totalCustomers = stats?.customers?.total ?? 0
-  const newCustomersPercentage =
-    totalCustomers > 0 ? (newCustomersThisWeek / totalCustomers) * 100 : 0
+  const newCustomersPercentage = totalCustomers > 0 
+    ? ((newCustomersThisWeek / totalCustomers) * 100) 
+    : 0
 
   // Quality rating
   const qualityRating = stats?.quality?.rating ?? null
   const qualityColor = qualityRating ? qualityColors[qualityRating] : "green"
   const messagingTier = stats?.quality?.messagingTier ?? "N/A"
 
+  // Get messages in selected range (thisMonth now represents the selected range from backend)
+  const messagesInRange = stats?.messages?.thisMonth ?? 0
+
   // Build stats cards data with real data from API
   // Requirements: 1.1, 1.2, 2.1, 2.2, 5.1
   const statsData: StatsCardData[] = [
     {
-      label: "Messages Today",
-      description: "Total messages sent today with delivery rate",
-      stats: stats?.messages?.today ?? 0,
+      label: `Messages (${dateRangeLabel})`,
+      description: `Total messages in selected date range with delivery rate`,
+      stats: messagesInRange,
       subStats: deliveryRateFormatted,
       type: deliveryRate >= 90 ? "up" : deliveryRate >= 70 ? "neutral" : "down",
       percentage: deliveryRate,
@@ -104,16 +116,16 @@ export default function StatsCards() {
         { value: stats?.messages?.sent ?? 20 },
         { value: stats?.messages?.delivered ?? 35 },
         { value: stats?.messages?.read ?? 28 },
-        { value: stats?.messages?.today ?? 42 },
+        { value: messagesInRange },
       ],
       strokeColor: "hsl(var(--chart-1))",
-      icon: MessageCircle,
+      icon: IconMessageCircle,
     },
     {
       label: "Total Customers",
-      description: "All registered customers with new this week",
+      description: `All registered customers with new in ${dateRangeLabel.toLowerCase()}`,
       stats: totalCustomers,
-      subStats: `+${newCustomersThisWeek} new this week`,
+      subStats: `+${newCustomersThisWeek} new (${dateRangeLabel.toLowerCase()})`,
       type: newCustomersThisWeek > 0 ? "up" : "neutral",
       percentage: newCustomersPercentage,
       chartData: [
@@ -125,7 +137,7 @@ export default function StatsCards() {
         { value: totalCustomers },
       ],
       strokeColor: "hsl(var(--chart-2))",
-      icon: Users,
+      icon: IconUsers,
     },
     {
       label: "Active Windows",
@@ -142,22 +154,17 @@ export default function StatsCards() {
         { value: stats?.customers?.activeWindows ?? 18 },
       ],
       strokeColor: "hsl(var(--chart-3))",
-      icon: Clock,
+      icon: IconClock,
     },
     {
       label: "Quality Rating",
       description: "WhatsApp phone number quality rating from Meta",
       stats: 0, // Not used for this card
-      type:
-        qualityRating === "HIGH"
-          ? "up"
-          : qualityRating === "LOW"
-            ? "down"
-            : "neutral",
+      type: qualityRating === "HIGH" ? "up" : qualityRating === "LOW" ? "down" : "neutral",
       percentage: 0,
       chartData: [],
       strokeColor: "hsl(var(--chart-4))",
-      icon: ShieldCheck,
+      icon: IconShieldCheck,
       badge: {
         label: qualityRating ?? "N/A",
         color: qualityColor,
@@ -207,7 +214,7 @@ function StatsCard({
         <TooltipProvider>
           <Tooltip delayDuration={50}>
             <TooltipTrigger>
-              <Info className="text-muted-foreground scale-90 stroke-[1.25]" />
+              <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
               <span className="sr-only">More Info</span>
             </TooltipTrigger>
             <TooltipContent>
@@ -270,11 +277,11 @@ function StatsCard({
                 "text-muted-foreground": type === "neutral",
               })}
             >
-              <p className={"text-[13px] leading-none font-medium"}>
+              <p className={"text-[13px] font-medium leading-none"}>
                 {percentage.toFixed(1)}%
               </p>
-              {type === "up" && <ChevronUp size={18} />}
-              {type === "down" && <ChevronDown size={18} />}
+              {type === "up" && <IconCaretUpFilled size={18} />}
+              {type === "down" && <IconCaretDownFilled size={18} />}
             </div>
           </div>
         )}

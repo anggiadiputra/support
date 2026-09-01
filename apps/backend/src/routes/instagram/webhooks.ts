@@ -22,6 +22,7 @@ import {
 import { webhookService } from '../../services/webhook-service.js'
 import { eventEmitter } from '../../websocket/index.js'
 import { AIOrchestrator } from '../../services/ai/AIOrchestrator.js'
+import { AutoTaggingService } from '../../services/auto-tagging-service.js'
 
 // AI Orchestrator instance for Instagram auto-reply
 const aiOrchestrator = new AIOrchestrator()
@@ -66,26 +67,18 @@ app.get('/', async (c: Context) => {
  * Requirements: 2.1, 2.10
  */
 app.post('/', async (c: Context) => {
-  console.log('========================================')
-  console.log('[IG Webhook] POST received at:', new Date().toISOString())
-  console.log('[IG Webhook] URL:', c.req.url)
-  console.log('[IG Webhook] Headers:', JSON.stringify(Object.fromEntries(c.req.raw.headers.entries())))
+  console.log('[IG Webhook] 📥 Pesan diterima')
   try {
     // Get raw body for signature verification
     const rawBody = await c.req.text()
 
     // SECURITY: Check body size limit (1MB max)
     if (rawBody.length > 1048576) {
-      console.error('[IG Webhook] Payload too large:', rawBody.length)
+      console.error('[IG Webhook] Payload too large')
       return c.json({ error: 'Payload too large' }, 413)
     }
 
     const signature = c.req.header('x-hub-signature-256')
-
-    console.log('[IG Webhook] Raw body length:', rawBody.length)
-    console.log('[IG Webhook] Raw body:', rawBody)
-    console.log('[IG Webhook] Signature:', signature || 'MISSING')
-    console.log('========================================')
 
     // Verify webhook signature (Requirement 2.10) - uses database settings with caching
     const isValidSignature = await instagramService.verifyWebhookSignatureAsync(rawBody, signature)
@@ -450,6 +443,7 @@ async function handleMessageEvent(
       conversation.instagramAccount.userId,
       'message.received',
       'instagram',
+      instagramAccountId,
       {
         message_id: igMessage.id,
         customer_id: conversation.customerId, // Always use customerId now
@@ -462,7 +456,8 @@ async function handleMessageEvent(
     ).catch(err => console.error('[IG Webhook] Failed to emit message.received webhook:', err))
 
     // Emit WebSocket event for real-time UI update (Requirement 2.2)
-    eventEmitter.emitNewMessage(conversation.instagramAccount.userId, {
+    // Broadcast to business room so all team members receive the message
+    eventEmitter.emitNewMessageToBusinessRoom(conversation.instagramAccount.userId, {
       conversationId: `ig-${conversation.id}`,  // Add 'ig-' prefix to match frontend UnifiedConversation.id
       channel: 'instagram',
       participantId: participantIgsid,
@@ -474,6 +469,53 @@ async function handleMessageEvent(
         direction: 'inbound',
       },
     })
+
+    // Also emit to assigned agent if conversation is assigned to a human agent
+    // Requirements: 5.3, 6.2 - Agents should receive real-time updates for their assigned conversations
+    try {
+      const assignment = await prisma.conversationAssignment.findFirst({
+        where: {
+          businessOwnerId: conversation.instagramAccount.userId,
+          conversationType: 'INSTAGRAM',
+          conversationId: conversation.id,
+          assigneeType: 'HUMAN',
+          unassignedAt: null,
+        },
+        select: {
+          assigneeId: true,
+        }
+      })
+
+      // Note: With business room broadcast above, assigned agents already receive the message
+      // This explicit emit to assigned agent is now redundant but kept for backward compatibility
+      // TODO: Consider removing this block since business room broadcast covers all team members
+      if (assignment?.assigneeId && assignment.assigneeId !== conversation.instagramAccount.userId) {
+        console.log(`[IG Webhook] Assigned agent ${assignment.assigneeId} already received message via business room broadcast`)
+      }
+    } catch (err) {
+      console.error('[IG Webhook] Failed to emit to assigned agent:', err)
+    }
+
+    // Process auto-tagging rules for inbound messages
+    if (text && conversation.customerId) {
+      AutoTaggingService.processInboundMessage(
+        conversation.instagramAccount.userId,
+        conversation.customerId,
+        text
+      )
+        .then(result => {
+          if (result.matched) {
+            console.log(`[IG Webhook] 🏷️ Auto-tagging applied: ${result.rulesMatched.join(', ')}`)
+            if (result.tagsAdded.length > 0) {
+              console.log(`[IG Webhook]    Tags added: ${result.tagsAdded.join(', ')}`)
+            }
+            if (result.stageChanged) {
+              console.log(`[IG Webhook]    Stage changed to: ${result.newStageName}`)
+            }
+          }
+        })
+        .catch(err => console.error(`[IG Webhook] Failed to process auto-tagging:`, err))
+    }
 
     // --- AI Auto-Reply Logic with Assignment Check ---
     // Requirements: 6.1, 6.2, 6.3 - Check assignment status before AI response
@@ -530,7 +572,7 @@ async function handleMessageEvent(
               }
             })
 
-            console.log('[IG Webhook] 🤖 AI Auto-Reply sent and saved:', participantIgsid)
+            console.log('[IG Webhook] 🤖 AI Auto-Reply terkirim')
 
             // Emit webhook event for message.sent
             if (conversation.customerId) {
@@ -538,6 +580,7 @@ async function handleMessageEvent(
                 userId,
                 'message.sent',
                 'instagram',
+                instagramAccountId,
                 {
                   message_id: aiReplyMessage.id,
                   customer_id: conversation.customerId,
@@ -745,6 +788,7 @@ async function handleReadEvent(
           igAccount.userId,
           'message.read',
           'instagram',
+          instagramAccountId,
           {
             message_id: msg.id,
             customer_id: conversation.customerId, // Use customerId

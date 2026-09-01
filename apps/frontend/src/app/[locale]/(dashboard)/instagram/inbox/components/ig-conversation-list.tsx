@@ -1,13 +1,14 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { RefreshCw, Search, Instagram } from "lucide-react"
-import type { IGConversation } from "@/lib/api/instagram"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { RefreshCw, Search } from "lucide-react"
+import { IconBrandInstagram } from "@tabler/icons-react"
+import type { IGConversation } from "@/lib/api/instagram"
+import { formatDistanceToNow } from "date-fns"
 
 interface Props {
   conversations: IGConversation[]
@@ -38,12 +39,12 @@ export function IGConversationList({
   }
 
   return (
-    <div className={`flex w-full flex-col border-r md:w-[320px] ${className}`}>
+    <div className={`w-full md:w-[320px] border-r flex flex-col ${className}`}>
       {/* Header */}
-      <div className="border-b p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-lg font-semibold">
-            <Instagram className="h-5 w-5 text-pink-500" />
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <IconBrandInstagram className="h-5 w-5 text-pink-500" />
             Instagram DMs
           </h3>
           <Button
@@ -58,14 +59,13 @@ export function IGConversationList({
         </div>
         {conversations.length > 0 && (
           <Badge variant="secondary" className="text-xs">
-            {conversations.length} conversation
-            {conversations.length !== 1 ? "s" : ""}
+            {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
           </Badge>
         )}
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="border-b p-3">
+      <form onSubmit={handleSearch} className="p-3 border-b">
         <div className="relative">
           <Input
             placeholder="Search conversations..."
@@ -73,7 +73,7 @@ export function IGConversationList({
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
           />
-          <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         </div>
       </form>
 
@@ -81,11 +81,11 @@ export function IGConversationList({
       <ScrollArea className="flex-1">
         {conversations.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500">
-              <Instagram className="h-8 w-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mb-4">
+              <IconBrandInstagram className="h-8 w-8 text-white" />
             </div>
-            <p className="mb-1 text-sm font-medium">No conversations yet</p>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-sm font-medium mb-1">No conversations yet</p>
+            <p className="text-xs text-muted-foreground">
               Conversations will appear when users message you on Instagram
             </p>
           </div>
@@ -98,7 +98,7 @@ export function IGConversationList({
               <button
                 key={conversation.id}
                 onClick={() => onSelectConversation(conversation)}
-                className={`flex w-full items-start gap-3 border-b p-4 transition-all duration-150 ${
+                className={`w-full p-4 flex items-start gap-3 transition-all duration-150 border-b ${
                   isSelected
                     ? "bg-accent border-l-4 border-l-pink-500"
                     : "hover:bg-accent/50 border-l-4 border-l-transparent"
@@ -106,51 +106,40 @@ export function IGConversationList({
               >
                 <div className="relative">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage
-                      src={conversation.participantProfilePic || undefined}
-                    />
+                    <AvatarImage src={conversation.participantProfilePic || undefined} />
                     <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-                      {conversation.participantUsername
-                        ?.substring(0, 2)
-                        .toUpperCase() || "IG"}
+                      {conversation.participantUsername?.substring(0, 2).toUpperCase() || "IG"}
                     </AvatarFallback>
                   </Avatar>
                   {conversation.isWindowActive && (
-                    <div className="border-background absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-2 bg-green-500" />
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full" />
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="mb-1 flex items-center justify-between">
-                    <p
-                      className={`truncate font-semibold ${isSelected ? "text-pink-600" : ""}`}
-                    >
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`font-semibold truncate ${isSelected ? "text-pink-600" : ""}`}>
                       @{conversation.participantUsername || "Unknown"}
                     </p>
                     {conversation.lastMessageAt && (
-                      <span className="text-muted-foreground text-xs">
-                        {formatDistanceToNow(
-                          new Date(conversation.lastMessageAt),
-                          { addSuffix: false }
-                        )}
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(conversation.lastMessageAt), { addSuffix: false })}
                       </span>
                     )}
                   </div>
 
                   {conversation.participantName && (
-                    <p className="text-muted-foreground mb-1 text-xs">
+                    <p className="text-xs text-muted-foreground mb-1">
                       {conversation.participantName}
                     </p>
                   )}
 
                   <div className="flex items-center justify-between">
-                    <p
-                      className={`truncate text-sm ${hasUnread ? "font-medium" : "text-muted-foreground"}`}
-                    >
+                    <p className={`text-sm truncate ${hasUnread ? "font-medium" : "text-muted-foreground"}`}>
                       {conversation.lastMessagePreview || "No messages"}
                     </p>
                     {hasUnread && (
-                      <Badge className="ml-2 flex h-5 min-w-5 items-center justify-center bg-pink-500 text-xs text-white">
+                      <Badge className="ml-2 bg-pink-500 text-white text-xs h-5 min-w-5 flex items-center justify-center">
                         {conversation.unreadCount}
                       </Badge>
                     )}
@@ -158,7 +147,7 @@ export function IGConversationList({
 
                   {/* Window status indicator */}
                   {!conversation.isWindowActive && (
-                    <p className="mt-1 text-xs text-amber-600">
+                    <p className="text-xs text-amber-600 mt-1">
                       ⚠️ 24h window closed
                     </p>
                   )}

@@ -8,6 +8,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { IGErrorCode, InstagramError } from './errors.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
 
 // ============================================================================
 // Dependencies Interface
@@ -53,7 +54,9 @@ export function verifyWebhookSignature(
     // Constant-time comparison to prevent timing attacks
     return secureCompare(signatureHash, expectedSignature);
   } catch (error) {
-    console.error('Webhook signature verification error:', error);
+    logger.error('Webhook signature verification error', {
+      error: extractAxiosError(error),
+    });
     return false;
   }
 }
@@ -148,7 +151,9 @@ export async function enableWebhookSubscriptions(
       );
     }
 
-    console.error('[InstagramService] Failed to enable webhook subscriptions:', error);
+    logger.error('[InstagramService] Failed to enable webhook subscriptions', {
+      error: extractAxiosError(error),
+    });
     throw new InstagramError(
       IGErrorCode.INTERNAL_ERROR,
       `Failed to enable webhook subscriptions: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -189,7 +194,9 @@ export async function getWebhookSubscriptions(
 
     return [];
   } catch (error) {
-    console.error('[InstagramService] Failed to get webhook subscriptions:', error);
+    logger.error('[InstagramService] Failed to get webhook subscriptions', {
+      error: extractAxiosError(error),
+    });
     return null;
   }
 }

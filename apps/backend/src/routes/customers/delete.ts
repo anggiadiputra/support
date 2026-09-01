@@ -20,18 +20,79 @@ app.delete('/:id', async (c: Context) => {
       return c.json({ error: { code: 'Forbidden', message: 'Access denied' } }, 403)
     }
 
-    // Delete customer (cascades to consent logs)
-    await prisma.customer.delete({ where: { id } })
+    // Delete customer and all related data in a transaction
+    // Some relations don't have onDelete: Cascade, so we need to delete manually
+    const result = await prisma.$transaction(async (tx) => {
+      // Count related data for audit log
+      const [
+        messagesCount,
+        consentLogsCount,
+        customFieldsCount,
+        activitiesCount,
+        notesCount,
+        variableHistoryCount,
+      ] = await Promise.all([
+        tx.message.count({ where: { customerId: id } }),
+        tx.consentLog.count({ where: { customerId: id } }),
+        tx.customerCustomField.count({ where: { customerId: id } }),
+        tx.customerActivity.count({ where: { customerId: id } }),
+        tx.customerNote.count({ where: { customerId: id } }),
+        tx.templateVariableHistory.count({ where: { customerId: id } }),
+      ])
+
+      // Delete related data that doesn't have onDelete: Cascade
+      await tx.message.deleteMany({ where: { customerId: id } })
+      await tx.consentLog.deleteMany({ where: { customerId: id } })
+      await tx.templateVariableHistory.deleteMany({ where: { customerId: id } })
+
+      // Update IGConversation to remove customer reference (onDelete: SetNull)
+      await tx.iGConversation.updateMany({
+        where: { customerId: id },
+        data: { customerId: null }
+      })
+
+      // Delete customer (will cascade to CustomerCustomField, CustomerActivity, CustomerNote)
+      await tx.customer.delete({ where: { id } })
+
+      return {
+        messagesCount,
+        consentLogsCount,
+        customFieldsCount,
+        activitiesCount,
+        notesCount,
+        variableHistoryCount,
+      }
+    })
 
     await auditLog('CUSTOMER_DELETED', 'Customer', id, {
       phoneNumber: customer.phoneNumber,
-      deletedBy: c.user?.id
+      name: customer.name,
+      deletedBy: c.user?.id,
+      deletedData: result
     }, c.user?.id)
 
-    return c.json({ success: true, message: 'Customer deleted successfully' })
+    return c.json({
+      success: true,
+      message: 'Pelanggan berhasil dihapus',
+      data: {
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phoneNumber: customer.phoneNumber,
+        },
+        deletedData: {
+          messages: result.messagesCount,
+          consentLogs: result.consentLogsCount,
+          customFields: result.customFieldsCount,
+          activities: result.activitiesCount,
+          notes: result.notesCount,
+          variableHistory: result.variableHistoryCount,
+        }
+      }
+    })
   } catch (error) {
     console.error('Delete customer error:', error)
-    return c.json({ error: { code: 'InternalServerError', message: 'Failed to delete customer' } }, 500)
+    return c.json({ error: { code: 'InternalServerError', message: 'Gagal menghapus pelanggan' } }, 500)
   }
 })
 

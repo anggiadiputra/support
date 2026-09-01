@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005").replace(/\/api\/v1?$/, "")
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
-const buildApiUrl = (path: string) => `${API_BASE_URL}/api/v1${path.startsWith("/") ? path : `/${path}`}`
-
-type SettingCategory = "whatsapp" | "instagram" | "smtp" | "openai" | "duitku" | "turnstile"
+type SettingCategory = "whatsapp" | "instagram" | "messenger" | "smtp" | "openai" | "duitku" | "xendit"
 
 interface UseAdminSettingsReturn<T> {
   settings: T | null
@@ -48,7 +46,7 @@ export function useAdminSettings<T>(category: SettingCategory): UseAdminSettings
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(buildApiUrl(`/admin/settings/${category}`), {
+      const response = await fetch(`${API_URL}/api/v1/admin/settings/${category}`, {
         credentials: "include",
       })
 
@@ -84,7 +82,7 @@ export function useAdminSettings<T>(category: SettingCategory): UseAdminSettings
         setIsUpdating(true)
         setError(null)
 
-        const response = await fetch(buildApiUrl(`/admin/settings/${category}`), {
+        const response = await fetch(`${API_URL}/api/v1/admin/settings/${category}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -128,7 +126,7 @@ export function useAdminSettings<T>(category: SettingCategory): UseAdminSettings
 
         const body = testEmail ? { testEmail } : undefined
 
-        const response = await fetch(buildApiUrl(`/admin/settings/${category}/test`), {
+        const response = await fetch(`${API_URL}/api/v1/admin/settings/${category}/test`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -159,7 +157,7 @@ export function useAdminSettings<T>(category: SettingCategory): UseAdminSettings
     try {
       setIsResetting(true)
 
-      const response = await fetch(buildApiUrl(`/admin/settings/${category}/reset`), {
+      const response = await fetch(`${API_URL}/api/v1/admin/settings/${category}/reset`, {
         method: "POST",
         credentials: "include",
       })

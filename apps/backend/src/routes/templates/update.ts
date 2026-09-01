@@ -4,13 +4,17 @@ import { z } from 'zod'
 import { prisma } from '../../utils/database.js'
 import { auditLog } from '../../utils/auditLog.js'
 import { templateCacheService } from '../../services/template-cache-service.js'
+import { handleValidationError, logDetailedError } from '../../middleware/errorHandler.js'
+import { validateTemplateContent } from '../../services/template-validation-rules.js'
 
 const app = new Hono()
 
 const updateTemplateSchema = z.object({
   content: z.string().min(1).optional(),
-  headerContent: z.string().optional(),
-  footerContent: z.string().max(60).optional(),
+  headerType: z.enum(['TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT']).nullable().optional(),
+  headerContent: z.string().nullable().optional(),
+  headerMediaId: z.string().nullable().optional(),
+  footerContent: z.string().max(60).nullable().optional(),
   buttons: z.array(z.any()).optional()
 })
 
@@ -54,9 +58,59 @@ app.patch('/:id', async (c: Context) => {
       }, 400)
     }
 
+    const normalizedHeaderContent = (data.headerContent || data.headerMediaId || '')?.trim()
+    const updateData: any = { ...data, headerContent: undefined }
+    delete updateData.headerMediaId
+
+    // Normalize header clearing: if headerType is null/undefined, also clear headerContent
+    if (data.headerType === null || data.headerType === undefined) {
+      updateData.headerType = null
+      if (data.headerContent === undefined) {
+        updateData.headerContent = null
+      }
+    }
+
+    if (data.headerType && !normalizedHeaderContent) {
+      return c.json({
+        error: {
+          code: 'ValidationError',
+          message: 'Header content is required when header type is set'
+        }
+      }, 400)
+    }
+
+    if (data.headerType) {
+      updateData.headerContent = normalizedHeaderContent
+    }
+
+    // Validate against Meta's template rules if content is being updated
+    if (data.content) {
+      const validationResult = validateTemplateContent({
+        content: data.content,
+        footerContent: data.footerContent ?? template.footerContent,
+        headerContent: normalizedHeaderContent || template.headerContent,
+        headerType: data.headerType ?? template.headerType
+      })
+
+      if (!validationResult.valid) {
+        const firstIssue = validationResult.issues[0]
+        return c.json({
+          error: {
+            code: 'ValidationError',
+            message: firstIssue.message,
+            details: {
+              rule: firstIssue.rule,
+              messageId: firstIssue.messageId,
+              allIssues: validationResult.issues
+            }
+          }
+        }, 400)
+      }
+    }
+
     const updatedTemplate = await prisma.messageTemplate.update({
       where: { id },
-      data
+      data: updateData
     })
 
     // Audit log
@@ -80,16 +134,10 @@ app.patch('/:id', async (c: Context) => {
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: 'Invalid input data',
-          details: error.issues
-        }
-      }, 400)
+      return handleValidationError(error, c)
     }
 
-    console.error('Update template error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',

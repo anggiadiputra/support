@@ -11,7 +11,6 @@ import {
 import { Check, CreditCard } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
-import { useBrandingContext } from "@/components/branding-provider"
 
 interface UpgradeModalProps {
   trigger?: React.ReactNode
@@ -23,12 +22,9 @@ export function UpgradeModal({ trigger, open, onOpenChange }: UpgradeModalProps)
   const [internalOpen, setInternalOpen] = useState(false)
   const t = useTranslations("common")
   
-  const { websiteName, supportEmail, supportWhatsapp } = useBrandingContext()
   const isControlled = open !== undefined
   const isOpen = isControlled ? open : internalOpen
   const setIsOpen = isControlled ? onOpenChange : setInternalOpen
-
-  const cleanWhatsapp = supportWhatsapp?.replace(/[^0-9]/g, "") || "6281234567890"
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -76,16 +72,16 @@ export function UpgradeModal({ trigger, open, onOpenChange }: UpgradeModalProps)
             Currently we accept manual bank transfers. Please transfer the amount to:
           </p>
           <div className="font-mono bg-background p-2 rounded border">
-            BCA 1234567890 a/n PT {websiteName || "Platform"} Indonesia
+            BCA 1234567890 a/n Messaging Platform
           </div>
           <p className="text-muted-foreground text-xs">
-            After transfer, please send the proof to our support WhatsApp or email {supportEmail || "support@example.com"} to activate your account.
+            After transfer, please send the proof to our support WhatsApp or support email to activate your account.
           </p>
         </div>
 
         <DialogFooter>
            <Button variant="outline" onClick={() => setIsOpen && setIsOpen(false)}>{t("close")}</Button>
-           <Button onClick={() => window.open(`https://wa.me/${cleanWhatsapp}`, '_blank')}>{t("contactSupport")}</Button>
+           <Button onClick={() => window.open('https://wa.me/6281234567890', '_blank')}>{t("contactSupport")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

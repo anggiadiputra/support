@@ -1,25 +1,21 @@
 "use client"
 
-import { useState } from "react"
-import { CircleCheck, AlertCircle, RefreshCw, Unlink } from "lucide-react"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  IconCircleCheck,
+  IconAlertCircle,
+  IconRefresh,
+  IconUnlink
+} from "@tabler/icons-react"
+import { useState } from "react"
 
 interface WABAInfo {
   id: string
   name: string
   status: "CONNECTED" | "DISCONNECTED" | "PENDING"
-  timezone: string
-  currency: string
-  lastSynced?: Date
+  lastSynced?: Date | null
 }
 
 interface Props {
@@ -28,11 +24,7 @@ interface Props {
   onDisconnect: () => void
 }
 
-export function WABAConnectionCard({
-  wabaInfo,
-  onRefresh,
-  onDisconnect,
-}: Props) {
+export function WABAConnectionCard({ wabaInfo, onRefresh, onDisconnect }: Props) {
   const [refreshing, setRefreshing] = useState(false)
 
   const handleRefresh = async () => {
@@ -48,7 +40,7 @@ export function WABAConnectionCard({
     return (
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-12">
-          <AlertCircle className="text-muted-foreground mb-4 h-12 w-12" />
+          <IconAlertCircle className="text-muted-foreground mb-4 h-12 w-12" />
           <h3 className="mb-2 text-lg font-semibold">No WABA Connected</h3>
           <p className="text-muted-foreground mb-4 text-center text-sm">
             Connect your WhatsApp Business Account to get started
@@ -64,18 +56,15 @@ export function WABAConnectionCard({
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <CardTitle className="flex flex-wrap items-center gap-2">
-              <WhatsAppIcon size={20} className="text-emerald-600" />
               WhatsApp Business Account
               {wabaInfo.status === "CONNECTED" && (
-                <Badge variant="active">
-                  <CircleCheck className="mr-1 h-3 w-3" />
+                <Badge className="bg-emerald-600">
+                  <IconCircleCheck className="mr-1 h-3 w-3" />
                   Connected
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription>
-              Manage your WABA connection and settings
-            </CardDescription>
+            <CardDescription>Manage your WABA connection</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button
@@ -85,18 +74,16 @@ export function WABAConnectionCard({
               disabled={refreshing}
               className="flex-1 md:flex-none"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-              />
+              <IconRefresh className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={onDisconnect}
-              className="flex-1 text-red-600 hover:text-red-700 md:flex-none"
+              className="text-red-600 hover:text-red-700 flex-1 md:flex-none"
             >
-              <Unlink className="h-4 w-4" />
+              <IconUnlink className="h-4 w-4" />
               Disconnect
             </Button>
           </div>
@@ -111,14 +98,6 @@ export function WABAConnectionCard({
           <div>
             <p className="text-muted-foreground text-sm">Business Name</p>
             <p className="font-medium">{wabaInfo.name}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-sm">Timezone</p>
-            <p className="font-medium">{wabaInfo.timezone}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-sm">Currency</p>
-            <p className="font-medium">{wabaInfo.currency}</p>
           </div>
           {wabaInfo.lastSynced && (
             <div className="md:col-span-2">

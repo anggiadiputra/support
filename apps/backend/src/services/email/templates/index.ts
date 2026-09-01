@@ -14,3 +14,5 @@ export { subscriptionExpiredTemplate } from './subscription-expired.js';
 export type { SubscriptionExpiredParams, SubscriptionExpiredTemplate } from './subscription-expired.js';
 export { invitationEmailTemplate } from './invitation.js';
 export type { InvitationEmailParams, InvitationEmailTemplate } from './invitation.js';
+export { welcomeEmailTemplate } from './welcome.js';
+export type { WelcomeEmailParams, WelcomeEmailTemplate } from './welcome.js';

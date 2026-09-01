@@ -91,50 +91,50 @@ class InsightsService implements IInsightsService {
   }
 
   /**
-   * Get WhatsApp client with user's specific WABA access token
+   * Get WhatsApp client with per-account WABA access token
    * @param wabaId - The WABA ID to get the client for
-   * @returns WhatsApp API client configured with user's access token
+   * @returns WhatsApp API client configured with the account's access token
    */
   private async getClientForWaba(wabaId: string): Promise<WhatsAppAPI> {
-    // Find user with this WABA ID
-    const user = await prisma.user.findFirst({
+    // Find WhatsApp account by WABA ID
+    const whatsappAccount = await prisma.whatsAppAccount.findUnique({
       where: { wabaId },
       select: {
-        wabaAccessToken: true,
-        wabaAccessTokenIV: true,
-        wabaAccessTokenTag: true,
-        wabaConnectionStatus: true,
+        accessToken: true,
+        accessTokenIV: true,
+        accessTokenTag: true,
+        connectionStatus: true,
       },
     });
 
-    if (!user) {
+    if (!whatsappAccount) {
       throw new InsightsServiceError(
         'NO_WABA_CONNECTED',
-        'No user found with this WhatsApp Business Account.'
+        'No WhatsApp Business Account found with this WABA ID.'
       );
     }
 
-    if (user.wabaConnectionStatus !== 'connected') {
+    if (whatsappAccount.connectionStatus !== 'connected') {
       throw new InsightsServiceError(
         'NO_WABA_CONNECTED',
         'WhatsApp Business Account is not connected. Please reconnect your WABA.'
       );
     }
 
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
+    if (!whatsappAccount.accessToken || !whatsappAccount.accessTokenIV || !whatsappAccount.accessTokenTag) {
       throw new InsightsServiceError(
         'UNAUTHORIZED',
         'No access token found for this WhatsApp Business Account. Please reconnect your WABA.'
       );
     }
 
-    // Decrypt the access token
+    // Decrypt the access token from WhatsAppAccount
     try {
       const tokenEncryption = this.getTokenEncryption();
       const accessToken = tokenEncryption.decrypt({
-        ciphertext: user.wabaAccessToken,
-        iv: user.wabaAccessTokenIV,
-        authTag: user.wabaAccessTokenTag,
+        ciphertext: whatsappAccount.accessToken,
+        iv: whatsappAccount.accessTokenIV,
+        authTag: whatsappAccount.accessTokenTag,
         algorithm: 'aes-256-gcm',
       });
 

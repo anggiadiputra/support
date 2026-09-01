@@ -12,6 +12,7 @@
   "downgrade": "Downgrade",
   "currentPlanBadge": "Paket Saat Ini",
   "free": "Gratis",
+  "basic": "Basic",
   "lite": "Lite",
   "pro": "Pro",
   "perMonth": "/bulan",
@@ -47,6 +48,7 @@
   "basicPlan": "Paket Dasar",
   "notAvailable": "Tidak Tersedia",
   "freeDescription": "Untuk memulai bisnis Anda",
+  "basicDescription": "Untuk integrasi developer",
   "liteDescription": "Untuk bisnis yang berkembang",
   "proDescription": "Untuk bisnis enterprise",
   "duration1Month": "1 Bulan",
@@ -58,5 +60,16 @@
   "discount": "Diskon {percent}%",
   "totalPrice": "Total Harga",
   "effectiveMonthlyPrice": "Harga per bulan",
-  "bestValue": "Nilai Terbaik"
+  "bestValue": "Nilai Terbaik",
+  "betaPromo": "Promo Beta",
+  "limitedTimeFree": "Limited Time Free",
+  "betaPromoDescription": "Paket ini gratis selama masa beta. Akan menjadi berbayar setelah periode promo berakhir.",
+  "verifyingPayment": "Memverifikasi pembayaran...",
+  "paymentSuccess": "Pembayaran Berhasil",
+  "premiumActivated": "Paket berlangganan Anda telah diaktifkan.",
+  "paymentPending": "Pembayaran Menunggu",
+  "paymentPendingDesc": "Kami belum menerima konfirmasi. Silakan cek lagi nanti di Riwayat Pembayaran.",
+  "billedAs": "Ditagih {price} setiap {period}",
+  "contactUs": "Hubungi Kami",
+  "noPlansAvailable": "Tidak ada paket yang tersedia saat ini."
 }

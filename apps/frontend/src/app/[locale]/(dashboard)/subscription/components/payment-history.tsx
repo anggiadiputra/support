@@ -6,7 +6,8 @@
  * Requirements: 8.1, 8.2, 8.3, 8.4
  */
 
-import { History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, FileText } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   Card,
   CardContent,
@@ -32,11 +33,11 @@ import {
 } from '../hooks/use-payment-history'
 
 // Status badge variants and labels
-const statusConfig: Record<PaymentStatus, { variant: 'active' | 'warning' | 'destructive' | 'neutral' | 'outline'; label: string }> = {
-  PENDING: { variant: 'warning', label: 'Menunggu' },
-  COMPLETED: { variant: 'active', label: 'Berhasil' },
+const statusConfig: Record<PaymentStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+  PENDING: { variant: 'secondary', label: 'Menunggu' },
+  COMPLETED: { variant: 'default', label: 'Berhasil' },
   FAILED: { variant: 'destructive', label: 'Gagal' },
-  EXPIRED: { variant: 'neutral', label: 'Kadaluarsa' },
+  EXPIRED: { variant: 'outline', label: 'Kadaluarsa' },
   CANCELLED: { variant: 'outline', label: 'Dibatalkan' },
 }
 
@@ -68,6 +69,7 @@ function formatPrice(amount: number): string {
 }
 
 export function PaymentHistory() {
+  const locale = useLocale()
   const {
     transactions,
     pagination,
@@ -75,6 +77,7 @@ export function PaymentHistory() {
     error,
     page,
     setPage,
+    checkStatus,
   } = usePaymentHistory(10)
 
   const totalPages = pagination?.totalPages || 1
@@ -124,6 +127,7 @@ export function PaymentHistory() {
                     <TableHead>Metode</TableHead>
                     <TableHead>Paket</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -138,9 +142,35 @@ export function PaymentHistory() {
                       </TableCell>
                       <TableCell>{tx.targetTier}</TableCell>
                       <TableCell>
-                        <Badge variant={statusConfig[tx.status]?.variant || 'default'}>
-                          {statusConfig[tx.status]?.label || tx.status}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={statusConfig[tx.status]?.variant || 'default'}>
+                            {statusConfig[tx.status]?.label || tx.status}
+                          </Badge>
+                          {tx.status === 'PENDING' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => checkStatus(tx.orderId)}
+                              title="Cek Status Pembayaran"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {tx.status === 'COMPLETED' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => window.open(`/${locale}/subscription/invoice/${tx.orderId}`, '_blank')}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Invoice
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

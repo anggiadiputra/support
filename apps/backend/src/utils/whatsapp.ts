@@ -1,8 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import https from 'https'
-import { settingsCache, CACHE_KEYS, CACHE_TTL } from '../services/settings-cache.js'
-import { logger } from './logger.js'
-import type { WhatsAppSettings } from '../types/admin-settings.js'
+import { logger, extractAxiosError } from './logger.js'
 import type {
   Granularity,
   ConversationCategory,
@@ -27,8 +25,15 @@ interface WhatsAppConfig {
 
 interface SendMessageParams {
   phoneNumberId: string
-  to: string
+  /** Phone number (E.164 format) - prioritized if both provided */
+  to?: string
+  /** BSUID - used if phone number not provided (May 2026+) */
+  recipient?: string
   type: 'text' | 'template' | 'image' | 'document' | 'audio' | 'video' | 'interactive'
+  /** Context for reply-to-specific-message (quoted reply) */
+  context?: {
+    message_id: string  // wamId of the message being replied to
+  }
   text?: {
     body: string
     preview_url?: boolean
@@ -51,8 +56,17 @@ interface SendMessageParams {
     caption?: string
     filename?: string
   }
+  audio?: {
+    link?: string
+    id?: string
+  }
+  video?: {
+    link?: string
+    id?: string
+    caption?: string
+  }
   interactive?: {
-    type: 'cta_url' | 'button' | 'list'
+    type: 'cta_url' | 'button' | 'list' | 'carousel'
     header?: {
       type: 'text' | 'image' | 'video' | 'document'
       text?: string
@@ -63,17 +77,56 @@ interface SendMessageParams {
     body?: { text: string }
     footer?: { text: string }
     action: {
+      // For cta_url
       name?: string
       parameters?: {
         display_text: string
         url: string
       }
+      // For button (reply buttons)
       buttons?: Array<{
         type: 'reply'
         reply: {
           id: string
           title: string
         }
+      }>
+      // For list message
+      button?: string
+      sections?: Array<{
+        title?: string
+        rows: Array<{
+          id: string
+          title: string
+          description?: string
+        }>
+      }>
+      cards?: Array<{
+        card_index: number
+        type: 'cta_url'
+        header: {
+          type: 'image' | 'video'
+          image?: { link: string }
+          video?: { link: string }
+        }
+        body?: { text: string }
+        action:
+          | {
+              name: 'cta_url'
+              parameters: {
+                display_text: string
+                url: string
+              }
+            }
+          | {
+              buttons: Array<{
+                type: 'quick_reply'
+                quick_reply: {
+                  id: string
+                  title: string
+                }
+              }>
+            }
       }>
     }
   }
@@ -121,64 +174,29 @@ export class WhatsAppAPI {
     })
   }
 
-  // Get fresh access token from cache or environment
+  // Get access token - must be provided in constructor (per-account token)
   private getAccessToken(): string {
-    // Check cache first for database settings
-    const cachedSettings = settingsCache.get<WhatsAppSettings>(CACHE_KEYS.whatsapp())
-    if (cachedSettings?.accessToken && !cachedSettings.accessToken.includes('****')) {
-      return cachedSettings.accessToken
-    }
-    // Fallback to process.env
-    return process.env.META_ACCESS_TOKEN || this.accessToken
+    return this.accessToken
   }
 
   /**
-   * Refresh settings from database with caching
-   * Requirements: 6.3, 6.4
+   * @deprecated No longer needed - each WhatsAppAPI instance uses per-account token
    */
   async refreshSettingsFromDb(): Promise<void> {
-    try {
-      // Check cache first
-      const cachedSettings = settingsCache.get<WhatsAppSettings>(CACHE_KEYS.whatsapp())
-      if (cachedSettings) {
-        if (cachedSettings.accessToken && !cachedSettings.accessToken.includes('****')) {
-          this.accessToken = cachedSettings.accessToken
-        }
-        return
-      }
-
-      // Fetch from database using dynamic import to avoid circular dependency
-      const { adminSettingsService } = await import('../services/admin/settings-service.js')
-      const response = await adminSettingsService.getSettings<WhatsAppSettings>('whatsapp', false)
-      
-      // Cache the settings
-      settingsCache.set(CACHE_KEYS.whatsapp(), response.data, CACHE_TTL.settings)
-      
-      // Update access token if available
-      if (response.data.accessToken && !response.data.accessToken.includes('****')) {
-        this.accessToken = response.data.accessToken
-      }
-      
-      logger.debug('WhatsApp API settings refreshed from database', { source: response.source })
-    } catch (error) {
-      logger.warn('Failed to refresh WhatsApp API settings from database', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-      // Continue with existing config (env fallback)
-    }
+    // No-op: per-account tokens are provided in constructor
+    logger.debug('refreshSettingsFromDb is deprecated - using per-account token')
   }
 
   /**
-   * Invalidate settings cache
+   * @deprecated No longer needed - each WhatsAppAPI instance uses per-account token
    */
   invalidateCache(): void {
-    settingsCache.invalidate(CACHE_KEYS.whatsapp())
-    logger.info('WhatsApp API settings cache invalidated')
+    // No-op: per-account tokens don't use global cache
+    logger.debug('invalidateCache is deprecated - using per-account token')
   }
 
-  // Refresh client with new token
+  // Refresh client (no longer refreshes token, just recreates axios instance)
   private refreshClient() {
-    this.accessToken = this.getAccessToken()
     this.client = this.createClient()
   }
 
@@ -187,13 +205,32 @@ export class WhatsAppAPI {
     // Refresh client to get latest token from .env
     this.refreshClient()
     
-    const { phoneNumberId, to, type, ...messageData } = params
+    const { phoneNumberId, to, recipient, type, context, ...messageData } = params
+
+    // Validate: must have either phone number or BSUID
+    if (!to && !recipient) {
+      throw new Error('Either "to" (phone number) or "recipient" (BSUID) is required')
+    }
 
     const payload: any = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
       type
+    }
+
+    // Add recipient identifiers (phone takes priority per Meta docs)
+    if (to) {
+      payload.to = to
+    }
+    if (recipient) {
+      payload.recipient = recipient
+    }
+
+    // Add context for reply-to-specific-message (quoted reply)
+    if (context?.message_id) {
+      payload.context = {
+        message_id: context.message_id
+      }
     }
 
     if (type === 'text' && messageData.text) {
@@ -204,8 +241,62 @@ export class WhatsAppAPI {
       payload.image = messageData.image
     } else if (type === 'document' && messageData.document) {
       payload.document = messageData.document
+    } else if (type === 'audio' && messageData.audio) {
+      payload.audio = messageData.audio
+    } else if (type === 'video' && messageData.video) {
+      payload.video = messageData.video
     } else if (type === 'interactive' && messageData.interactive) {
       payload.interactive = messageData.interactive
+    }
+
+    const response = await this.client.post(`/${phoneNumberId}/messages`, payload)
+    
+    // Log BSUID in response for monitoring
+    const contacts = response.data?.contacts
+    if (contacts?.[0]?.user_id) {
+      logger.info('Message sent with BSUID in response', {
+        input: contacts[0].input,
+        wa_id: contacts[0].wa_id,
+        user_id: contacts[0].user_id,
+      })
+    }
+    
+    return response.data
+  }
+
+  // Send reaction to a message
+  async sendReaction(params: {
+    phoneNumberId: string
+    to?: string
+    recipient?: string
+    messageId: string  // wamId of message to react to
+    emoji: string      // emoji or "" to unreact
+  }) {
+    this.refreshClient()
+
+    const { phoneNumberId, to, recipient, messageId, emoji } = params
+
+    // Validate: must have either phone number or BSUID
+    if (!to && !recipient) {
+      throw new Error('Either "to" (phone number) or "recipient" (BSUID) is required')
+    }
+
+    const payload: any = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      type: 'reaction',
+      reaction: {
+        message_id: messageId,
+        emoji: emoji
+      }
+    }
+
+    // Add recipient identifiers (phone takes priority per Meta docs)
+    if (to) {
+      payload.to = to
+    }
+    if (recipient) {
+      payload.recipient = recipient
     }
 
     const response = await this.client.post(`/${phoneNumberId}/messages`, payload)
@@ -229,6 +320,27 @@ export class WhatsAppAPI {
 
     const response = await this.client.post(`/${phoneNumberId}/messages`, payload)
     return response.data
+  }
+
+  // Get WhatsApp Business Profile for a phone number
+  async getBusinessProfile(phoneNumberId: string) {
+    this.refreshClient()
+    const response = await this.client.get(`/${phoneNumberId}/whatsapp_business_profile`, {
+      params: {
+        fields: 'about,address,description,email,profile_picture_url,websites,vertical'
+      }
+    })
+    // Meta returns { data: [{ ...profile }] }
+    const data = response.data?.data?.[0] || {}
+    return {
+      about: data.about || null,
+      address: data.address || null,
+      description: data.description || null,
+      email: data.email || null,
+      profilePictureUrl: data.profile_picture_url || null,
+      websites: data.websites || [],
+      vertical: data.vertical || null,
+    }
   }
 
   // Get business phone number info
@@ -542,12 +654,13 @@ export class WhatsAppAPI {
     const templateIdsStr = limitedTemplateIds.join(',')
     const fullUrl = `https://graph.facebook.com/${this.apiVersion}/${wabaId}/template_analytics?start=${params.startDate}&end=${params.endDate}&granularity=daily&template_ids=[${templateIdsStr}]&access_token=${this.accessToken}`
     
-    console.log('🔍 Template Analytics Request:')
-    console.log('   WABA ID:', wabaId)
-    console.log('   Template IDs:', limitedTemplateIds)
-    console.log('   Start:', params.startDate)
-    console.log('   End:', params.endDate)
-    console.log('   URL (without token):', fullUrl.replace(this.accessToken, '***'))
+    logger.debug('Template Analytics Request', {
+      wabaId,
+      templateIds: limitedTemplateIds,
+      start: params.startDate,
+      end: params.endDate,
+      url: fullUrl.replace(this.accessToken, '***'),
+    })
 
     try {
       // Use axios directly with the full URL to avoid any encoding issues
@@ -556,13 +669,11 @@ export class WhatsAppAPI {
         timeout: 60000,
       })
 
-      console.log('✅ Template Analytics Response:', JSON.stringify(response.data, null, 2))
+      logger.debug('Template Analytics Response', { data: response.data })
 
       return response.data
-    } catch (error: any) {
-      console.error('❌ Template Analytics Error:')
-      console.error('   Status:', error?.response?.status)
-      console.error('   Data:', JSON.stringify(error?.response?.data, null, 2))
+    } catch (error) {
+      logger.error('Template Analytics Error', { error: extractAxiosError(error) })
       throw error
     }
   }
@@ -576,117 +687,80 @@ export class WhatsAppAPI {
   }
 }
 
-// Singleton instance
-let whatsappClient: WhatsAppAPI | null = null
-
 /**
- * Get WhatsApp client (sync version, uses cached/env settings)
- * Checks cache first (populated by async version), then falls back to env
+ * @deprecated Use createWhatsAppApiForAccount() from whatsapp-account-helper.ts instead
+ * This function is removed to enforce per-account token usage per Meta policy.
+ * 
+ * Migration: 
+ * 1. Get credentials via resolveCredentialsForSending() or resolveCredentialsByPhoneNumber()
+ * 2. Create client: new WhatsAppAPI({ accessToken: credentials.accessToken })
  */
-export function getWhatsAppClient(): WhatsAppAPI {
-  if (!whatsappClient) {
-    // Try to get access token from cache first (populated by async version)
-    let accessToken: string | undefined
-    
-    const cachedSettings = settingsCache.get<WhatsAppSettings>(CACHE_KEYS.whatsapp())
-    if (cachedSettings?.accessToken && !cachedSettings.accessToken.includes('****')) {
-      accessToken = cachedSettings.accessToken
-    }
-    
-    // Fallback to env
-    if (!accessToken) {
-      accessToken = process.env.META_ACCESS_TOKEN
-    }
-    
-    if (!accessToken) {
-      throw new Error('META_ACCESS_TOKEN is not configured. Please configure it in Admin Dashboard or .env')
-    }
-    whatsappClient = new WhatsAppAPI({ accessToken })
-  }
-  return whatsappClient
+export function getWhatsAppClient(): never {
+  throw new Error(
+    'getWhatsAppClient() is deprecated. Use new WhatsAppAPI({ accessToken }) with per-account credentials from resolveCredentialsForSending().'
+  )
 }
 
 /**
- * Get WhatsApp client with database settings (async version)
- * Fetches settings from database with caching, falls back to .env
- * Requirements: 6.3, 6.4
+ * @deprecated Use createWhatsAppApiForAccount() from whatsapp-account-helper.ts instead
+ * This function is removed to enforce per-account token usage per Meta policy.
+ * 
+ * Migration:
+ * 1. Get credentials via resolveCredentialsForSending() or resolveCredentialsByPhoneNumber()
+ * 2. Create client: new WhatsAppAPI({ accessToken: credentials.accessToken })
  */
-export async function getWhatsAppClientAsync(): Promise<WhatsAppAPI> {
-  if (!whatsappClient) {
-    // Try to get access token from database first
-    let accessToken: string | undefined
-
-    try {
-      const cachedSettings = settingsCache.get<WhatsAppSettings>(CACHE_KEYS.whatsapp())
-      
-      if (cachedSettings?.accessToken && !cachedSettings.accessToken.includes('****')) {
-        accessToken = cachedSettings.accessToken
-      } else {
-        // Fetch from database
-        const { adminSettingsService } = await import('../services/admin/settings-service.js')
-        const response = await adminSettingsService.getSettings<WhatsAppSettings>('whatsapp', false)
-        
-        // Cache the settings
-        settingsCache.set(CACHE_KEYS.whatsapp(), response.data, CACHE_TTL.settings)
-        
-        if (response.data.accessToken && !response.data.accessToken.includes('****')) {
-          accessToken = response.data.accessToken
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to get WhatsApp settings from database, using env', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-
-    // Fallback to env
-    if (!accessToken) {
-      accessToken = process.env.META_ACCESS_TOKEN
-    }
-
-    if (!accessToken) {
-      throw new Error('META_ACCESS_TOKEN is not configured')
-    }
-
-    whatsappClient = new WhatsAppAPI({ accessToken })
-  } else {
-    // Refresh settings from database
-    await whatsappClient.refreshSettingsFromDb()
-  }
-
-  return whatsappClient
+export async function getWhatsAppClientAsync(): Promise<never> {
+  throw new Error(
+    'getWhatsAppClientAsync() is deprecated. Use new WhatsAppAPI({ accessToken }) with per-account credentials from resolveCredentialsForSending().'
+  )
 }
 
 /**
- * Invalidate WhatsApp client cache (call when settings are updated)
+ * @deprecated No longer needed - singleton pattern removed for per-account tokens
  */
 export function invalidateWhatsAppClientCache(): void {
-  if (whatsappClient) {
-    whatsappClient.invalidateCache()
-  }
-  // Reset singleton so next call will fetch fresh settings
-  whatsappClient = null
-  settingsCache.invalidate(CACHE_KEYS.whatsapp())
+  logger.debug('invalidateWhatsAppClientCache is deprecated - using per-account tokens')
 }
 
 /**
- * Initialize WhatsApp client with database settings
- * Call this at application startup to pre-populate cache
+ * @deprecated No longer needed - singleton pattern removed for per-account tokens
  */
 export async function initWhatsAppClient(): Promise<void> {
-  try {
-    const { adminSettingsService } = await import('../services/admin/settings-service.js')
-    const response = await adminSettingsService.getSettings<WhatsAppSettings>('whatsapp', false)
-    
-    // Cache the settings
-    settingsCache.set(CACHE_KEYS.whatsapp(), response.data, CACHE_TTL.settings)
-    
-    logger.info('WhatsApp client initialized with database settings', { source: response.source })
-  } catch (error) {
-    logger.warn('Failed to initialize WhatsApp client from database, will use env fallback', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
+  logger.debug('initWhatsAppClient is deprecated - using per-account tokens')
+}
+
+/**
+ * Convert standard markdown to WhatsApp-compatible markdown format
+ * WhatsApp uses different formatting:
+ * - Bold: *text* (instead of **text**)
+ * - Italic: _text_ (instead of *text* or _text_)
+ * - Strikethrough: ~text~ (instead of ~~text~~)
+ * - Monospace: ```text``` (same as standard)
+ */
+export function convertToWhatsAppMarkdown(text: string): string {
+  if (!text) return text
+
+  let result = text
+
+  // Convert **bold** to *bold* (WhatsApp format)
+  result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*')
+
+  // Convert ~~strikethrough~~ to ~strikethrough~ (WhatsApp format)
+  result = result.replace(/~~([^~]+)~~/g, '~$1~')
+
+  // Convert markdown links [text](url) to "text: url" format (WhatsApp doesn't support links)
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2')
+
+  // Convert headers (# Header) to *Header* (bold)
+  result = result.replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
+
+  // Convert bullet points (- item or * item) to • item
+  result = result.replace(/^[\-\*]\s+/gm, '• ')
+
+  // Convert numbered lists to keep them as is but ensure proper formatting
+  result = result.replace(/^(\d+)\.\s+/gm, '$1. ')
+
+  return result
 }
 
 export default WhatsAppAPI

@@ -8,8 +8,9 @@
  */
 
 import { prisma } from '../utils/database.js';
-import { getWhatsAppClientAsync } from '../utils/whatsapp.js';
+import { WhatsAppAPI } from '../utils/whatsapp.js';
 import { logger } from '../utils/logger.js';
+import { resolveCredentialsForSending } from '../utils/whatsapp-account-helper.js';
 
 /**
  * Media type constraints per WhatsApp documentation
@@ -189,25 +190,18 @@ export class TemplateMediaService {
       throw new Error(validation.error);
     }
 
-    // Get user's phone number ID for WhatsApp API
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { phoneNumberId: true, wabaConnectionStatus: true },
-    });
+    // Resolve WhatsApp account credentials for this user
+    const credentials = await resolveCredentialsForSending(userId);
 
-    if (!user?.phoneNumberId) {
-      throw new Error('WhatsApp Business Account not configured. Please connect your WABA first.');
-    }
-
-    if (user.wabaConnectionStatus === 'disconnected') {
-      throw new Error('WhatsApp Business Account is disconnected. Please reconnect to upload media.');
+    if (!credentials) {
+      throw new Error('WhatsApp Business Account not configured or disconnected. Please connect your WABA first.');
     }
 
     try {
-      // Upload to WhatsApp Media API
-      const whatsapp = await getWhatsAppClientAsync();
+      // Upload to WhatsApp Media API with per-account token
+      const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken });
       const result = await whatsapp.uploadMedia(
-        user.phoneNumberId,
+        credentials.phoneNumberId,
         file,
         mimeType,
         filename
@@ -263,8 +257,15 @@ export class TemplateMediaService {
    * @returns Media info including URL
    */
   async getMediaInfo(userId: string, mediaId: string): Promise<MediaInfo> {
+    // Resolve WhatsApp account credentials for this user
+    const credentials = await resolveCredentialsForSending(userId);
+
+    if (!credentials) {
+      throw new Error('WhatsApp Business Account not configured or disconnected. Please connect your WABA first.');
+    }
+
     try {
-      const whatsapp = await getWhatsAppClientAsync();
+      const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken });
       const result = await whatsapp.getMediaUrl(mediaId);
 
       return {

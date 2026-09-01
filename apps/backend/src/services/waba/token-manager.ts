@@ -4,7 +4,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../utils/database.js';
 import { TokenEncryptionService } from '../../utils/tokenEncryption.js';
 import { WABAServiceError, WABAErrorCode } from './errors.js';
 import { wabaSettings, WABASettings } from './settings.js';
@@ -12,9 +12,11 @@ import { metaApiQueue, criticalQueue } from '../../utils/requestQueue.js';
 import { parseMetaError, getRetryDelay } from '../../utils/wabaErrors.js';
 import { emailService } from '../email/index.js';
 import { logger } from '../../utils/logger.js';
+import {
+  getWhatsAppAccountByWabaId,
+  decryptAccountToken,
+} from '../../utils/whatsapp-account-helper.js';
 import type { TokenRefreshResult, MetaAPIError, EncryptedToken } from './types.js';
-
-const prisma = new PrismaClient();
 
 // Create HTTPS agent that forces IPv4
 const httpsAgent = new https.Agent({
@@ -72,19 +74,17 @@ export class WABATokenManager {
     await this.settings.ensureLoaded();
 
     try {
-      // Get user with encrypted token
-      const user = await prisma.user.findFirst({
-        where: { wabaId },
-      });
+      // Get WhatsApp account with encrypted token
+      const account = await getWhatsAppAccountByWabaId(wabaId);
 
-      if (!user) {
+      if (!account) {
         throw new WABAServiceError(
           WABAErrorCode.USER_NOT_FOUND,
-          `User not found for WABA ID: ${wabaId}`
+          `WhatsApp account not found for WABA ID: ${wabaId}`
         );
       }
 
-      if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
+      if (!account.accessToken || !account.accessTokenIV || !account.accessTokenTag) {
         throw new WABAServiceError(
           WABAErrorCode.TOKEN_NOT_FOUND,
           'No access token found for this WABA'
@@ -92,12 +92,7 @@ export class WABATokenManager {
       }
 
       // Decrypt current token
-      const currentToken = this.decryptToken({
-        ciphertext: user.wabaAccessToken,
-        iv: user.wabaAccessTokenIV,
-        authTag: user.wabaAccessTokenTag,
-        algorithm: 'aes-256-gcm',
-      });
+      const currentToken = decryptAccountToken(account);
 
       // Exchange current token for new long-lived token (critical operation)
       const tokenData = await this.queuedApiCall(
@@ -129,21 +124,21 @@ export class WABATokenManager {
       const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
       // Update database with new token
-      await prisma.user.update({
-        where: { id: user.id },
+      await prisma.whatsAppAccount.update({
+        where: { id: account.id },
         data: {
-          wabaAccessToken: encryptedToken.ciphertext,
-          wabaAccessTokenIV: encryptedToken.iv,
-          wabaAccessTokenTag: encryptedToken.authTag,
-          wabaTokenExpiresAt: expiresAt,
-          wabaTokenLastRefresh: new Date(),
+          accessToken: encryptedToken.ciphertext,
+          accessTokenIV: encryptedToken.iv,
+          accessTokenTag: encryptedToken.authTag,
+          tokenExpiresAt: expiresAt,
+          tokenLastRefresh: new Date(),
         },
       });
 
       // Log token refresh
       await prisma.wABAConnectionLog.create({
         data: {
-          userId: user.id,
+          userId: account.userId,
           action: 'token_refreshed',
           details: {
             expiresAt: expiresAt.toISOString(),
@@ -192,18 +187,16 @@ export class WABATokenManager {
    * Requirements: 3.5
    */
   private async handleRefreshError(wabaId: string, error: unknown): Promise<void> {
-    const user = await prisma.user.findFirst({
-      where: { wabaId },
-    });
+    const account = await getWhatsAppAccountByWabaId(wabaId);
 
-    if (!user) {
+    if (!account) {
       return;
     }
 
     // Log the error
     await prisma.wABAConnectionLog.create({
       data: {
-        userId: user.id,
+        userId: account.userId,
         action: 'token_refresh_failed',
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         details: {
@@ -216,16 +209,16 @@ export class WABATokenManager {
     // Check if token is revoked and disconnect WABA
     if (axios.isAxiosError(error)) {
       const metaError = error.response?.data?.error as MetaAPIError;
-      
+
       // Token is invalid, expired, or revoked (code 190, subcode 463 or 467)
       if (metaError?.code === 190 || metaError?.error_subcode === 463 || metaError?.error_subcode === 467) {
         logger.warn('WABA token revoked, disconnecting account', { wabaId, metaError });
 
-        // Mark WABA as disconnected
-        await prisma.user.update({
-          where: { id: user.id },
+        // Mark WhatsApp account as disconnected
+        await prisma.whatsAppAccount.update({
+          where: { id: account.id },
           data: {
-            wabaConnectionStatus: 'disconnected',
+            connectionStatus: 'disconnected',
           },
         });
 
@@ -233,9 +226,9 @@ export class WABATokenManager {
         try {
           await emailService.sendWABADisconnected(
             wabaId,
-            user.name || 'User',
+            account.user.name || 'User',
             'Access token was revoked or expired',
-            user.email
+            account.user.email
           );
         } catch (emailError) {
           logger.error('Failed to send WABA disconnected email', { error: emailError });
@@ -249,28 +242,28 @@ export class WABATokenManager {
   // ==========================================================================
 
   /**
-   * Check if token is expiring soon (within 7 days)
-   * 
+   * Check if any WhatsApp account for a user has a token expiring soon (within 7 days)
+   *
    * Requirements: 3.4
-   * 
+   *
    * @param userId - User ID
-   * @returns True if token is expiring within 7 days
+   * @returns True if any account's token is expiring within 7 days
    */
   async isTokenExpiringSoon(userId: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { wabaTokenExpiresAt: true },
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const expiringAccount = await prisma.whatsAppAccount.findFirst({
+      where: {
+        userId,
+        connectionStatus: 'connected',
+        tokenExpiresAt: {
+          lte: sevenDaysFromNow,
+        },
+      },
+      select: { id: true },
     });
 
-    if (!user?.wabaTokenExpiresAt) {
-      return false;
-    }
-
-    const now = new Date();
-    const expiresAt = new Date(user.wabaTokenExpiresAt);
-    const daysUntilExpiry = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-
-    return daysUntilExpiry <= 7;
+    return expiringAccount !== null;
   }
 
   /**
@@ -284,19 +277,19 @@ export class WABATokenManager {
   async getAccountsWithExpiringTokens(): Promise<string[]> {
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const users = await prisma.user.findMany({
+    const accounts = await prisma.whatsAppAccount.findMany({
       where: {
-        wabaTokenExpiresAt: {
+        tokenExpiresAt: {
           lte: sevenDaysFromNow,
         },
-        wabaConnectionStatus: 'connected',
+        connectionStatus: 'connected',
       },
       select: {
         wabaId: true,
       },
     });
 
-    return users.map(u => u.wabaId).filter((id): id is string => id !== null);
+    return accounts.map(a => a.wabaId);
   }
 
   // ==========================================================================
@@ -334,35 +327,23 @@ export class WABATokenManager {
    * @returns Decrypted access token
    */
   async getDecryptedTokenByWabaId(wabaId: string): Promise<string> {
-    const user = await prisma.user.findFirst({
-      where: { wabaId },
-      select: {
-        wabaAccessToken: true,
-        wabaAccessTokenIV: true,
-        wabaAccessTokenTag: true,
-      },
-    });
+    const account = await getWhatsAppAccountByWabaId(wabaId);
 
-    if (!user) {
+    if (!account) {
       throw new WABAServiceError(
         WABAErrorCode.USER_NOT_FOUND,
-        `User not found for WABA ID: ${wabaId}`
+        `WhatsApp account not found for WABA ID: ${wabaId}`
       );
     }
 
-    if (!user.wabaAccessToken || !user.wabaAccessTokenIV || !user.wabaAccessTokenTag) {
+    if (!account.accessToken || !account.accessTokenIV || !account.accessTokenTag) {
       throw new WABAServiceError(
         WABAErrorCode.TOKEN_NOT_FOUND,
         'No access token found for this WABA'
       );
     }
 
-    return this.decryptToken({
-      ciphertext: user.wabaAccessToken,
-      iv: user.wabaAccessTokenIV,
-      authTag: user.wabaAccessTokenTag,
-      algorithm: 'aes-256-gcm',
-    });
+    return decryptAccountToken(account);
   }
 
   // ==========================================================================

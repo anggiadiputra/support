@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { messagesApi } from "@/lib/api/messages-api"
+import { messagesApi, type APIError } from "@/lib/api/messages-api"
 import { useToast } from "@/hooks/use-toast"
 import { useBusinessAccount } from "@/hooks/use-business-account"
 import type { WindowStatus } from "@/lib/window-utils"
@@ -22,7 +22,6 @@ export function useChat() {
 
     const {
         userId,
-        phoneNumberId,
         isLoading: isLoadingAccount,
     } = useBusinessAccount()
 
@@ -159,7 +158,8 @@ export function useChat() {
             // Check if error is WindowExpired
             if (
                 error.message?.includes("window") ||
-                error.message?.includes("Window")
+                error.message?.includes("Window") ||
+                error.code === "WindowExpired"
             ) {
                 toast({
                     variant: "destructive",
@@ -168,15 +168,20 @@ export function useChat() {
                 })
                 return "WINDOW_EXPIRED"
             } else {
-                // Extract error message - could be from API response or error object
-                const errorMessage = error.response?.data?.error?.message 
-                    || error.message 
-                    || "Failed to send message"
+                // Extract error message and recovery action from API error
+                const apiError = error as APIError
+                const errorMessage = apiError.message || "Failed to send message"
+                const recoveryAction = apiError.recoveryAction
+                
+                // Build description with recovery action
+                const description = recoveryAction 
+                    ? `${errorMessage}\n\n💡 ${recoveryAction}`
+                    : errorMessage
                 
                 toast({
                     variant: "destructive",
-                    title: "Error",
-                    description: errorMessage,
+                    title: apiError.code || "Error",
+                    description,
                 })
                 return false
             }
@@ -269,15 +274,20 @@ export function useChat() {
         } catch (error: any) {
             console.error("Failed to send template:", error)
             
-            // Extract error message - could be from API response or error object
-            const errorMessage = error.response?.data?.error?.message 
-                || error.message 
-                || "Failed to send template"
+            // Extract error message and recovery action from API error
+            const apiError = error as APIError
+            const errorMessage = apiError.message || "Failed to send template"
+            const recoveryAction = apiError.recoveryAction
+            
+            // Build description with recovery action
+            const description = recoveryAction 
+                ? `${errorMessage}\n\n💡 ${recoveryAction}`
+                : errorMessage
             
             toast({
                 variant: "destructive",
-                title: "Error",
-                description: errorMessage,
+                title: apiError.code || "Error",
+                description,
             })
             return false
         } finally {
@@ -368,7 +378,6 @@ export function useChat() {
                 // Upload header image
                 const formData = new FormData()
                 formData.append("file", replyForm.headerImage)
-                formData.append("phoneNumberId", phoneNumberId!)
                 formData.append("target", "whatsapp")
 
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
@@ -431,6 +440,136 @@ export function useChat() {
         }
     }
 
+    const sendListMessage = async (listForm: {
+        headerText: string
+        bodyText: string
+        footerText: string
+        buttonText: string
+        sections: Array<{
+            title: string
+            rows: Array<{
+                id: string
+                title: string
+                description: string
+            }>
+        }>
+    }) => {
+        if (!selectedCustomer || !listForm.bodyText?.trim() || !listForm.buttonText?.trim()) {
+            return false
+        }
+
+        // Check 24-hour window for interactive messages
+        if (!windowStatus?.isActive) {
+            toast({
+                variant: "destructive",
+                title: "Window Expired",
+                description: "24-hour window expired. Please use a message template.",
+            })
+            return "WINDOW_EXPIRED"
+        }
+
+        setSending(true)
+
+        try {
+            // Build header if provided
+            let header
+            if (listForm.headerText.trim()) {
+                header = {
+                    type: "text",
+                    text: listForm.headerText.trim()
+                }
+            }
+
+            // Build sections - WhatsApp requires title if multiple sections
+            const hasMultipleSections = listForm.sections.length > 1
+            const sections = listForm.sections.map((section, idx) => {
+                const sectionObj: { title?: string; rows: Array<{ id: string; title: string; description?: string }> } = {
+                    rows: section.rows.map(row => {
+                        const rowObj: { id: string; title: string; description?: string } = {
+                            id: row.id,
+                            title: row.title.trim()
+                        }
+                        // Only add description if not empty
+                        if (row.description.trim()) {
+                            rowObj.description = row.description.trim()
+                        }
+                        return rowObj
+                    })
+                }
+                // Add title if provided or if multiple sections (use default)
+                const sectionTitle = section.title.trim()
+                if (sectionTitle) {
+                    sectionObj.title = sectionTitle
+                } else if (hasMultipleSections) {
+                    // WhatsApp requires title for multiple sections
+                    sectionObj.title = `Section ${idx + 1}`
+                }
+                return sectionObj
+            })
+
+            // Build the interactive payload - only include defined fields
+            const interactivePayload: any = {
+                type: "list",
+                body: { text: listForm.bodyText.trim() },
+                action: {
+                    button: listForm.buttonText.trim(),
+                    sections
+                }
+            }
+            
+            // Only add header if defined
+            if (header) {
+                interactivePayload.header = header
+            }
+            
+            // Only add footer if not empty
+            if (listForm.footerText.trim()) {
+                interactivePayload.footer = { text: listForm.footerText.trim() }
+            }
+
+            const requestPayload = {
+                userId: userId!,
+                phoneNumber: selectedCustomer.phoneNumber,
+                type: "interactive" as const,
+                interactive: interactivePayload
+            }
+            
+            await messagesApi.sendMessage(requestPayload)
+
+            toast({
+                title: "Success",
+                description: "List Message sent!",
+            })
+
+            setTimeout(() => {
+                loadMessages()
+            }, 500)
+
+            return true
+        } catch (error: any) {
+            console.error("Failed to send List Message:", error)
+            
+            // Extract error message and recovery action from API error
+            const apiError = error as APIError
+            const errorMessage = apiError.message || "Failed to send List Message"
+            const recoveryAction = apiError.recoveryAction
+            
+            // Build description with recovery action
+            const description = recoveryAction 
+                ? `${errorMessage}\n\n💡 ${recoveryAction}`
+                : errorMessage
+            
+            toast({
+                variant: "destructive",
+                title: apiError.code || "Error",
+                description,
+            })
+            return false
+        } finally {
+            setSending(false)
+        }
+    }
+
     const sendMedia = async (file: File, caption?: string) => {
         if (!selectedCustomer) return false
 
@@ -450,7 +589,6 @@ export function useChat() {
             // Upload file to backend (directly to WhatsApp)
             const formData = new FormData()
             formData.append("file", file)
-            formData.append("phoneNumberId", phoneNumberId!)
             formData.append("target", "whatsapp") // Request upload to WhatsApp
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
@@ -551,6 +689,7 @@ export function useChat() {
         sendTemplate,
         sendCta,
         sendReplyButtons,
+        sendListMessage,
         sendMedia,
         userId,
         isLoadingAccount

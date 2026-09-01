@@ -1,13 +1,12 @@
 "use client"
 
-import { HTMLAttributes, useState } from "react"
+import { HTMLAttributes, useState, useEffect, useMemo } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { useRegister } from "@/hooks/use-register"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -18,11 +17,28 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { OTPInput } from "@/components/ui/otp-input"
-import { GoogleSignInButton } from "@/components/auth/google-signin-button"
 import { PasswordInput } from "@/components/password-input"
-import { useTurnstileConfig } from "@/hooks/use-turnstile-config"
-import { Turnstile, TurnstileSkeleton } from "@/components/auth/turnstile"
+import { GoogleSignInButton } from "@/components/auth/google-signin-button"
+import { OTPInput } from "@/components/ui/otp-input"
+import { useRegister } from "@/hooks/use-register"
+import { IconArrowLeft, IconMail, IconRefresh } from "@tabler/icons-react"
+import { useMascot } from "@/components/auth/mascot-context"
+
+// Map backend error codes to translation keys
+const ERROR_CODE_MAP: Record<string, string> = {
+  InvalidCredentials: "invalidCredentials",
+  UserExists: "userAlreadyExists",
+  InvalidOTP: "invalidOtp",
+  OTPExpired: "otpExpired",
+  RateLimitExceeded: "tooManyAttempts",
+  CooldownActive: "cooldownActive",
+  ResendFailed: "failedToResendOtp",
+  NetworkError: "networkError",
+  UserNotFound: "userNotFound",
+  AccountDeactivated: "accountDeactivated",
+  TwoFactorRequired: "twoFactorRequired",
+  InvalidTwoFactorCode: "invalidTwoFactorCode",
+}
 
 function useFormSchema() {
   const t = useTranslations("validation")
@@ -45,21 +61,44 @@ function useFormSchema() {
     })
 }
 
+// Note: referral_token cookie is httpOnly so cannot be read client-side
+// This is intentional for security - the token is only read server-side
+// For email registration, we use the URL param directly
+
 export function RegisterForm({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   const [otp, setOtp] = useState("")
-  const [turnstileToken, setTurnstileToken] = useState<string>("")
-  const { enabled: turnstileEnabled, siteKey: turnstileSiteKey, isLoading: isTurnstileLoading } = useTurnstileConfig()
+  const [referralCode, setReferralCode] = useState<string | null>(null)
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
+  const tErrors = useTranslations("errors")
+  const searchParams = useSearchParams()
   const formSchema = useFormSchema()
 
+  // Get referral code from URL param
+  // Note: referral_token cookie is httpOnly for security, only read server-side
+  useEffect(() => {
+    const refParam = searchParams.get("ref")
+    if (refParam) {
+      setReferralCode(refParam)
+    }
+  }, [searchParams])
+
+  // Get mascot state setter (with fallback if context not available)
+  let setMascotState: ((state: "idle" | "email" | "password") => void) | null = null
+  try {
+    const mascot = useMascot()
+    setMascotState = mascot.setState
+  } catch {
+    // Context not available
+  }
   const {
     step,
     loading,
     error,
+    errorCode,
     email,
     timeRemaining,
     resendCooldown,
@@ -72,6 +111,24 @@ export function RegisterForm({
     clearError,
   } = useRegister()
 
+  // Get translated error message
+  const errorMessage = useMemo(() => {
+    if (!errorCode && !error) return null
+    
+    // Try to get translation for error code
+    if (errorCode && ERROR_CODE_MAP[errorCode]) {
+      const translationKey = ERROR_CODE_MAP[errorCode]
+      try {
+        return tErrors(translationKey as any)
+      } catch {
+        // Fallback to backend message
+      }
+    }
+    
+    // Fallback to backend error message or generic error
+    return error || tErrors("errorOccurred")
+  }, [errorCode, error, tErrors])
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -83,15 +140,11 @@ export function RegisterForm({
   })
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
-    if (turnstileEnabled && !turnstileToken) {
-      return
-    }
-
     await initiateRegistration({
       email: data.email,
       password: data.password,
       name: data.name,
-      turnstileToken,
+      ...(referralCode && { referralCode }),
     })
   }
 
@@ -117,19 +170,15 @@ export function RegisterForm({
     return (
       <div className={cn("grid gap-4 sm:gap-6", className)} {...props}>
         <div className="flex flex-col items-center gap-3 sm:gap-4">
-          <div className="bg-primary/10 flex h-14 w-14 items-center justify-center rounded-full sm:h-16 sm:w-16">
-            <Mail className="text-primary h-7 w-7 sm:h-8 sm:w-8" />
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10">
+            <IconMail className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
           </div>
           <div className="text-center">
-            <h2 className="text-lg font-semibold sm:text-xl">
-              {t("verifyEmail")}
-            </h2>
-            <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+            <h2 className="text-lg sm:text-xl font-semibold">{t("verifyEmail")}</h2>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
               {t("enterOtpCode")}
             </p>
-            <p className="text-primary text-sm font-medium break-all sm:text-base">
-              {email}
-            </p>
+            <p className="font-medium text-primary text-sm sm:text-base break-all">{email}</p>
           </div>
         </div>
 
@@ -146,26 +195,26 @@ export function RegisterForm({
 
           {/* Countdown timer */}
           {timeRemaining > 0 && (
-            <p className="text-muted-foreground text-center text-sm">
+            <p className="text-center text-sm text-muted-foreground">
               {t("codeValidFor")}{" "}
-              <span className="text-foreground font-medium">
+              <span className="font-medium text-foreground">
                 {formatTime(timeRemaining)}
               </span>
             </p>
           )}
 
           {timeRemaining === 0 && (
-            <p className="text-destructive text-center text-sm">
+            <p className="text-center text-sm text-destructive">
               {t("codeExpired")}
             </p>
           )}
 
           {/* Error message */}
-          {error && (
-            <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm">
-              {error}
+          {errorMessage && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
+              {errorMessage}
               {attemptsRemaining < 5 && attemptsRemaining > 0 && (
-                <span className="mt-1 block text-xs">
+                <span className="block mt-1 text-xs">
                   {t("remainingAttempts", { count: attemptsRemaining })}
                 </span>
               )}
@@ -182,7 +231,7 @@ export function RegisterForm({
 
           {/* Resend OTP */}
           <div className="flex flex-col items-center gap-2">
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("didntReceiveCode")}
             </p>
             <Button
@@ -193,7 +242,7 @@ export function RegisterForm({
               disabled={loading || resendCooldown > 0 || resendsRemaining === 0}
               className="gap-2"
             >
-              <RefreshCw className="h-4 w-4" />
+              <IconRefresh className="h-4 w-4" />
               {resendCooldown > 0
                 ? t("resendIn", { seconds: resendCooldown })
                 : resendsRemaining === 0
@@ -201,7 +250,7 @@ export function RegisterForm({
                   : t("resendCode")}
             </Button>
             {resendsRemaining > 0 && resendsRemaining < 5 && (
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 {t("remainingResends", { count: resendsRemaining })}
               </p>
             )}
@@ -215,7 +264,7 @@ export function RegisterForm({
             onClick={goBackToForm}
             disabled={loading}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <IconArrowLeft className="h-4 w-4" />
             {t("backToForm")}
           </Button>
         </div>
@@ -225,42 +274,23 @@ export function RegisterForm({
 
   // Step 1: Registration Form
   return (
-    <div className={cn("grid gap-5", className)} {...props}>
+    <div className={cn("grid gap-6", className)} {...props}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-4">
-            <GoogleSignInButton mode="register" />
-
-            <div className="relative my-2">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-3 text-slate-500">
-                  {tCommon("continueWith")} email
-                </span>
-              </div>
-            </div>
-
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
-                  <FormLabel className="text-sm font-medium text-slate-700">
-                    {t("fullName")}
-                  </FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-semibold">{t("fullName")}</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <UserRound className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        autoComplete="name"
-                        placeholder={t("fullName")}
-                        className="h-10 border-slate-300 bg-white pl-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                        disabled={loading}
-                        {...field}
-                      />
-                    </div>
+                    <Input
+                      placeholder={t("fullName")}
+                      className="h-11"
+                      disabled={loading}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -270,22 +300,17 @@ export function RegisterForm({
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
-                  <FormLabel className="text-sm font-medium text-slate-700">
-                    {t("email")}
-                  </FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-semibold">{t("email")}</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        type="email"
-                        autoComplete="email"
-                        placeholder={tCommon("emailPlaceholder")}
-                        className="h-10 border-slate-300 bg-white pl-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                        disabled={loading}
-                        {...field}
-                      />
-                    </div>
+                    <Input
+                      placeholder={tCommon("emailPlaceholder")}
+                      className="h-11"
+                      disabled={loading}
+                      {...field}
+                      onFocus={() => setMascotState?.("email")}
+                      onBlur={() => setMascotState?.("idle")}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -295,19 +320,16 @@ export function RegisterForm({
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
-                  <FormLabel className="text-sm font-medium text-slate-700">
-                    {t("password")}
-                  </FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-semibold">{t("password")}</FormLabel>
                   <FormControl>
                     <PasswordInput
                       placeholder={t("minChars", { min: 8 })}
-                      autoComplete="new-password"
-                      className="h-10"
-                      inputClassName="h-10 border-slate-300 bg-white pr-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                      startIcon={<LockKeyhole className="size-4" />}
+                      className="h-11"
                       disabled={loading}
                       {...field}
+                      onFocus={() => setMascotState?.("password")}
+                      onBlur={() => setMascotState?.("idle")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -318,19 +340,16 @@ export function RegisterForm({
               control={form.control}
               name="confirmPassword"
               render={({ field }) => (
-                <FormItem className="space-y-1.5">
-                  <FormLabel className="text-sm font-medium text-slate-700">
-                    {t("confirmPassword")}
-                  </FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-semibold">{t("confirmPassword")}</FormLabel>
                   <FormControl>
                     <PasswordInput
                       placeholder={t("confirmPassword")}
-                      autoComplete="new-password"
-                      className="h-10"
-                      inputClassName="h-10 border-slate-300 bg-white pr-10 text-slate-900 shadow-xs focus-visible:ring-blue-600"
-                      startIcon={<LockKeyhole className="size-4" />}
+                      className="h-11"
                       disabled={loading}
                       {...field}
+                      onFocus={() => setMascotState?.("password")}
+                      onBlur={() => setMascotState?.("idle")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -339,29 +358,28 @@ export function RegisterForm({
             />
 
             {/* Error message */}
-            {error && (
-              <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-center text-sm">
-                {error}
+            {errorMessage && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
+                {errorMessage}
               </div>
             )}
 
-            {isTurnstileLoading ? (
-              <TurnstileSkeleton />
-            ) : turnstileEnabled && turnstileSiteKey ? (
-              <Turnstile
-                siteKey={turnstileSiteKey}
-                onVerify={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken("")}
-                onError={() => setTurnstileToken("")}
-              />
-            ) : null}
-
-            <Button
-              className="mt-2 h-10 bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-              disabled={loading || isTurnstileLoading || (turnstileEnabled && !turnstileToken)}
-            >
+            <Button className="mt-2 h-11 font-semibold" disabled={loading}>
               {loading ? t("sendingOtp") : t("register")}
             </Button>
+
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/50" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card text-muted-foreground px-3 font-medium">
+                  {tCommon("continueWith")}
+                </span>
+              </div>
+            </div>
+
+            <GoogleSignInButton />
           </div>
         </form>
       </Form>

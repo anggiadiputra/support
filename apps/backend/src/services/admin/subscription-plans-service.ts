@@ -19,21 +19,42 @@ export interface DurationConfig {
   label: string;         // "1 Bulan", "3 Bulan", etc.
 }
 
+export interface ChannelLimits {
+  maxWhatsappDevices: number;
+  maxInstagramAccounts: number;
+  maxMessengerAccounts: number;
+}
+
+export interface NumericLimits {
+  maxAgents: number;
+  maxKnowledgeDocs: number;
+  maxTeamMembers: number;
+  maxApiKeys: number;
+  maxWebhookEndpoints: number;
+  messageRetentionDays: number;
+}
+
 export interface PlanConfig {
   name: string;
   description: string;
   price: number;  // Base monthly price
   features: string[];
   durations: DurationConfig[];
+  enabled: boolean;  // Whether the plan is available for purchase
+  isContactUs: boolean;  // Show "Contact Us" instead of price
+  contactUrl: string;  // URL for Contact Us button
+  channelLimits?: ChannelLimits;  // Channel connection limits (configurable by admin)
+  numericLimits?: NumericLimits;  // Numeric limits (AI agents, knowledge docs, etc.)
 }
 
 export interface SubscriptionPlansConfig {
   free: PlanConfig;
+  basic: PlanConfig;
   lite: PlanConfig;
   pro: PlanConfig;
 }
 
-export type PlanTier = 'free' | 'lite' | 'pro';
+export type PlanTier = 'free' | 'basic' | 'lite' | 'pro';
 
 // Duration pricing response for API
 export interface DurationPricingOption {
@@ -54,6 +75,9 @@ export interface PlanPricingResponse {
   basePrice: number;
   features: string[];
   durations: DurationPricingOption[];
+  enabled: boolean;
+  isContactUs: boolean;
+  contactUrl: string;
 }
 
 // Default duration configurations
@@ -63,6 +87,66 @@ const DEFAULT_DURATIONS: DurationConfig[] = [
   { months: 6, days: 180, discountPercent: 15, enabled: true, label: '6 Bulan' },
   { months: 12, days: 365, discountPercent: 20, enabled: true, label: '1 Tahun' },
 ];
+
+// Default channel limits per tier
+const DEFAULT_CHANNEL_LIMITS: Record<PlanTier, ChannelLimits> = {
+  free: {
+    maxWhatsappDevices: 1,
+    maxInstagramAccounts: 1,
+    maxMessengerAccounts: 1,
+  },
+  basic: {
+    maxWhatsappDevices: 2,
+    maxInstagramAccounts: 2,
+    maxMessengerAccounts: 2,
+  },
+  lite: {
+    maxWhatsappDevices: 3,
+    maxInstagramAccounts: 3,
+    maxMessengerAccounts: 3,
+  },
+  pro: {
+    maxWhatsappDevices: 10,
+    maxInstagramAccounts: 10,
+    maxMessengerAccounts: 10,
+  },
+};
+
+// Default numeric limits per tier (matches config/plans.ts)
+const DEFAULT_NUMERIC_LIMITS: Record<PlanTier, NumericLimits> = {
+  free: {
+    maxAgents: 0,
+    maxKnowledgeDocs: 0,
+    maxTeamMembers: 0,
+    maxApiKeys: 0,
+    maxWebhookEndpoints: 0,
+    messageRetentionDays: 7,
+  },
+  basic: {
+    maxAgents: 0,
+    maxKnowledgeDocs: 0,
+    maxTeamMembers: 2,
+    maxApiKeys: 2,
+    maxWebhookEndpoints: 3,
+    messageRetentionDays: 30,
+  },
+  lite: {
+    maxAgents: 1,
+    maxKnowledgeDocs: 5,
+    maxTeamMembers: 5,
+    maxApiKeys: 5,
+    maxWebhookEndpoints: 3,
+    messageRetentionDays: 30,
+  },
+  pro: {
+    maxAgents: 10,
+    maxKnowledgeDocs: 50,
+    maxTeamMembers: 10,
+    maxApiKeys: 10,
+    maxWebhookEndpoints: 20,
+    messageRetentionDays: 30,
+  },
+};
 
 // Default plan configurations
 const DEFAULT_PLANS: SubscriptionPlansConfig = {
@@ -77,19 +161,44 @@ const DEFAULT_PLANS: SubscriptionPlansConfig = {
       'Analytics Dashboard',
     ],
     durations: [], // Free tier has no duration options
+    enabled: true, // FREE is always enabled
+    isContactUs: false,
+    contactUrl: '',
+    channelLimits: DEFAULT_CHANNEL_LIMITS.free,
+    numericLimits: DEFAULT_NUMERIC_LIMITS.free,
+  },
+  basic: {
+    name: 'BASIC',
+    description: 'Untuk integrasi developer',
+    price: 25000,
+    features: [
+      'Semua fitur FREE',
+      'API Access',
+      'Webhook Integration (n8n)',
+      '2 Team Members',
+    ],
+    durations: DEFAULT_DURATIONS,
+    enabled: true,
+    isContactUs: false,
+    contactUrl: '',
+    channelLimits: DEFAULT_CHANNEL_LIMITS.basic,
+    numericLimits: DEFAULT_NUMERIC_LIMITS.basic,
   },
   lite: {
     name: 'LITE',
     description: 'Untuk bisnis yang berkembang',
     price: 10000,
     features: [
-      'Semua fitur FREE',
-      'Unlimited pesan',
+      'Semua fitur BASIC',
       '1 AI Agent',
       '5 Knowledge Documents',
-      'n8n Integration',
     ],
     durations: DEFAULT_DURATIONS,
+    enabled: true,
+    isContactUs: false,
+    contactUrl: '',
+    channelLimits: DEFAULT_CHANNEL_LIMITS.lite,
+    numericLimits: DEFAULT_NUMERIC_LIMITS.lite,
   },
   pro: {
     name: 'PRO',
@@ -99,13 +208,19 @@ const DEFAULT_PLANS: SubscriptionPlansConfig = {
       'Semua fitur LITE',
       '10 AI Agents',
       '50 Knowledge Documents',
+      '10 Team Members',
     ],
     durations: DEFAULT_DURATIONS,
+    enabled: true,
+    isContactUs: false,
+    contactUrl: '',
+    channelLimits: DEFAULT_CHANNEL_LIMITS.pro,
+    numericLimits: DEFAULT_NUMERIC_LIMITS.pro,
   },
 };
 
 const CATEGORY = 'subscription_plans';
-const VALID_TIERS: PlanTier[] = ['free', 'lite', 'pro'];
+const VALID_TIERS: PlanTier[] = ['free', 'basic', 'lite', 'pro'];
 
 export class AdminSubscriptionPlansService {
   /**
@@ -259,6 +374,45 @@ export class AdminSubscriptionPlansService {
         throw new Error('Setiap fitur maksimal 100 karakter');
       }
     }
+
+    // Validate channel limits if provided
+    if (config.channelLimits) {
+      const { maxWhatsappDevices, maxInstagramAccounts, maxMessengerAccounts } = config.channelLimits;
+      
+      if (typeof maxWhatsappDevices !== 'number' || maxWhatsappDevices < 0) {
+        throw new Error('Max WhatsApp devices harus berupa angka positif atau 0');
+      }
+      if (typeof maxInstagramAccounts !== 'number' || maxInstagramAccounts < 0) {
+        throw new Error('Max Instagram accounts harus berupa angka positif atau 0');
+      }
+      if (typeof maxMessengerAccounts !== 'number' || maxMessengerAccounts < 0) {
+        throw new Error('Max Messenger accounts harus berupa angka positif atau 0');
+      }
+    }
+
+    // Validate numeric limits if provided
+    if (config.numericLimits) {
+      const { maxAgents, maxKnowledgeDocs, maxTeamMembers, maxApiKeys, maxWebhookEndpoints, messageRetentionDays } = config.numericLimits;
+      
+      if (typeof maxAgents !== 'number' || maxAgents < 0) {
+        throw new Error('Max AI Agents harus berupa angka positif atau 0');
+      }
+      if (typeof maxKnowledgeDocs !== 'number' || maxKnowledgeDocs < 0) {
+        throw new Error('Max Knowledge Docs harus berupa angka positif atau 0');
+      }
+      if (typeof maxTeamMembers !== 'number' || maxTeamMembers < 0) {
+        throw new Error('Max Team Members harus berupa angka positif atau 0');
+      }
+      if (typeof maxApiKeys !== 'number' || maxApiKeys < 0) {
+        throw new Error('Max API Keys harus berupa angka positif atau 0');
+      }
+      if (typeof maxWebhookEndpoints !== 'number' || maxWebhookEndpoints < 0) {
+        throw new Error('Max Webhook Endpoints harus berupa angka positif atau 0');
+      }
+      if (typeof messageRetentionDays !== 'number' || messageRetentionDays < -1) {
+        throw new Error('Message Retention Days harus berupa angka positif, 0, atau -1 (unlimited)');
+      }
+    }
   }
 
   /**
@@ -272,6 +426,12 @@ export class AdminSubscriptionPlansService {
     if (previous.price !== current.price) changed.push('price');
     if (JSON.stringify(previous.features) !== JSON.stringify(current.features)) {
       changed.push('features');
+    }
+    if (JSON.stringify(previous.channelLimits) !== JSON.stringify(current.channelLimits)) {
+      changed.push('channelLimits');
+    }
+    if (JSON.stringify(previous.numericLimits) !== JSON.stringify(current.numericLimits)) {
+      changed.push('numericLimits');
     }
 
     return changed;
@@ -318,7 +478,7 @@ export class AdminSubscriptionPlansService {
    * Get plan pricing with all duration options and calculated prices
    * Returns pricing for a specific tier with all enabled duration options
    */
-  async getPlanPricing(tier: PlanTier): Promise<PlanPricingResponse> {
+   async getPlanPricing(tier: PlanTier): Promise<PlanPricingResponse> {
     if (tier === 'free') {
       const plans = await this.getPlans();
       return {
@@ -327,6 +487,9 @@ export class AdminSubscriptionPlansService {
         basePrice: 0,
         features: plans.free.features,
         durations: [],
+        enabled: plans.free.enabled ?? true,
+        isContactUs: plans.free.isContactUs ?? false,
+        contactUrl: plans.free.contactUrl ?? '',
       };
     }
 
@@ -362,19 +525,23 @@ export class AdminSubscriptionPlansService {
       basePrice: plan.price,
       features: plan.features,
       durations: durationOptions,
+      enabled: plan.enabled ?? true,
+      isContactUs: plan.isContactUs ?? false,
+      contactUrl: plan.contactUrl ?? '',
     };
   }
 
   /**
-   * Get pricing for all paid tiers (lite and pro)
+   * Get pricing for all paid tiers (basic, lite and pro)
    */
-  async getAllPlansPricing(): Promise<{ lite: PlanPricingResponse; pro: PlanPricingResponse }> {
-    const [lite, pro] = await Promise.all([
+  async getAllPlansPricing(): Promise<{ basic: PlanPricingResponse; lite: PlanPricingResponse; pro: PlanPricingResponse }> {
+    const [basic, lite, pro] = await Promise.all([
+      this.getPlanPricing('basic'),
       this.getPlanPricing('lite'),
       this.getPlanPricing('pro'),
     ]);
 
-    return { lite, pro };
+    return { basic, lite, pro };
   }
 
   /**
@@ -505,6 +672,40 @@ export class AdminSubscriptionPlansService {
         `Gagal memperbarui konfigurasi durasi: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Get channel limits for a specific tier
+   * Returns the configured limits or default limits if not configured
+   */
+  async getChannelLimits(tier: PlanTier): Promise<ChannelLimits> {
+    const plans = await this.getPlans();
+    const plan = plans[tier];
+    return plan.channelLimits || DEFAULT_CHANNEL_LIMITS[tier];
+  }
+
+  /**
+   * Get default channel limits (for reference)
+   */
+  getDefaultChannelLimits(): Record<PlanTier, ChannelLimits> {
+    return DEFAULT_CHANNEL_LIMITS;
+  }
+
+  /**
+   * Get numeric limits for a specific tier
+   * Returns the configured limits or default limits if not configured
+   */
+  async getNumericLimits(tier: PlanTier): Promise<NumericLimits> {
+    const plans = await this.getPlans();
+    const plan = plans[tier];
+    return plan.numericLimits || DEFAULT_NUMERIC_LIMITS[tier];
+  }
+
+  /**
+   * Get default numeric limits (for reference)
+   */
+  getDefaultNumericLimits(): Record<PlanTier, NumericLimits> {
+    return DEFAULT_NUMERIC_LIMITS;
   }
 }
 

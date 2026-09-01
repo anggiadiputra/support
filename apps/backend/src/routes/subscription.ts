@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import { prisma } from '../utils/database.js'
 import { getSubscription } from '../middleware/subscription.js'
 import { PLAN_LIMITS } from '../config/plans.js'
+import { adminSubscriptionPlansService, type PlanTier } from '../services/admin/subscription-plans-service.js'
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client'
 import { logger } from '../utils/logger.js'
 
@@ -34,6 +35,7 @@ function getEffectiveTier(status: SubscriptionStatus, tier: SubscriptionTier): S
  * Requirements: 6.3 - Include numeric limits (maxKnowledgeDocs, maxAgents, maxApiKeys, maxWebhookEndpoints)
  * Requirements: 6.4 - Include current usage counts for each limited resource
  * Requirements: 6.5 - Return subscription expiry date if applicable
+ * Requirements: 6.6 - Include channel limits (maxWhatsappDevices, maxInstagramAccounts, maxMessengerAccounts)
  */
 app.get('/', async (c: Context) => {
   try {
@@ -52,13 +54,51 @@ app.get('/', async (c: Context) => {
     const subscription = await getSubscription(userId)
     const effectiveTier = getEffectiveTier(subscription.status, subscription.tier)
     const limits = PLAN_LIMITS[effectiveTier]
+    
+    // Get channel limits and numeric limits from admin-configurable settings (or fall back to hardcoded defaults)
+    const planTier = effectiveTier.toLowerCase() as PlanTier
+    const [channelLimits, numericLimits] = await Promise.all([
+      adminSubscriptionPlansService.getChannelLimits(planTier),
+      adminSubscriptionPlansService.getNumericLimits(planTier)
+    ])
 
-    // Query current usage counts in parallel
-    const [knowledgeDocsCount, agentsCount, apiKeysCount, webhookEndpointsCount] = await Promise.all([
+    // Query current usage counts in parallel (including channel usage)
+    const [
+      knowledgeDocsCount, 
+      agentsCount, 
+      apiKeysCount, 
+      webhookEndpointsCount,
+      whatsappDevicesCount,
+      instagramAccountsCount,
+      messengerAccountsCount
+    ] = await Promise.all([
       prisma.knowledgeDocument.count({ where: { userId } }),
       prisma.aIAgent.count({ where: { userId } }),
       prisma.apiKey.count({ where: { userId, revokedAt: null } }),
-      prisma.webhookEndpoint.count({ where: { userId } })
+      prisma.webhookEndpoint.count({ where: { userId } }),
+      // Count connected WhatsApp devices (phone numbers from connected WABA accounts)
+      prisma.phoneNumber.count({ 
+        where: { 
+          whatsappAccount: { 
+            userId,
+            connectionStatus: 'connected'
+          }
+        }
+      }),
+      // Count connected Instagram accounts
+      prisma.instagramAccount.count({ 
+        where: { 
+          userId,
+          connectionStatus: 'connected'
+        }
+      }),
+      // Count connected Messenger pages
+      prisma.facebookPage.count({ 
+        where: { 
+          userId,
+          connectionStatus: 'connected'
+        }
+      })
     ])
 
     // Handle endDate - could be Date object or string from DB
@@ -82,10 +122,10 @@ app.get('/', async (c: Context) => {
         },
         
         limits: {
-          maxKnowledgeDocs: limits.maxKnowledgeDocs,
-          maxAgents: limits.maxAgents,
-          maxApiKeys: limits.maxApiKeys,
-          maxWebhookEndpoints: limits.maxWebhookEndpoints,
+          maxKnowledgeDocs: numericLimits.maxKnowledgeDocs,
+          maxAgents: numericLimits.maxAgents,
+          maxApiKeys: numericLimits.maxApiKeys,
+          maxWebhookEndpoints: numericLimits.maxWebhookEndpoints,
         },
         
         usage: {
@@ -93,6 +133,20 @@ app.get('/', async (c: Context) => {
           agents: agentsCount,
           apiKeys: apiKeysCount,
           webhookEndpoints: webhookEndpointsCount,
+        },
+
+        // Channel limits (admin-configurable)
+        channelLimits: {
+          maxWhatsappDevices: channelLimits.maxWhatsappDevices,
+          maxInstagramAccounts: channelLimits.maxInstagramAccounts,
+          maxMessengerAccounts: channelLimits.maxMessengerAccounts,
+        },
+
+        // Channel usage
+        channelUsage: {
+          whatsappDevices: whatsappDevicesCount,
+          instagramAccounts: instagramAccountsCount,
+          messengerAccounts: messengerAccountsCount,
         },
       },
     })

@@ -4,7 +4,7 @@
  * Handles payment callback notifications from Duitku payment gateway.
  * IMPORTANT: Duitku sends callbacks as application/x-www-form-urlencoded, NOT JSON!
  * 
- * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.3, 6.4, 6.5
  */
 
 import { Hono } from 'hono';
@@ -15,6 +15,27 @@ import type { DuitkuCallbackPayload } from '../../services/duitku-service.js';
 
 const app = new Hono();
 
+/**
+ * Get client IP address from request
+ * Handles various proxy headers
+ */
+function getClientIP(c: Context): string {
+  // Check common proxy headers
+  const xForwardedFor = c.req.header('X-Forwarded-For');
+  if (xForwardedFor) {
+    // X-Forwarded-For can contain multiple IPs, take the first one
+    return xForwardedFor.split(',')[0].trim();
+  }
+  
+  const xRealIP = c.req.header('X-Real-IP');
+  if (xRealIP) {
+    return xRealIP;
+  }
+  
+  // Fallback to connection info (may not be available in all environments)
+  return 'unknown';
+}
+
 // =============================================================================
 // POST /api/v1/webhooks/duitku/callback
 // Receive payment notification from Duitku
@@ -23,16 +44,21 @@ const app = new Hono();
 // IMPORTANT: Duitku sends data as form-urlencoded, not JSON!
 // Content-Type: application/x-www-form-urlencoded
 // 
-// Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
+// Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.3, 6.4, 6.5
 // =============================================================================
 
 app.post('/callback', async (c: Context) => {
+  const clientIP = getClientIP(c);
+  const receivedAt = new Date().toISOString();
+  
   try {
     const contentType = c.req.header('Content-Type') || '';
     
     logger.info('Duitku callback received', {
       contentType,
       method: c.req.method,
+      clientIP,
+      timestamp: receivedAt,
     });
 
     let payload: DuitkuCallbackPayload;
@@ -127,10 +153,14 @@ app.post('/callback', async (c: Context) => {
     const result = await paymentService.processCallback(payload, signature, timestamp);
 
     if (!result.success) {
-      // Return 403 for signature validation failures
+      // Return 401 for signature validation failures (Requirements: 1.3, 1.4)
       if (result.message === 'Invalid signature') {
-        logger.warn('Duitku callback signature validation failed', { orderId });
-        return c.json({ error: 'Invalid signature' }, 403);
+        logger.warn('Duitku callback signature validation failed', { 
+          orderId,
+          clientIP,
+          timestamp: receivedAt,
+        });
+        return c.json({ error: 'Unauthorized - Invalid signature' }, 401);
       }
 
       // Return 404 for transaction not found

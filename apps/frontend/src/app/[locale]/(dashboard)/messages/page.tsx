@@ -25,6 +25,7 @@ export default function MessagesPage() {
         sendTemplate: originalSendTemplate,
         sendCta,
         sendReplyButtons,
+        sendListMessage,
         sendMedia,
         userId,
         isLoadingAccount
@@ -68,21 +69,21 @@ export default function MessagesPage() {
     // Show loading state while checking authentication
     if (isLoadingAccount) {
         return (
-            <>
+            <div className="flex flex-col h-full overflow-hidden">
                 <Header />
-                <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+                <div className="flex flex-1 items-center justify-center">
                     <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-            </>
+            </div>
         )
     }
 
     // Show message if user is not authenticated
     if (!userId) {
         return (
-            <>
+            <div className="flex flex-col h-full overflow-hidden">
                 <Header />
-                <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+                <div className="flex flex-1 items-center justify-center">
                     <div className="text-center">
                         <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
                         <h3 className="text-lg font-semibold mb-2">
@@ -93,14 +94,14 @@ export default function MessagesPage() {
                         </p>
                     </div>
                 </div>
-            </>
+            </div>
         )
     }
 
     return (
-        <>
+        <div className="flex flex-col h-full overflow-hidden">
             <Header />
-            <div className="flex h-[calc(100vh-4rem)] bg-background">
+            <div className="flex flex-1 bg-background overflow-hidden min-h-0">
                 {/* Customers Sidebar - Hidden on mobile if chat is open */}
                 <MessagesSidebar
                     customers={customers}
@@ -114,7 +115,7 @@ export default function MessagesPage() {
 
                 {/* Chat Area - Hidden on mobile if no customer selected */}
                 {selectedCustomer ? (
-                    <div className={`flex-1 flex flex-col bg-background h-full ${!selectedCustomer ? "hidden md:flex" : "flex"}`}>
+                    <div className={`flex-1 flex flex-col bg-background overflow-hidden min-h-0 ${!selectedCustomer ? "hidden md:flex" : "flex"}`}>
                         <ChatArea
                             selectedCustomer={selectedCustomer}
                             messages={messages}
@@ -123,19 +124,19 @@ export default function MessagesPage() {
                             onSendTemplate={sendTemplate}
                             onSendCta={sendCta}
                             onSendReplyButtons={sendReplyButtons}
+                            onSendListMessage={sendListMessage}
                             onSendMedia={sendMedia}
                             sending={sending}
                             uploading={uploading}
                             templates={templates}
                             onBack={() => setSelectedCustomer(null)}
                             windowStatus={windowStatus}
-                            setWindowStatus={setWindowStatus}
                         />
                     </div>
                 ) : (
                     <EmptyState />
                 )}
             </div>
-        </>
+        </div>
     )
 }

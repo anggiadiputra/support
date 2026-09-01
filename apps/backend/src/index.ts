@@ -1,5 +1,7 @@
 // Load environment variables FIRST before any other imports
 import 'dotenv/config'
+// Initialize Sentry
+import './instrument.js'
 
 // Force IPv4 for DNS resolution (fixes ETIMEDOUT issues with Facebook API on some servers)
 import dns from 'dns'
@@ -35,18 +37,25 @@ import monitoringRoutes from './routes/monitoring.js'
 import aiRoutes from './routes/ai/index.js'
 import crmRoutes from './routes/crm/index.js'
 import instagramRoutes from './routes/instagram/index.js'
+import messengerRoutes from './routes/messenger/index.js'
 import publicApiRoutes from './routes/api/v1/public/index.js'
 import subscriptionRoutes from './routes/subscription.js'
 import adminRoutes from './routes/admin/index.js'
 import paymentRoutes from './routes/payment.js'
+import creditRoutes from './routes/credit.js'
 import duitkuWebhookRoutes from './routes/webhooks/duitku.js'
+import xenditWebhookRoutes from './routes/webhooks/xendit.js'
 import teamRoutes from './routes/team/index.js'
 import brandingRoutes from './routes/branding.js'
-import turnstileRoutes from './routes/turnstile.js'
+import channelsRoutes from './routes/channels.js'
 import templateVariablesRoutes from './routes/template-variables.js'
 import broadcastRoutes from './routes/broadcast/index.js'
 import insightsRoutes from './routes/insights.js'
 import assignmentRoutes from './routes/assignments/index.js'
+import notificationRoutes from './routes/notifications.js'
+import conversationRoutes from './routes/conversations.js'
+import affiliateRoutes from './routes/affiliate.js'
+import quickReplyRoutes from './routes/quick-replies/index.js'
 
 // Import middleware
 import { authMiddleware } from './middleware/auth.js'
@@ -66,10 +75,18 @@ import { startDeliveryLogCleanupJob } from './cron/cleanupDeliveryLogs.js'
 import { startApiKeyExpirationNotifyJob } from './cron/apiKeyExpirationNotify.js'
 import { startSubscriptionExpiryCheckJob } from './cron/subscriptionExpiryCheck.js'
 import { startPaymentExpiryCheckJob } from './cron/paymentExpiryCheck.js'
+import { startWABAHealthCheckJob } from './cron/wabaHealthCheck.js'
+import { startPhoneNumberStatusCheckJob } from './cron/phoneNumberStatusCheck.js'
+import { startMemoryCleanupJobs } from './cron/memoryCleanup.js'
+import { startBroadcastRecoveryJob } from './cron/broadcastRecovery.js'
+import { startAffiliateCommissionReleaseJob } from './cron/affiliateCommissionRelease.js'
 
 // Import webhook workers
 import './workers/webhookWorker.js'
 import './workers/webhookOutboundWorker.js'
+import './workers/memoryWorker.js'
+import './workers/broadcastWorker.js'
+import './workers/documentWorker.js'
 
 // Import WebSocket server and event emitter
 import { initializeWebSocket, eventEmitter } from './websocket/index.js'
@@ -83,7 +100,7 @@ console.log('🚀 Starting Backend Server... (Forced Restart)')
 
 // Start cron jobs
 startWindowClosureJob()
-startMessageDeletionJob()
+startMessageDeletionJob() // Tier-based message retention (controlled by system settings)
 startWABATokenRefreshJob()
 startQualityRatingSyncJob()
 startWebhookHealthCheckJob()
@@ -92,6 +109,11 @@ startDeliveryLogCleanupJob()
 startApiKeyExpirationNotifyJob()
 startSubscriptionExpiryCheckJob()
 startPaymentExpiryCheckJob()
+startWABAHealthCheckJob()
+startPhoneNumberStatusCheckJob()
+startMemoryCleanupJobs() // Memory cleanup and retry failed embeddings
+startBroadcastRecoveryJob() // Recover stuck broadcasts on startup and periodically
+startAffiliateCommissionReleaseJob() // Release pending affiliate commissions daily
 // Monitoring check disabled - use new monitoring service instead
 
 // Security headers middleware (apply to all routes)
@@ -129,7 +151,6 @@ app.use('*', cors({
     'Authorization',
     'X-Requested-With',
     'X-2FA-Token',
-    'X-Turnstile-Token',
     'Cookie',
     'User-Agent',
     'Accept',
@@ -171,11 +192,29 @@ app.on(['GET', 'POST'], '/api/auth/**', async (c) => {
 })
 
 // API Routes (v1) - Keep old routes for backward compatibility
-// Rate limiting for auth endpoints - DISABLED for now (causing issues)
-// app.use('/api/v1/auth/sign-in/*', authRateLimiter)
-app.use('/api/v1/auth/sign-up/*', authRateLimiter)
+//
+// Rate limiting for auth endpoints
+// -------------------------------------------------------------
+// Better Auth endpoints (/api/auth/sign-in/*, /api/auth/sign-up/*)
+// are the ones used by the frontend (`authClient.signIn.email(...)`)
+// and MUST stay rate-limited.
 app.use('/api/auth/sign-in/*', authRateLimiter)
 app.use('/api/auth/sign-up/*', authRateLimiter)
+
+// Custom auth endpoints mounted at /api/v1/auth (see routes/auth.ts).
+// The previous `/api/v1/auth/sign-in/*` and `/api/v1/auth/sign-up/*`
+// paths did not match ANY real endpoint (the custom routes are `/login`,
+// `/register`, `/register/initiate`, etc.), so they used to be dead
+// middleware — that's why they were commented as "causing issues".
+// Apply the limiter to the actual state-changing paths instead.
+// `/me` (GET session info) and `/logout` are intentionally excluded.
+app.use('/api/v1/auth/login', authRateLimiter)
+app.use('/api/v1/auth/register', authRateLimiter)
+app.use('/api/v1/auth/register/*', authRateLimiter) // initiate/verify/resend
+app.use('/api/v1/auth/forgot-password', authRateLimiter)
+app.use('/api/v1/auth/forgot-password/*', authRateLimiter) // resend
+app.use('/api/v1/auth/reset-password', authRateLimiter)
+app.use('/api/v1/auth/change-password', authRateLimiter)
 
 // Mount Better Auth routes (handles /api/auth/*)
 app.all('/api/auth/*', async (c) => {
@@ -208,8 +247,15 @@ app.use('/api/v1/ig/connection/*', authMiddleware)
 app.use('/api/v1/ig/tokens/*', authMiddleware)
 app.use('/api/v1/ig/conversations/*', authMiddleware)
 app.use('/api/v1/ig/messages/*', authMiddleware)
+// Messenger routes - exclude webhooks (verified by Facebook signature)
+app.use('/api/v1/messenger/auth/url', authMiddleware)
+app.use('/api/v1/messenger/connection/*', authMiddleware)
+app.use('/api/v1/messenger/conversations/*', authMiddleware)
 app.use('/api/v1/subscription', authMiddleware)
 app.use('/api/v1/payment/*', authMiddleware)
+// Credit routes - protected
+app.use('/api/v1/credit/*', authMiddleware)
+app.use('/api/v1/credit', authMiddleware)
 // Payment status polling - higher rate limit (30 req/min) for status checks
 app.use('/api/v1/payment/status/*', paymentStatusRateLimiter)
 // Payment rate limiting - 10 requests/minute per user for other endpoints (Requirements: 10.4)
@@ -236,6 +282,24 @@ app.use('/api/v1/insights/*', authMiddleware)
 // Assignment routes - protected
 app.use('/api/v1/assignments/*', authMiddleware)
 
+// Notification routes - protected
+app.use('/api/v1/notifications/*', authMiddleware)
+app.use('/api/v1/notifications', authMiddleware)
+
+// Conversation routes - protected (typing indicators, etc.)
+app.use('/api/v1/conversations/*', authMiddleware)
+
+// Affiliate routes - protected (except validate/:code which is public)
+app.use('/api/v1/affiliate/status', authMiddleware)
+app.use('/api/v1/affiliate/register', authMiddleware)
+app.use('/api/v1/affiliate/referrals', authMiddleware)
+app.use('/api/v1/affiliate/earnings', authMiddleware)
+// Note: /api/v1/affiliate/validate/:code is public (no auth required)
+
+// Quick replies routes - protected
+app.use('/api/v1/quick-replies/*', authMiddleware)
+app.use('/api/v1/quick-replies', authMiddleware)
+
 // Admin routes - require both auth and admin role
 app.use('/api/v1/admin/*', authMiddleware)
 app.use('/api/v1/admin/*', adminAuthMiddleware)
@@ -254,20 +318,26 @@ app.route('/api/v1/waba', wabaRoutes)
 app.route('/api/v1/monitoring', monitoringRoutes)
 app.route('/api/v1/crm', crmRoutes)
 app.route('/api/v1/ig', instagramRoutes)
+app.route('/api/v1/messenger', messengerRoutes)
 app.route('/api/v1/subscription', subscriptionRoutes)
 app.route('/api/v1/payment', paymentRoutes)
+app.route('/api/v1/credit', creditRoutes)
 app.route('/api/v1/team', teamRoutes)
 app.route('/api/v1/admin', adminRoutes)
 app.route('/api/v1/template-variables', templateVariablesRoutes)
 app.route('/api/v1/broadcast', broadcastRoutes)
 app.route('/api/v1/insights', insightsRoutes)
 app.route('/api/v1/assignments', assignmentRoutes)
+app.route('/api/v1/notifications', notificationRoutes)
+app.route('/api/v1/conversations', conversationRoutes)
+app.route('/api/v1/affiliate', affiliateRoutes)
+app.route('/api/v1/quick-replies', quickReplyRoutes)
 
 // Public branding route (no auth required - used by auth pages)
 app.route('/api/v1/branding', brandingRoutes)
 
-// Public turnstile route (no auth required - used by auth pages and login/register)
-app.route('/api/v1/turnstile', turnstileRoutes)
+// Public channel status route (no auth required - used by sidebar)
+app.route('/api/v1/channels', channelsRoutes)
 
 // Public API routes (API key authentication)
 // These routes use API key auth instead of session auth
@@ -283,6 +353,18 @@ app.route('/api/v1/webhooks', webhookRoutes)
 app.route('/api/v1/webhooks/whatsapp', webhookRoutes)
 // Duitku payment webhook (no auth, verified by signature)
 app.route('/api/v1/webhooks/duitku', duitkuWebhookRoutes)
+// Xendit payment webhook (no auth, verified by X-Callback-Token)
+app.route('/api/v1/webhooks/xendit', xenditWebhookRoutes)
+
+// 404 handler for unknown payment webhook providers (Requirements: 5.4)
+app.all('/api/v1/webhooks/:provider/callback', (c: Context) => {
+  const provider = c.req.param('provider')
+  console.warn(`Unknown payment webhook provider: ${provider}`)
+  return c.json({
+    error: 'Provider not found',
+    message: `Payment provider '${provider}' is not supported`,
+  }, 404)
+})
 
 // Serve static files from uploads directory (for media)
 app.use('/uploads/*', serveStatic({ root: './' }))

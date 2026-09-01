@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, UserCheck, MessageSquare, Wifi, MessageCircle, Instagram } from "lucide-react"
+import { Users, MessageSquare, MessageCircle, Instagram, Facebook } from "lucide-react"
 import { StatsCard } from "./stats-card"
 
 interface UserStats {
@@ -26,6 +26,7 @@ interface MessageStats {
   byChannel: {
     whatsapp: number
     instagram: number
+    messenger: number
   }
   deliveryRate: number
 }
@@ -37,6 +38,7 @@ interface ConnectionStats {
   wabaDisconnected: number
   wabaPending: number
   instagramConnected: number
+  messengerConnected: number
 }
 
 interface StatsGridProps {
@@ -57,13 +59,6 @@ export function StatsGrid({ users, messages, connections, isLoading }: StatsGrid
         isLoading={isLoading}
       />
       <StatsCard
-        title="Active Users"
-        value={users?.activeLastWeek ?? 0}
-        description="Last 7 days"
-        icon={UserCheck}
-        isLoading={isLoading}
-      />
-      <StatsCard
         title="Total Messages"
         value={messages?.total ?? 0}
         description={`${messages?.deliveryRate ?? 0}% delivery rate`}
@@ -71,16 +66,9 @@ export function StatsGrid({ users, messages, connections, isLoading }: StatsGrid
         isLoading={isLoading}
       />
       <StatsCard
-        title="Active Connections"
-        value={connections?.activeWebsockets ?? 0}
-        description={`${connections?.onlineUsers ?? 0} online users`}
-        icon={Wifi}
-        isLoading={isLoading}
-      />
-      <StatsCard
         title="WABA Connected"
         value={connections?.wabaConnected ?? 0}
-        description={`${connections?.wabaDisconnected ?? 0} disconnected, ${connections?.wabaPending ?? 0} pending`}
+        description="Active WABA accounts"
         icon={MessageCircle}
         isLoading={isLoading}
       />
@@ -89,6 +77,13 @@ export function StatsGrid({ users, messages, connections, isLoading }: StatsGrid
         value={connections?.instagramConnected ?? 0}
         description="Connected accounts"
         icon={Instagram}
+        isLoading={isLoading}
+      />
+      <StatsCard
+        title="Facebook Pages"
+        value={connections?.messengerConnected ?? 0}
+        description="Connected Messenger pages"
+        icon={Facebook}
         isLoading={isLoading}
       />
       <StatsCard
@@ -101,7 +96,7 @@ export function StatsGrid({ users, messages, connections, isLoading }: StatsGrid
       <StatsCard
         title="Messages This Month"
         value={messages?.thisMonth ?? 0}
-        description={`WhatsApp: ${messages?.byChannel.whatsapp ?? 0}, IG: ${messages?.byChannel.instagram ?? 0}`}
+        description={`WA: ${messages?.byChannel.whatsapp ?? 0}, IG: ${messages?.byChannel.instagram ?? 0}, FB: ${messages?.byChannel.messenger ?? 0}`}
         icon={MessageSquare}
         isLoading={isLoading}
       />

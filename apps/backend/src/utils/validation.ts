@@ -4,6 +4,27 @@ import { z } from 'zod'
 export const phoneNumberSchema = z.string()
   .regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format. Must be in E.164 format')
 
+/**
+ * Normalize phone number for consistent storage and comparison
+ * Removes + prefix, spaces, dashes, and other non-digit characters
+ * Examples:
+ * - +6281234567890 -> 6281234567890
+ * - 6281234567890 -> 6281234567890
+ * - +62 812 3456 7890 -> 6281234567890
+ *
+ * BSUID guard: preserves BSUID format (e.g., US.13491208655302741918 or
+ * US.ENT.11815...) unchanged. BSUIDs are NOT phone numbers and must not be
+ * stripped of their country prefix and dot separator.
+ * Reference: docs/bsuid.md
+ */
+export function normalizePhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return ''
+  if (/^[A-Z]{2}\.(ENT\.)?[a-zA-Z0-9]{1,128}$/.test(phone)) {
+    return phone
+  }
+  return phone.replace(/[^\d]/g, '')
+}
+
 // Email validation
 export const emailSchema = z.string()
   .email('Invalid email address')
@@ -93,56 +114,6 @@ export const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/3gpp']
 export const ALLOWED_AUDIO_TYPES = ['audio/ogg', 'audio/mpeg', 'audio/amr']
 
 export const MAX_FILE_SIZE = 16 * 1024 * 1024 // 16MB
-
-const SAFE_EXTENSIONS: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'application/pdf': '.pdf',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'video/mp4': '.mp4',
-  'video/3gpp': '.3gp',
-  'audio/ogg': '.ogg',
-  'audio/mpeg': '.mp3',
-  'audio/amr': '.amr',
-}
-
-export function getSafeExtension(mimeType: string): string | null {
-  return SAFE_EXTENSIONS[mimeType] || null
-}
-
-export function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
-  if (buffer.length < 4) return false
-
-  switch (mimeType) {
-    case 'image/jpeg':
-      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
-    case 'image/png':
-      return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-    case 'image/webp':
-      return buffer.subarray(0, 4).toString('ascii') === 'RIFF'
-        && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-    case 'application/pdf':
-      return buffer.subarray(0, 5).toString('ascii') === '%PDF-'
-    case 'application/msword':
-      return buffer.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))
-    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-      return buffer[0] === 0x50 && buffer[1] === 0x4b
-    case 'video/mp4':
-    case 'video/3gpp':
-      return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
-    case 'audio/ogg':
-      return buffer.subarray(0, 4).toString('ascii') === 'OggS'
-    case 'audio/mpeg':
-      return buffer.subarray(0, 3).toString('ascii') === 'ID3'
-        || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
-    case 'audio/amr':
-      return buffer.subarray(0, 6).toString('ascii') === '#!AMR\n'
-    default:
-      return false
-  }
-}
 
 export function validateFileType(mimeType: string, type: 'image' | 'document' | 'video' | 'audio'): boolean {
   switch (type) {

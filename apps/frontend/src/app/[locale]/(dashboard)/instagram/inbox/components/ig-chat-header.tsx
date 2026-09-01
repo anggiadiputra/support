@@ -1,10 +1,11 @@
 "use client"
 
-import { ArrowLeft, ExternalLink, Instagram } from "lucide-react"
-import type { IGConversation } from "@/lib/api/instagram"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, ExternalLink } from "lucide-react"
+import { IconBrandInstagram } from "@tabler/icons-react"
+import type { IGConversation } from "@/lib/api/instagram"
 
 interface Props {
   conversation: IGConversation
@@ -14,20 +15,17 @@ interface Props {
 export function IGChatHeader({ conversation, onBack }: Props) {
   const openInstagramProfile = () => {
     if (conversation.participantUsername) {
-      window.open(
-        `https://instagram.com/${conversation.participantUsername}`,
-        "_blank"
-      )
+      window.open(`https://instagram.com/${conversation.participantUsername}`, "_blank")
     }
   }
 
   return (
-    <div className="bg-background flex items-center gap-3 border-b p-4">
+    <div className="flex items-center gap-3 p-4 border-b bg-background">
       <Button
         variant="ghost"
         size="sm"
         onClick={onBack}
-        className="h-8 w-8 p-0 md:hidden"
+        className="md:hidden h-8 w-8 p-0"
       >
         <ArrowLeft className="h-4 w-4" />
       </Button>
@@ -35,29 +33,24 @@ export function IGChatHeader({ conversation, onBack }: Props) {
       <Avatar className="h-10 w-10">
         <AvatarImage src={conversation.participantProfilePic || undefined} />
         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-          {conversation.participantUsername?.substring(0, 2).toUpperCase() ||
-            "IG"}
+          {conversation.participantUsername?.substring(0, 2).toUpperCase() || "IG"}
         </AvatarFallback>
       </Avatar>
 
-      <div className="min-w-0 flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate font-semibold">
+          <p className="font-semibold truncate">
             @{conversation.participantUsername || "Unknown"}
           </p>
           {conversation.isFollower && (
-            <Badge variant="secondary" className="text-xs">
-              Follower
-            </Badge>
+            <Badge variant="secondary" className="text-xs">Follower</Badge>
           )}
           {conversation.isFollowing && (
-            <Badge variant="outline" className="text-xs">
-              Following
-            </Badge>
+            <Badge variant="outline" className="text-xs">Following</Badge>
           )}
         </div>
         {conversation.participantName && (
-          <p className="text-muted-foreground truncate text-sm">
+          <p className="text-sm text-muted-foreground truncate">
             {conversation.participantName}
           </p>
         )}
@@ -73,8 +66,8 @@ export function IGChatHeader({ conversation, onBack }: Props) {
         >
           <ExternalLink className="h-4 w-4" />
         </Button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500">
-          <Instagram className="h-4 w-4 text-white" />
+        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+          <IconBrandInstagram className="h-4 w-4 text-white" />
         </div>
       </div>
     </div>

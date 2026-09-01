@@ -16,6 +16,7 @@ const app = new Hono()
 /**
  * GET / - List conversations with pagination
  * Sorted by lastMessageAt in descending order
+ * For agents, only show conversations assigned to them
  * Requirements: 4.1
  */
 app.get('/', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), resolveContext, async (c: Context) => {
@@ -30,6 +31,8 @@ app.get('/', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), resolveContext, 
     }
 
     const effectiveUserId = getEffectiveUserId(c)
+    const isAgent = c.user.role === 'AGENT'
+    const agentUserId = c.user.id
 
     // Get pagination parameters
     const page = parseInt(c.req.query('page') || '1', 10)
@@ -54,10 +57,51 @@ app.get('/', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), resolveContext, 
       }, 404)
     }
 
+    // For agents, get the list of conversation IDs assigned to them
+    let assignedConversationIds: string[] = []
+    if (isAgent) {
+      const agentAssignments = await prisma.conversationAssignment.findMany({
+        where: {
+          businessOwnerId: effectiveUserId,
+          conversationType: 'INSTAGRAM',
+          assigneeId: agentUserId,
+          assigneeType: 'HUMAN',
+          unassignedAt: null,
+        },
+        select: {
+          conversationId: true,
+        }
+      })
+      assignedConversationIds = agentAssignments.map(a => a.conversationId)
+      
+      // If agent has no assignments, return empty result
+      if (assignedConversationIds.length === 0) {
+        return c.json({
+          success: true,
+          data: {
+            conversations: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+              hasMore: false
+            }
+          }
+        })
+      }
+    }
+
+    // Build where clause for conversations
+    const conversationWhere: any = { instagramAccountId: igAccount.id }
+    if (isAgent && assignedConversationIds.length > 0) {
+      conversationWhere.id = { in: assignedConversationIds }
+    }
+
     // Get conversations, total count, and assignments in parallel
     const [conversations, total, assignmentsRaw] = await Promise.all([
       prisma.iGConversation.findMany({
-        where: { instagramAccountId: igAccount.id },
+        where: conversationWhere,
         orderBy: { lastMessageAt: 'desc' },
         skip,
         take: limit,
@@ -83,7 +127,7 @@ app.get('/', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), resolveContext, 
         }
       }),
       prisma.iGConversation.count({
-        where: { instagramAccountId: igAccount.id }
+        where: conversationWhere
       }),
       // Fetch active assignments for Instagram conversations
       prisma.conversationAssignment.findMany({
@@ -91,6 +135,8 @@ app.get('/', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), resolveContext, 
           businessOwnerId: effectiveUserId,
           conversationType: 'INSTAGRAM',
           unassignedAt: null,
+          // For agents, only show their assignments
+          ...(isAgent && assignedConversationIds.length > 0 ? { conversationId: { in: assignedConversationIds } } : {})
         },
         include: {
           assignee: {

@@ -38,6 +38,7 @@ interface UsePaymentHistoryReturn {
   page: number
   setPage: (page: number) => void
   refetch: () => Promise<void>
+  checkStatus: (orderId: string) => Promise<void>
 }
 
 export function usePaymentHistory(initialLimit = 10): UsePaymentHistoryReturn {
@@ -95,6 +96,41 @@ export function usePaymentHistory(initialLimit = 10): UsePaymentHistoryReturn {
     fetchHistory()
   }, [fetchHistory])
 
+  const checkStatus = useCallback(async (orderId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/payment/status/${orderId}`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        // Refresh history if status changed
+        const currentTx = transactions.find(t => t.orderId === orderId)
+        if (currentTx && currentTx.status !== result.data.status) {
+          toast({
+            title: 'Status Diperbarui',
+            description: `Pembayaran ${result.data.status === 'COMPLETED' ? 'Berhasil' : result.data.status}`,
+          })
+          fetchHistory()
+        } else {
+           toast({
+            title: 'Status Belum Berubah',
+            description: 'Pembayaran masih menunggu konfirmasi',
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check status:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Gagal mengecek status pembayaran',
+      })
+    }
+  }, [transactions, fetchHistory, toast])
+
   return {
     transactions,
     pagination,
@@ -103,5 +139,6 @@ export function usePaymentHistory(initialLimit = 10): UsePaymentHistoryReturn {
     page,
     setPage,
     refetch,
+    checkStatus,
   }
 }

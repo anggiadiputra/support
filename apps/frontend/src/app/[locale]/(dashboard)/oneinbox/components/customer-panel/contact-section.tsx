@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Phone, Mail, User, SquarePen, Check, X } from "lucide-react"
+import { Loader2, Phone, Mail, User, Pencil, Check, X, MessageCircle } from "lucide-react"
 import type { CRMCustomerDetail } from "../../types/unified-inbox"
 
 interface ContactSectionProps {
@@ -124,7 +124,7 @@ function EditableField({ label, value, icon, onSave, validate, disabled }: Edita
           onClick={handleEdit}
           className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <SquarePen className="h-3 w-3" />
+          <Pencil className="h-3 w-3" />
         </Button>
       )}
     </div>
@@ -150,8 +150,11 @@ export function ContactSection({ customer, onUpdate, loading = false }: ContactS
   }
 
   return (
-    <div className="p-4">
-      <h4 className="text-sm font-medium mb-3">Contact Information</h4>
+    <div className="p-4 border-b">
+      <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+        <Phone className="h-4 w-4 text-muted-foreground" />
+        Contact Information
+      </h4>
 
       <div className="space-y-3">
         <EditableField
@@ -180,6 +183,23 @@ export function ContactSection({ customer, onUpdate, loading = false }: ContactS
           validate={validateEmail}
           disabled={loading}
         />
+
+        {/* WhatsApp Identifier (BSUID) */}
+        {customer.whatsappBsuid && (
+          <div className="flex items-center gap-2">
+            <div className="text-muted-foreground shrink-0">
+              <MessageCircle className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">WhatsApp ID</p>
+              {customer.whatsappUsername ? (
+                <p className="text-sm truncate">{customer.whatsappUsername}</p>
+              ) : (
+                <p className="text-sm font-mono truncate">{customer.whatsappBsuid}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Custom fields */}
         {Object.keys(customer.customFields || {}).length > 0 && (

@@ -2,8 +2,8 @@ import type { UserConnection } from './types.js'
 
 /**
  * Connection Manager
- * Tracks active WebSocket connections per user
- * Manages user-specific rooms for targeted broadcasting
+ * Tracks active WebSocket connections per user and business
+ * Manages user-specific and business-specific rooms for targeted broadcasting
  */
 class ConnectionManager {
   // Map of socketId -> UserConnection
@@ -12,13 +12,17 @@ class ConnectionManager {
   // Map of userId -> Set of socketIds (for multi-device support)
   private userConnections: Map<string, Set<string>> = new Map()
 
+  // Map of businessOwnerId -> Set of socketIds (for business-wide broadcasts)
+  private businessConnections: Map<string, Set<string>> = new Map()
+
   /**
    * Add a new connection
    */
-  addConnection(userId: string, socketId: string, userAgent?: string): void {
+  addConnection(userId: string, socketId: string, businessOwnerId: string, userAgent?: string): void {
     const connection: UserConnection = {
       socketId,
       userId,
+      businessOwnerId,
       connectedAt: new Date(),
       lastHeartbeat: new Date(),
       userAgent
@@ -33,7 +37,13 @@ class ConnectionManager {
     }
     this.userConnections.get(userId)!.add(socketId)
 
-    console.log(`[ConnectionManager] Added connection ${socketId} for user ${userId}. Total connections: ${this.connections.size}`)
+    // Add to business's connection set
+    if (!this.businessConnections.has(businessOwnerId)) {
+      this.businessConnections.set(businessOwnerId, new Set())
+    }
+    this.businessConnections.get(businessOwnerId)!.add(socketId)
+
+    console.log(`[ConnectionManager] Added connection ${socketId} for user ${userId} (business: ${businessOwnerId}). Total connections: ${this.connections.size}`)
   }
 
   /**
@@ -46,7 +56,7 @@ class ConnectionManager {
       return
     }
 
-    const { userId } = connection
+    const { userId, businessOwnerId } = connection
 
     // Remove from connections map
     this.connections.delete(socketId)
@@ -62,7 +72,18 @@ class ConnectionManager {
       }
     }
 
-    console.log(`[ConnectionManager] Removed connection ${socketId} for user ${userId}. Total connections: ${this.connections.size}`)
+    // Remove from business's connection set
+    const businessSockets = this.businessConnections.get(businessOwnerId)
+    if (businessSockets) {
+      businessSockets.delete(socketId)
+      
+      // Clean up empty business entry
+      if (businessSockets.size === 0) {
+        this.businessConnections.delete(businessOwnerId)
+      }
+    }
+
+    console.log(`[ConnectionManager] Removed connection ${socketId} for user ${userId} (business: ${businessOwnerId}). Total connections: ${this.connections.size}`)
   }
 
   /**
@@ -71,6 +92,27 @@ class ConnectionManager {
   getUserConnections(userId: string): string[] {
     const sockets = this.userConnections.get(userId)
     return sockets ? Array.from(sockets) : []
+  }
+
+  /**
+   * Get all user IDs connected to a business
+   */
+  getBusinessUserIds(businessOwnerId: string): string[] {
+    const businessSockets = this.businessConnections.get(businessOwnerId)
+    if (!businessSockets) {
+      return []
+    }
+
+    // Get unique user IDs from all business connections
+    const userIds = new Set<string>()
+    for (const socketId of businessSockets) {
+      const connection = this.connections.get(socketId)
+      if (connection) {
+        userIds.add(connection.userId)
+      }
+    }
+
+    return Array.from(userIds)
   }
 
   /**

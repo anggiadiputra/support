@@ -55,6 +55,9 @@ enum MessageType {
   LOCATION
   INTERACTIVE
   REACTION
+  BUTTON
+  EDIT
+  UNSUPPORTED
 }
 
 enum MessageStatus {
@@ -69,6 +72,7 @@ enum MessageStatus {
 
 enum MessageSource {
   API
+  AI_BOT
   WHATSAPP_APP
   INSTAGRAM
 }
@@ -76,6 +80,7 @@ enum MessageSource {
 enum ChannelType {
   WHATSAPP
   INSTAGRAM
+  MESSENGER
 }
 
 enum IGMessageType {
@@ -87,6 +92,18 @@ enum IGMessageType {
   STORY_REPLY
   STORY_MENTION
   MEDIA_SHARE
+  REACTION
+}
+
+enum MessengerMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  STICKER
+  TEMPLATE
+  QUICK_REPLY
   REACTION
 }
 
@@ -105,6 +122,7 @@ enum ProcessingStatus {
 
 enum SubscriptionTier {
   FREE
+  BASIC
   LITE
   PRO
 }
@@ -126,6 +144,42 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   QRIS
+  VA_BCA
+  VA_BNI
+  VA_MANDIRI
+  VA_PERMATA
+}
+
+enum CreditTransactionType {
+  PRORATE_EXCESS // Excess prorate credit stored
+  PAYMENT_USED // Credit used for payment
+  ADMIN_ADJUSTMENT // Admin manual add/subtract
+  REFUND // Refund credit
+  AUTO_RENEWAL // Credit used for auto-renewal
+  TOP_UP // Credit added via top-up payment
+  AFFILIATE_COMMISSION // Commission from affiliate referral
+  REFERRAL_BONUS // Bonus credit for referred user
+}
+
+// Payment Transaction Type (for distinguishing subscription vs top-up payments)
+enum PaymentTransactionType {
+  SUBSCRIPTION
+  TOP_UP
+}
+
+// Affiliate System Enums
+
+enum AffiliateTier {
+  STANDARD
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum AffiliateCommissionStatus {
+  PENDING // Waiting for holding period
+  CREDITED // Added to credit balance
+  CANCELLED // Cancelled (e.g., refund)
 }
 
 enum TeamMemberStatus {
@@ -142,6 +196,27 @@ enum InvitationStatus {
   FAILED
 }
 
+enum WABAHealthStatus {
+  ACTIVE
+  RESTRICTED
+  UNDER_REVIEW
+  FLAGGED
+  DISABLED
+}
+
+// Conversation Memory Enums
+enum MemoryType {
+  AI_REPLY      // AI auto-response
+  HUMAN_REPLY   // Agent reply from dashboard
+  SMB_ECHO      // Owner reply from WA app
+}
+
+enum MemoryStatus {
+  PENDING       // Queued, not yet embedded
+  COMPLETED     // Embedding successful
+  FAILED        // Failed after retries
+}
+
 model Subscription {
   id     String @id @default(cuid())
   userId String @unique
@@ -153,6 +228,11 @@ model Subscription {
   // Validity
   startDate DateTime  @default(now())
   endDate   DateTime? // Null = lifetime/indefinite
+
+  // Auto-renewal settings
+  autoRenewEnabled        Boolean   @default(true)
+  autoRenewDurationMonths Int       @default(1) // 1, 3, 6, or 12
+  lastAutoRenewalAt       DateTime? // For idempotency check
 
   // Manual Payment Tracking
   paymentProof String?
@@ -175,14 +255,29 @@ model PaymentTransaction {
   amount        Int // Amount in IDR (no decimals)
   paymentMethod PaymentMethod
 
+  // Provider tracking
+  providerId String @default("duitku") // Payment provider ID (duitku, xendit, etc.)
+
   // Subscription details
   targetTier   SubscriptionTier
   durationDays Int              @default(30)
 
-  // Duitku response
-  referenceNo String? // Duitku reference number
+  // Promo code tracking
+  promoCode      String? // Promo code used for this transaction
+  discountAmount Int? // Discount amount applied (in IDR)
+
+  // Prorate credit (from remaining subscription when upgrading)
+  prorateCredit Int? // Credit amount from remaining subscription (in IDR)
+
+  // Top-up credit support
+  creditUsed      Int                    @default(0)            // Amount of credit used in this transaction
+  transactionType PaymentTransactionType @default(SUBSCRIPTION) // Transaction type: SUBSCRIPTION or TOP_UP
+
+  // Provider response
+  referenceNo String? // Provider reference number
   qrString    String? @db.Text // QR code string
   qrUrl       String? // QR code image URL
+  vaNumber    String? // Virtual Account number (for VA payments)
 
   // Status
   status    PaymentStatus @default(PENDING)
@@ -197,8 +292,48 @@ model PaymentTransaction {
 
   @@index([userId])
   @@index([orderId])
+  @@index([providerId])
   @@index([status])
   @@index([expiresAt])
+  @@index([transactionType])
+}
+
+// Credit Balance System Models
+
+model CreditBalance {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance Int @default(0) // Current balance in IDR
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CreditTransaction {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type          CreditTransactionType
+  amount        Int // Positive = added, Negative = used
+  balanceBefore Int
+  balanceAfter  Int
+
+  // Reference to related entities
+  paymentTransactionId String?
+  orderId              String?
+
+  // Admin adjustment fields
+  adminUserId String?
+  reason      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 // Team Agent Management Models
@@ -249,6 +384,26 @@ model Invitation {
   @@index([status])
 }
 
+model WABAAccountStatus {
+  id              String           @id @default(cuid())
+  wabaId          String
+  phoneNumberId   String?
+  status          WABAHealthStatus @default(ACTIVE)
+  restrictionType String? // ACCOUNT_LOCKED, POLICY_VIOLATION, SPAM_RATE_LIMIT, DELIVERY_BLOCKED
+  errorCode       Int?
+  errorMessage    String?
+  detectedAt      DateTime         @default(now())
+  resolvedAt      DateTime?
+  detectedFrom    String // ERROR_RESPONSE, API_POLLING
+  rawResponse     Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([wabaId])
+  @@index([status])
+  @@index([detectedAt])
+}
+
 model MetaApp {
   id                 String    @id @default(cuid())
   appId              String    @unique
@@ -256,8 +411,77 @@ model MetaApp {
   techProviderStatus String    @default("pending")
   termsAcceptedAt    DateTime?
   users              User[]
+  whatsappAccounts   WhatsAppAccount[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+}
+
+model WhatsAppAccount {
+  id       String  @id @default(cuid())
+  wabaId   String  @unique
+  wabaName String?
+
+  // Token (encrypted per-account)
+  accessToken    String
+  accessTokenIV  String
+  accessTokenTag String
+  tokenExpiresAt   DateTime?
+  tokenLastRefresh DateTime?
+
+  // WABA metadata
+  verifiedStatus           String  @default("unverified")
+  messagingTier            String?
+  timezoneId               String?
+  currency                 String?
+  messageTemplateNamespace String?
+
+  // Webhook Configuration
+  webhookVerifyToken      String?
+  webhookSubscribedAt     DateTime?
+  webhookSubscribedEvents Json?
+
+  // Connection status
+  connectionStatus String   @default("connected")
+  connectedAt      DateTime @default(now())
+  lastSyncAt       DateTime?
+
+  // Manual login (user provides own access token + WABA ID)
+  isManualLogin           Boolean   @default(false)
+
+  // Coexistence (WhatsApp Business App + Cloud API)
+  isCoexistence           Boolean   @default(false)
+  coexistenceSyncProgress Int?
+  coexistenceSyncStatus   String?
+  historySharingConsent   Boolean   @default(false)
+  contactSyncCompletedAt  DateTime?
+  historySyncCompletedAt  DateTime?
+
+  // Meta App relationship
+  metaAppId String?
+  metaApp   MetaApp? @relation(fields: [metaAppId], references: [id])
+
+  // Owner
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  phoneNumbers        PhoneNumber[]
+  connectionLogs      WABAConnectionLog[]
+  qualityRatings      QualityRating[]
+  messageTemplates    MessageTemplate[]
+  coexistenceSyncLogs CoexistenceSyncStatus[]
+  aiConfigs           WhatsAppAccountAIConfig[]
+
+  // Conversation Memory Relations
+  conversationMemories ConversationMemory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([wabaId])
+  @@index([connectionStatus])
+  @@index([metaAppId])
 }
 
 model User {
@@ -276,42 +500,8 @@ model User {
   lastLoginAt      DateTime?
   isActive         Boolean   @default(true)
 
-  // WABA Configuration (moved from BusinessAccount)
-  wabaId                   String? @unique
-  phoneNumberId            String?
-  verifiedStatus           String  @default("unverified")
-  messagingTier            String?
-  country                  String?
-  timezoneId               String?
-  currency                 String?
-  messageTemplateNamespace String?
-
+  country          String?
   subscriptionTier String @default("FREE")
-
-  // WABA Token Configuration (Encrypted)
-  wabaAccessToken      String?
-  wabaAccessTokenIV    String?
-  wabaAccessTokenTag   String?
-  wabaTokenExpiresAt   DateTime?
-  wabaTokenLastRefresh DateTime?
-
-  // Webhook Configuration
-  webhookVerifyToken      String?
-  webhookSubscribedAt     DateTime?
-  webhookSubscribedEvents Json?
-
-  // WABA Status Tracking
-  wabaConnectedAt      DateTime?
-  wabaLastSyncAt       DateTime?
-  wabaConnectionStatus String?
-
-  // Coexistence (WhatsApp Business App + Cloud API)
-  isCoexistence           Boolean   @default(false)
-  coexistenceSyncProgress Int? // 0-100
-  coexistenceSyncStatus   String? // pending/in_progress/completed/failed
-  historySharingConsent   Boolean   @default(false)
-  contactSyncCompletedAt  DateTime?
-  historySyncCompletedAt  DateTime?
 
   // Meta App relationship
   metaAppId String?
@@ -335,31 +525,45 @@ model User {
   // Billing
   subscription        Subscription?
   paymentTransactions PaymentTransaction[]
+  creditBalance       CreditBalance?
+  creditTransactions  CreditTransaction[]
 
   // AI Features
-  aiConfig           AIConfig?
-  knowledgeDocuments KnowledgeDocument[]
-  agents             AIAgent[]
+  aiConfig                AIConfig?
+  knowledgeDocuments      KnowledgeDocument[]
+  agents                  AIAgent[]
+  whatsappAccountAIConfigs WhatsAppAccountAIConfig[]
 
   // CRM Relations
   pipelines              Pipeline[]
   customFieldDefinitions CustomFieldDefinition[]
   customerActivities     CustomerActivity[]
+  customerNotes          CustomerNote[]
+
+  // WhatsApp Relations
+  whatsappAccounts WhatsAppAccount[]
 
   // Instagram Relations
   instagramAccounts InstagramAccount[]
+
+  // Facebook Messenger Relations
+  facebookPages FacebookPage[]
 
   // Webhook & Public API Relations
   apiKeys          ApiKey[]
   webhookEndpoints WebhookEndpoint[]
 
   // Admin Settings
-  systemSettings SystemSetting[]
+  systemSettings   SystemSetting[]
+  emailTemplates   EmailTemplate[] @relation("EmailTemplateUpdatedBy")
 
   // Team Agent Management Relations
   teamMembers     TeamMember[] @relation("BusinessOwnerTeam")
   agentMembership TeamMember?  @relation("AgentMembership")
   invitations     Invitation[]
+
+  // Admin Broadcast Relations
+  adminBroadcasts AdminBroadcast[] @relation("AdminBroadcasts")
 
   // Template Variable Management Relations
   templateVariables        TemplateVariable[]
@@ -372,13 +576,32 @@ model User {
   assignmentsMade          ConversationAssignment[] @relation("AssignmentsMade")
   businessOwnerAssignments ConversationAssignment[] @relation("BusinessOwnerAssignments")
 
+  // Notification Relations
+  notifications            Notification[]
+  adminNotificationBatches NotificationBatch[] @relation("AdminNotificationBatches")
+
+  // Affiliate Relations
+  affiliate  Affiliate? // User's affiliate profile
+  referredBy Referral?  @relation("ReferredByAffiliate") // Who referred this user
+
+  // Auto Tagging Relations
+  autoTagRules AutoTagRule[]
+
+  // Conversation Memory Relations
+  conversationMemories ConversationMemory[]
+
+  // Escalation Keyword Group Relations
+  escalationAssignments EscalationKeywordGroup[] @relation("EscalationAssignedAgent")
+
+  // Quick Reply Relations
+  quickReplyCategories QuickReplyCategory[]
+  quickReplies         QuickReply[]
+  quickRepliesCreated  QuickReply[]         @relation("QuickReplyCreator")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([wabaId])
-  @@index([phoneNumberId])
   @@index([email])
-  @@index([wabaConnectionStatus])
   @@index([metaAppId])
 }
 
@@ -393,12 +616,15 @@ model QualityRating {
   measuredAt           DateTime          @default(now())
 
   // Relationships
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsappAccountId String?
+  whatsappAccount   WhatsAppAccount? @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([whatsappAccountId])
   @@index([phoneNumberId])
   @@index([measuredAt])
 }
@@ -407,11 +633,19 @@ model Customer {
   id                String    @id @default(cuid())
   phoneNumber       String
   name              String?
+  email             String?
   consentStatus     Boolean   @default(false)
   consentCapturedAt DateTime?
   consentSource     String?
   consentPurpose    String?
   blacklisted       Boolean   @default(false)
+
+  // Marketing opt-out (Meta WhatsApp policy: user_preferences webhook + error 131050)
+  // Distinct from consentStatus: applies ONLY to MARKETING category templates.
+  // Utility/Authentication templates and freeform (in-window) messages remain allowed.
+  marketingOptOut       Boolean   @default(false)
+  marketingOptOutAt     DateTime?
+  marketingOptOutSource String?   // 'META_USER_PREFERENCE' | 'META_ERROR_131050' | 'MANUAL'
 
   // 24-Hour Messaging Window (Meta Policy)
   lastInboundMessageAt DateTime? // Last time customer sent message
@@ -420,40 +654,76 @@ model Customer {
 
   // CRM Fields
   leadScore Int      @default(0)
-  notes     String?  @db.Text // Simple notes field
+  notes     String?  @db.Text // Simple notes field (deprecated, use CustomerNote model)
   tags      String[] // Simple array of tags
 
   // Instagram fields
   instagramIgsid    String? // Instagram-scoped User ID
   instagramUsername String?
 
+  // WhatsApp BSUID (Business-Scoped User ID) - new identifier system
+  // Format: <country_code>.<alphanumeric> (e.g., US.13491208655302741918)
+  whatsappBsuid       String?   // Primary BSUID for this customer
+  whatsappParentBsuid String?   // Parent BSUID (for linked business portfolios)
+  whatsappUsername    String?   // WhatsApp username (if user enabled feature)
+  bsuidMappedAt       DateTime? // When BSUID was first recorded
+
+  // WhatsApp phone number link (which business number this customer chats with)
+  whatsappPhoneNumberId String?
+  whatsappPhoneNumber   PhoneNumber? @relation("WhatsAppPhoneCustomers", fields: [whatsappPhoneNumberId], references: [id])
+
   // Pipeline
   pipelineStageId String?
   pipelineStage   PipelineStage? @relation(fields: [pipelineStageId], references: [id])
 
   // Relationships
-  userId          String
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages        Message[]
-  consentLogs     ConsentLog[]
-  customFields    CustomerCustomField[]
-  activities      CustomerActivity[]
-  igConversations IGConversation[]
+  userId                 String
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages               Message[]
+  consentLogs            ConsentLog[]
+  marketingPreferenceLogs MarketingPreferenceLog[]
+  customFields           CustomerCustomField[]
+  activities             CustomerActivity[]
+  igConversations        IGConversation[]
+  messengerConversations MessengerConversation[]
+  customerNotes          CustomerNote[]
 
   // Template Variable History
   templateVariableHistory TemplateVariableHistory[]
 
+  // Conversation Memory Relations
+  conversationMemories ConversationMemory[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, phoneNumber])
+  @@unique([userId, phoneNumber, whatsappPhoneNumberId])
   @@index([userId])
+  @@index([userId, phoneNumber])
   @@index([phoneNumber])
   @@index([isWindowActive])
   @@index([windowExpiresAt])
   @@index([pipelineStageId])
   @@index([leadScore])
   @@index([instagramUsername])
+  @@index([whatsappPhoneNumberId])
+  @@index([whatsappBsuid])
+  @@index([userId, whatsappBsuid])
+  @@index([userId, marketingOptOut])
+}
+
+model MarketingPreferenceLog {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  action        String   // 'STOP' | 'RESUME'
+  source        String   // 'META_USER_PREFERENCE' | 'META_ERROR_131050'
+  detail        String?  // Meta payload detail or human-readable note
+  metaTimestamp DateTime? // Original timestamp from Meta webhook payload (if available)
+  createdAt     DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 model ConsentLog {
@@ -499,6 +769,8 @@ model MessageTemplate {
   metaTemplateId String?
 
   // Relationships
+  whatsappAccountId   String?
+  whatsappAccount     WhatsAppAccount?     @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
   userId              String
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   templateQualityLogs TemplateQualityLog[]
@@ -507,8 +779,9 @@ model MessageTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, templateName, language])
+  @@unique([userId, whatsappAccountId, templateName, language])
   @@index([userId])
+  @@index([whatsappAccountId])
   @@index([status])
   @@index([category])
 }
@@ -546,6 +819,10 @@ model Message {
   deviceTimestamp  DateTime? // Original timestamp from device (for history sync)
   isHistoryMessage Boolean       @default(false) // Was synced from WhatsApp Business App history
 
+  // WhatsApp phone number (which business number sent/received this message)
+  whatsappPhoneNumberId String?
+  whatsappPhoneNumber   PhoneNumber? @relation("WhatsAppPhoneMessages", fields: [whatsappPhoneNumberId], references: [id])
+
   // Relationships
   userId     String
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -553,6 +830,13 @@ model Message {
   customer   Customer         @relation(fields: [customerId], references: [id])
   templateId String?
   template   MessageTemplate? @relation(fields: [templateId], references: [id])
+
+  // Broadcast job relationship (for tracking delivery status)
+  bulkSendJobId String?
+  bulkSendJob   BulkTemplateSend? @relation(fields: [bulkSendJobId], references: [id], onDelete: SetNull)
+
+  // CTWA (Click-to-WhatsApp Ads) referral data from Meta webhook
+  referral Json?
 
   createdAt DateTime @default(now())
 
@@ -563,6 +847,8 @@ model Message {
   @@index([status])
   @@index([wamId])
   @@index([source])
+  @@index([bulkSendJobId])
+  @@index([whatsappPhoneNumberId])
 }
 
 model PhoneNumber {
@@ -575,15 +861,35 @@ model PhoneNumber {
   isVerified         Boolean @default(false)
   isPrimary          Boolean @default(false)
 
+  // Registration status from Meta API
+  // Values: NOT_VERIFIED, VERIFIED, EXPIRED
+  codeVerificationStatus String?
+  // Account mode from Meta API
+  // Values: SANDBOX, LIVE
+  accountMode            String?
+  // Display name status from Meta API
+  // Values: NONE, NON_EXISTS, PENDING_REVIEW, AVAILABLE_WITHOUT_REVIEW, EXPIRED, APPROVED, DECLINED
+  nameStatus             String?
+  // Operational status from Meta API
+  // Values: PENDING, DELETED, MIGRATED, BANNED, RESTRICTED, RATE_LIMITED, FLAGGED, CONNECTED, DISCONNECTED, UNKNOWN, UNVERIFIED
+  status                 String?
+
+  // WhatsApp Account relationship
+  whatsappAccountId String?
+  whatsappAccount   WhatsAppAccount? @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+
   // Relationships
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customers Customer[] @relation("WhatsAppPhoneCustomers")
+  messages  Message[]  @relation("WhatsAppPhoneMessages")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([phoneNumberId])
+  @@index([whatsappAccountId])
 }
 
 model WABAConnectionLog {
@@ -593,12 +899,15 @@ model WABAConnectionLog {
   errorMessage String?
 
   // Relationships
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsappAccountId String?
+  whatsappAccount   WhatsAppAccount? @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   timestamp DateTime @default(now())
 
   @@index([userId])
+  @@index([whatsappAccountId])
   @@index([timestamp])
 }
 
@@ -701,6 +1010,13 @@ model WhatsAppContact {
   lastAction   String // add/remove
   lastSyncedAt DateTime @default(now())
 
+  // WhatsApp BSUID (Business-Scoped User ID) — populated from coexistence
+  // contact sync when Meta includes it. Nullable + backward-compatible: older
+  // rows simply stay null. See docs/bsuid.md.
+  whatsappBsuid       String? // Contact's BSUID, if provided by Meta
+  whatsappParentBsuid String? // Parent BSUID (linked business portfolios)
+  whatsappUsername    String? // WhatsApp username, if the contact adopted one
+
   // Relationships
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -711,6 +1027,7 @@ model WhatsAppContact {
   @@unique([userId, phoneNumber])
   @@index([userId])
   @@index([phoneNumber])
+  @@index([whatsappBsuid])
 }
 
 model CoexistenceSyncStatus {
@@ -726,14 +1043,17 @@ model CoexistenceSyncStatus {
   metadata     Json? // Additional sync metadata
 
   // Relationships
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsappAccountId String?
+  whatsappAccount   WhatsAppAccount? @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, syncType])
   @@index([userId])
+  @@index([whatsappAccountId])
   @@index([syncType])
   @@index([status])
 }
@@ -751,7 +1071,16 @@ model AIConfig {
   temperature          Float   @default(0.7)
   maxDailyInteractions Int     @default(100)
 
-  filterWords Json? // Array of strings
+  filterWords       Json? // Array of strings
+  excludedCustomers Json? // Array of { type: 'phone' | 'customerId', value: string, label?: string }
+
+  // Working Hours - AI only responds during configured hours
+  timezone     String @default("Asia/Jakarta")
+  workingHours Json?  // { "monday": { "start": "09:00", "end": "17:00" }, ... } - null day = off
+
+  // Escalation - Keywords that trigger handover to human
+  escalationKeywords   Json?   // Array of strings: ["bicara cs", "komplain", "refund"]
+  escalationAutoAssign Boolean @default(true) // true = assign to human queue, false = just stop AI
 
   activeAgentId String?
   activeAgent   AIAgent? @relation(fields: [activeAgentId], references: [id], onDelete: SetNull)
@@ -760,6 +1089,59 @@ model AIConfig {
   updatedAt DateTime @updatedAt
 
   @@index([activeAgentId])
+}
+
+model WhatsAppAccountAIConfig {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsappAccountId String
+  whatsappAccount   WhatsAppAccount @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+
+  enabled       Boolean @default(false)
+  activeAgentId String?
+  activeAgent   AIAgent? @relation(fields: [activeAgentId], references: [id], onDelete: SetNull)
+  temperature       Float   @default(0.7)
+  filterWords       Json?
+  excludedCustomers Json? // Array of { type: 'phone' | 'customerId', value: string, label?: string }
+
+  // Working Hours - AI only responds during configured hours
+  timezone     String @default("Asia/Jakarta")
+  workingHours Json?  // { "monday": { "start": "09:00", "end": "17:00" }, ... } - null day = off
+
+  // Escalation - Keywords that trigger handover to human
+  escalationKeywords   Json?   // Array of strings: ["bicara cs", "komplain", "refund"]
+  escalationAutoAssign Boolean @default(true) // true = assign to human queue, false = just stop AI
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation to escalation keyword groups
+  escalationKeywordGroups EscalationKeywordGroup[]
+
+  @@unique([userId, whatsappAccountId])
+  @@index([whatsappAccountId])
+  @@index([activeAgentId])
+}
+
+// Escalation Keyword Groups - Map keywords to specific agents
+model EscalationKeywordGroup {
+  id                      String              @id @default(cuid())
+  whatsappAccountAIConfigId String
+  whatsappAccountAIConfig WhatsAppAccountAIConfig @relation(fields: [whatsappAccountAIConfigId], references: [id], onDelete: Cascade)
+
+  name     String   // Group name, e.g., "Finance", "Technical Support"
+  keywords Json     // Array of keywords: ["billing", "tagihan", "bayar"]
+
+  // Agent to assign when keyword matches
+  assignedAgentId String
+  assignedAgent   User   @relation("EscalationAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([whatsappAccountAIConfigId])
+  @@index([assignedAgentId])
 }
 
 model AIAgent {
@@ -772,9 +1154,13 @@ model AIAgent {
 
   knowledgeDocuments KnowledgeDocument[]
   aiConfigs          AIConfig[]
+  whatsappAccountAIConfigs WhatsAppAccountAIConfig[]
 
   // Conversation assignments where this AI Agent is assigned
   conversationAssignments ConversationAssignment[]
+
+  // Conversation Memory Relations
+  conversationMemories ConversationMemory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -818,6 +1204,49 @@ model DocumentChunk {
   @@index([documentId])
 }
 
+model ConversationMemory {
+  id                 String        @id @default(cuid())
+
+  // Isolation keys
+  userId             String
+  customerId         String
+  whatsappAccountId  String
+
+  // Optional: AI Agent that responded
+  aiAgentId          String?
+
+  // Memory content
+  memoryType         MemoryType
+  customerMessage    String        @db.Text
+  responseMessage    String        @db.Text
+
+  // Embedding
+  embedding          Unsupported("vector(1536)")?
+  embeddingText      String?       @db.Text
+  status             MemoryStatus  @default(PENDING)
+  retryCount         Int           @default(0)
+
+  // Message references
+  inboundMessageId   String?
+  outboundMessageId  String?
+
+  // Metadata & timestamps
+  metadata           Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  whatsappAccount    WhatsAppAccount @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
+  aiAgent            AIAgent?      @relation(fields: [aiAgentId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([userId, customerId, whatsappAccountId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 // CRM Models
 
 model Pipeline {
@@ -845,9 +1274,10 @@ model PipelineStage {
   order Int    @default(0)
 
   // Relationships
-  pipelineId String
-  pipeline   Pipeline   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  customers  Customer[]
+  pipelineId   String
+  pipeline     Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  customers    Customer[]
+  autoTagRules AutoTagRule[] // Rules that move customers to this stage
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -925,6 +1355,22 @@ model CustomerActivity {
   @@index([timestamp])
 }
 
+model CustomerNote {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy  String
+  creator    User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([createdBy])
+  @@index([createdAt])
+}
+
 // Instagram DM Integration Models
 
 model InstagramAccount {
@@ -959,6 +1405,137 @@ model InstagramAccount {
   @@index([userId])
   @@index([igId])
   @@index([connectionStatus])
+}
+
+// ============ FACEBOOK MESSENGER MODELS ============
+
+model FacebookPage {
+  id            String  @id @default(cuid())
+  pageId        String  @unique // Facebook Page ID
+  pageName      String
+  pageCategory  String?
+  profilePicUrl String?
+
+  // Token (encrypted) - Page Access Token
+  accessToken        String
+  accessTokenIV      String
+  accessTokenTag     String
+  tokenExpiresAt     DateTime?
+  tokenLastRefresh   DateTime?
+  grantedPermissions String[]
+
+  // Connection status
+  connectionStatus String    @default("connected")
+  connectedAt      DateTime  @default(now())
+  lastSyncAt       DateTime?
+
+  // Webhook subscription
+  webhookSubscribed   Boolean   @default(false)
+  webhookSubscribedAt DateTime?
+
+  // Relationships
+  userId         String
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations  MessengerConversation[]
+  connectionLogs MessengerConnectionLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([pageId])
+  @@index([connectionStatus])
+}
+
+model MessengerConversation {
+  id                    String  @id @default(cuid())
+  participantPsid       String
+  participantName       String?
+  participantEmail      String?
+  participantProfilePic String?
+
+  // Messaging window (24h policy)
+  lastInboundAt   DateTime?
+  windowExpiresAt DateTime?
+  isWindowActive  Boolean   @default(false)
+
+  // Conversation state
+  unreadCount        Int       @default(0)
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+
+  // Relationships
+  facebookPageId String
+  facebookPage   FacebookPage       @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  messages       MessengerMessage[]
+  customerId     String?
+  customer       Customer?          @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([facebookPageId, participantPsid])
+  @@index([facebookPageId])
+  @@index([lastMessageAt])
+  @@index([customerId])
+}
+
+model MessengerMessage {
+  id          String               @id @default(cuid())
+  mid         String?              @unique
+  direction   MessageDirection
+  messageType MessengerMessageType
+
+  // Content
+  text       String?
+  mediaUrl   String?
+  mediaType  String?
+  fileName   String?
+  stickerUrl String?
+
+  // Quick replies & templates
+  quickReplyPayload String?
+  templatePayload   Json?
+
+  // Status
+  status       MessageStatus @default(SENT)
+  errorCode    String?
+  errorMessage String?
+
+  // Reaction
+  reaction String?
+
+  // Read/Delivery receipts
+  readAt      DateTime?
+  deliveredAt DateTime?
+
+  // Timestamps
+  timestamp DateTime @default(now())
+
+  // Relationships
+  conversationId String
+  conversation   MessengerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([timestamp])
+  @@index([mid])
+}
+
+model MessengerConnectionLog {
+  id           String  @id @default(cuid())
+  action       String
+  details      Json?
+  errorMessage String?
+
+  facebookPageId String
+  facebookPage   FacebookPage @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+
+  timestamp DateTime @default(now())
+
+  @@index([facebookPageId])
+  @@index([timestamp])
 }
 
 model IGConversation {
@@ -1085,8 +1662,9 @@ model WebhookEndpoint {
   secretTag String
 
   // Event subscriptions
-  events   String[] // ["message.received", "message.sent", ...]
-  channels String[] // ["whatsapp", "instagram"] or ["all"]
+  events            String[] // ["message.received", "message.sent", ...]
+  channels          String[] // ["whatsapp", "instagram"] or ["all"]
+  channelAccountIds String[] @default([]) // Filter by specific accounts, empty = all
 
   // Status
   isActive      Boolean   @default(true)
@@ -1175,6 +1753,24 @@ model SystemSetting {
   @@index([category])
 }
 
+// Email Template Management (Admin-customizable email templates)
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  subject     String   @db.Text
+  htmlBody    String   @db.Text
+  textBody    String   @db.Text
+  variables   Json
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+  updatedByUser User?  @relation("EmailTemplateUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([slug])
+}
+
 // Template Variable Management Models
 
 enum VariableType {
@@ -1199,6 +1795,7 @@ enum BulkSendStatus {
 enum ConversationType {
   WHATSAPP
   INSTAGRAM
+  MESSENGER
 }
 
 enum AssigneeType {
@@ -1268,9 +1865,21 @@ model BulkTemplateSend {
   totalRecipients Int
   successCount    Int            @default(0)
   failedCount     Int            @default(0)
+  sentCount       Int            @default(0)
+  deliveredCount  Int            @default(0)
+  readCount       Int            @default(0)
   csvData         Json // Store CSV data
   results         Json? // Store results per recipient
   completedAt     DateTime?
+
+  // Recovery fields for resuming interrupted broadcasts
+  lastProcessedIndex Int       @default(0) // Index of last processed recipient (for resume)
+  lastHeartbeat      DateTime? // Last activity timestamp (for detecting stuck jobs)
+  senderPhoneNumberId String?  // Phone number ID used for sending (for resume)
+  messageDelayMs     Int       @default(1000) // Delay between messages in ms
+
+  // Relation to track individual messages for delivery status
+  messages Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1278,6 +1887,7 @@ model BulkTemplateSend {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([status, lastHeartbeat]) // For finding stuck jobs
 }
 
 // Conversation Assignment Model for OneInbox
@@ -1304,6 +1914,11 @@ model ConversationAssignment {
   businessOwnerId String // For scoping queries
   businessOwner   User   @relation("BusinessOwnerAssignments", fields: [businessOwnerId], references: [id], onDelete: Cascade)
 
+  // Escalation info (when assignment is triggered by escalation keyword)
+  isEscalation          Boolean @default(false)
+  escalationKeywordGroup String? // Name of the keyword group that triggered escalation
+  escalationKeyword     String? // The specific keyword that was matched
+
   // Timestamps
   assignedAt   DateTime  @default(now())
   unassignedAt DateTime? // Null = currently active
@@ -1316,4 +1931,389 @@ model ConversationAssignment {
   @@index([aiAgentId])
   @@index([businessOwnerId])
   @@index([unassignedAt])
+}
+
+// Admin Broadcast Models
+enum BroadcastStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  MESSAGE_RETENTION
+  SUBSCRIPTION_EXPIRY
+  PAYMENT_STATUS
+  API_KEY_EXPIRY
+  SYSTEM_ANNOUNCEMENT
+  MAINTENANCE
+  PROMOTION
+  CUSTOM
+  ESCALATION_ASSIGNMENT // New conversation assigned due to escalation keyword
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PhoneSource {
+  REGISTRATION
+  WABA
+}
+
+model AdminBroadcast {
+  id String @id @default(cuid())
+
+  adminId String
+  admin   User   @relation("AdminBroadcasts", fields: [adminId], references: [id], onDelete: Cascade)
+
+  templateName String
+  templateData Json
+
+  filters Json
+
+  totalRecipients Int @default(0)
+  totalSent       Int @default(0)
+  totalFailed     Int @default(0)
+  totalPending    Int @default(0)
+
+  status BroadcastStatus @default(PENDING)
+
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients AdminBroadcastRecipient[]
+
+  @@index([adminId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AdminBroadcastRecipient {
+  id String @id @default(cuid())
+
+  broadcastId String
+  broadcast   AdminBroadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  userId      String
+  phoneNumber String
+  phoneSource PhoneSource
+
+  status       MessageStatus @default(PENDING)
+  errorMessage String?
+  messageId    String?
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([broadcastId])
+  @@index([status])
+}
+
+// Notification System Models
+
+// Enum for recipient selection type in admin notifications
+enum NotificationRecipientType {
+  SINGLE
+  MULTIPLE
+  ALL
+  BY_TIER
+}
+
+// Tracks batch notifications sent by admin
+model NotificationBatch {
+  id          String               @id @default(cuid())
+  title       String
+  message     String               @db.Text
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  actionUrl   String?
+  actionLabel String?
+  expiresAt   DateTime?
+
+  recipientType   NotificationRecipientType
+  recipientFilter Json? // Store tier filter if by_tier, or user IDs if multiple
+  recipientCount  Int
+
+  sentBy String // Admin user ID
+  sentAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  admin         User           @relation("AdminNotificationBatches", fields: [sentBy], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@index([sentAt])
+  @@index([type])
+  @@index([sentBy])
+}
+
+model Notification {
+  id          String               @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  priority    NotificationPriority @default(NORMAL)
+  actionUrl   String?
+  actionLabel String?
+  isRead      Boolean              @default(false)
+  readAt      DateTime?
+  metadata    Json? // Extra data specific to notification type
+  expiresAt   DateTime? // Auto-dismiss after this date
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  // Optional batch reference for admin-sent notifications
+  batchId String?
+  batch   NotificationBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@index([batchId])
+}
+
+// Subscription Rules & Promo Codes System
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  NONE
+}
+
+model SubscriptionRule {
+  id   String           @id @default(cuid())
+  tier SubscriptionTier @unique
+
+  // Duration controls
+  minDurationMonths Int  @default(1) // Minimum months user must buy
+  maxDurationMonths Int? @default(12) // Max months (null = unlimited)
+  allowedDurations  Json // Array of allowed months: [1,3,6,12]
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Metadata
+  updatedBy String? // Admin user ID who last updated
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PromoCode {
+  id   String @id @default(cuid())
+  code String @unique // e.g., "ANNUAL30", "LITE3M"
+
+  // Discount settings
+  discountType  DiscountType // PERCENTAGE, FIXED_AMOUNT, NONE
+  discountValue Int          @default(0) // 20 (for 20%), or 50000 (for Rp 50k off)
+
+  // Duration enforcement (optional - overrides SubscriptionRule)
+  minDurationMonths Int? // If set, overrides tier's minDuration
+  allowedDurations  Json? // If set, overrides tier's allowedDurations
+
+  // Restrictions
+  applicableTiers Json // ["BASIC", "LITE"] or ["ALL"]
+  maxUsages       Int? // null = unlimited
+  currentUsages   Int  @default(0)
+
+  // Validity
+  startsAt  DateTime
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+
+  // Metadata
+  description String?
+  createdBy   String // Admin user ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([startsAt, expiresAt])
+}
+
+// =============================================================================
+// Auto Tagging System Models
+// =============================================================================
+
+model AutoTagRule {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Rule Configuration
+  name     String   // e.g., "Interested Buyer", "Support Request"
+  keywords String[] // ["harga", "price", "biaya"] - case-insensitive matching
+  priority Int      @default(10) // 1-100, higher = executed first
+  isActive Boolean  @default(true)
+
+  // Actions
+  addTags               String[] // Tags to add when rule matches
+  moveToPipelineStageId String? // Optional: move customer to this stage
+  moveToPipelineStage   PipelineStage? @relation(fields: [moveToPipelineStageId], references: [id], onDelete: SetNull)
+
+  // Statistics
+  matchCount  Int       @default(0) // Number of times this rule matched
+  lastMatchAt DateTime? // Last time this rule matched
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([priority])
+}
+
+// =============================================================================
+// Quick Replies System Models
+// =============================================================================
+
+model QuickReplyCategory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name  String
+  order Int    @default(0)
+
+  quickReplies QuickReply[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([order])
+}
+
+model QuickReply {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   QuickReplyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  shortcut String // Unique shortcut without "/" prefix
+  title    String // Display name
+  content  String @db.Text // Message content with variables
+
+  createdById String
+  createdBy   User   @relation("QuickReplyCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, shortcut])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([createdById])
+}
+
+// =============================================================================
+// Affiliate System Models
+// =============================================================================
+
+// Global affiliate configuration (admin-managed)
+model AffiliateConfig {
+  id                   String  @id @default(cuid())
+  commissionPercentage Int     @default(10) // 10 = 10%
+  holdingPeriodDays    Int     @default(14) // Days before commission is credited
+  isEnabled            Boolean @default(true) // Global on/off switch
+
+  // Referred user bonus settings
+  referredUserBonusEnabled Boolean @default(false) // Enable bonus for referred users
+  referredUserBonusAmount  Int     @default(0) // Bonus amount in IDR
+
+  updatedBy String? // Admin user ID who last updated
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Affiliate profile for each user
+model Affiliate {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  referralCode     String        @unique // Random 6-char code: "X7K9M2"
+  isActive         Boolean       @default(true) // Admin can disable
+  customCommission Int? // Override global commission % (null = use global)
+  tier             AffiliateTier @default(STANDARD) // Kept for backward compatibility (not used)
+
+  // Stats (denormalized for performance)
+  totalEarnings  Int @default(0) // Total commission earned (IDR)
+  totalReferrals Int @default(0) // Number of users referred
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  referrals   Referral[]
+  commissions AffiliateCommission[]
+
+  @@index([referralCode])
+  @@index([isActive])
+}
+
+// Tracks who referred whom (1 user can only have 1 referrer)
+model Referral {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  referredUserId String @unique // User who was referred (1 user = 1 referrer only)
+  referredUser   User   @relation("ReferredByAffiliate", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) // When user registered via referral link
+
+  @@index([affiliateId])
+}
+
+// Commission earned per transaction
+model AffiliateCommission {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  referredUserId       String // User who made the transaction
+  // NOTE: orderId is NOT @unique by design. Idempotency is handled at service level (findFirst check).
+  // Adding @unique would require migration that risks data loss in multi-tenant production environments.
+  // Current approach: webhook idempotency + service-level check is sufficient for race condition prevention.
+  orderId              String // PaymentTransaction orderId (idempotency checked in affiliate-service.ts:539)
+  transactionType      String // "SUBSCRIPTION" | "TOP_UP"
+  transactionAmount    Int // Transaction amount (IDR)
+  commissionPercentage Int // Commission % at time of transaction (for history)
+  commissionAmount     Int // Commission amount (IDR)
+
+  status     AffiliateCommissionStatus @default(PENDING)
+  releaseAt  DateTime // When commission will be credited (after holding period)
+  creditedAt DateTime? // When commission was added to credit balance
+
+  // Admin action tracking
+  cancelledAt DateTime? // When commission was cancelled
+  cancelledBy String? // Admin user ID who cancelled
+  releasedBy  String? // Admin user ID who released early
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([affiliateId])
+  @@index([status])
+  @@index([releaseAt])
+  @@index([orderId])
 }

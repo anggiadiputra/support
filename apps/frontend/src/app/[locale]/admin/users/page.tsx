@@ -33,17 +33,13 @@ import { AdminUser } from "./components/data-table-row-actions"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
 
-const DEFAULT_QUERY = {
-  page: 1,
-  limit: 50,
-}
-
 export default function AdminUsersPage() {
   const t = useTranslations("admin")
   const tCommon = useTranslations("common")
   const { toast } = useToast()
   const [actionUser, setActionUser] = useState<{ user: AdminUser; action: 'activate' | 'deactivate' } | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
   const [stats, setStats] = useState<{
     totalUsers: number
     activeUsers: number
@@ -52,41 +48,43 @@ export default function AdminUsersPage() {
   } | undefined>()
   const [statsLoading, setStatsLoading] = useState(true)
 
-  const { users, isLoading, error, refetch, bulkUpdate, isBulkUpdating } = useAdminUsers(DEFAULT_QUERY)
+  const { users, isLoading, error, refetch, setQuery, query, bulkUpdate, isBulkUpdating } = useAdminUsers({
+    page: 1,
+    limit: 100,
+  })
 
-  // Fetch stats once on mount and when refetch is called
-  const fetchStats = useCallback(async (isMounted = true) => {
-    try {
-      if (isMounted) setStatsLoading(true)
-      const response = await fetch(`${API_URL}/api/v1/admin/users/stats`, {
-        credentials: "include",
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && isMounted) {
-          setStats(data.data)
+  // Handle server-side search
+  const handleSearch = useCallback((search: string) => {
+    setSearchTerm(search)
+    setQuery({
+      ...query,
+      search: search || undefined,
+      page: 1, // Reset to first page on new search
+    })
+  }, [query, setQuery])
+
+  // Fetch stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true)
+        const response = await fetch(`${API_URL}/api/v1/admin/users/stats`, {
+          credentials: "include",
+        })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setStats(data.data)
+          }
         }
-      }
-    } catch {
-      // Stats are optional, don't show error
-    } finally {
-      if (isMounted) {
+      } catch {
+        // Stats are optional, don't show error
+      } finally {
         setStatsLoading(false)
       }
     }
-  }, [])
-
-  useEffect(() => {
-    let isMounted = true
-    fetchStats(isMounted)
-    return () => {
-      isMounted = false
-    }
-  }, [fetchStats])
-
-  const handleRefresh = useCallback(async () => {
-    await Promise.all([refetch(), fetchStats(true)])
-  }, [refetch, fetchStats])
+    fetchStats()
+  }, [users])
 
   const handleActivate = useCallback((user: AdminUser) => {
     setActionUser({ user, action: 'activate' })
@@ -150,7 +148,7 @@ export default function AdminUsersPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleRefresh()}
+            onClick={() => refetch()}
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -174,6 +172,9 @@ export default function AdminUsersPage() {
           columns={columns}
           data={users}
           isLoading={isLoading}
+          onSearch={handleSearch}
+          searchValue={searchTerm}
+          isSearching={isLoading}
         />
       </div>
 

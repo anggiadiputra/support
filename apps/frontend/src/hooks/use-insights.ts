@@ -32,6 +32,8 @@ export interface InsightsDateRange {
 export interface UseInsightsOptions {
   dateRange: InsightsDateRange
   granularity?: Granularity
+  phoneNumbers?: string[]
+  wabaAccountId?: string | null
   enabled?: boolean
 }
 
@@ -75,8 +77,8 @@ export interface UseInsightsReturn {
 /**
  * Generate cache key for insights based on date range
  */
-function getInsightsCacheKey(startDate: number, endDate: number) {
-  return queryKeys.insights.byDateRange(String(startDate), String(endDate))
+function getInsightsCacheKey(startDate: number, endDate: number, wabaAccountId?: string) {
+  return queryKeys.insights.byDateRange(String(startDate), String(endDate), wabaAccountId)
 }
 
 // =============================================================================
@@ -87,15 +89,17 @@ function getInsightsCacheKey(startDate: number, endDate: number) {
  * Hook for fetching insights overview data
  */
 export function useInsightsOverview(options: UseInsightsOptions) {
-  const { dateRange, granularity = 'DAY', enabled = true } = options
+  const { dateRange, granularity = 'DAY', phoneNumbers, wabaAccountId, enabled = true } = options
 
   return useQuery({
-    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate), 'overview', granularity],
+    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate, wabaAccountId || undefined), 'overview', granularity],
     queryFn: () =>
       insightsApi.getOverview({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         granularity,
+        phoneNumbers,
+        wabaAccountId: wabaAccountId || undefined,
       }),
     ...CACHE_TIMES.insights,
     enabled,
@@ -110,15 +114,17 @@ export function useInsightsOverview(options: UseInsightsOptions) {
  * Hook for fetching message analytics
  */
 export function useMessageAnalytics(options: UseInsightsOptions) {
-  const { dateRange, granularity = 'DAY', enabled = true } = options
+  const { dateRange, granularity = 'DAY', phoneNumbers, wabaAccountId, enabled = true } = options
 
   return useQuery({
-    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate), 'messages', granularity],
+    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate, wabaAccountId || undefined), 'messages', granularity],
     queryFn: () =>
       insightsApi.getMessageAnalytics({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         granularity,
+        phoneNumbers,
+        wabaAccountId: wabaAccountId || undefined,
       }),
     ...CACHE_TIMES.insights,
     enabled,
@@ -133,15 +139,17 @@ export function useMessageAnalytics(options: UseInsightsOptions) {
  * Hook for fetching conversation analytics
  */
 export function useConversationAnalytics(options: UseInsightsOptions) {
-  const { dateRange, granularity = 'DAY', enabled = true } = options
+  const { dateRange, granularity = 'DAY', phoneNumbers, wabaAccountId, enabled = true } = options
 
   return useQuery({
-    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate), 'conversations', granularity],
+    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate, wabaAccountId || undefined), 'conversations', granularity],
     queryFn: () =>
       insightsApi.getConversationAnalytics({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         granularity,
+        phoneNumbers,
+        wabaAccountId: wabaAccountId || undefined,
       }),
     ...CACHE_TIMES.insights,
     enabled,
@@ -156,14 +164,15 @@ export function useConversationAnalytics(options: UseInsightsOptions) {
  * Hook for fetching template performance
  */
 export function useTemplatePerformance(options: Omit<UseInsightsOptions, 'granularity'>) {
-  const { dateRange, enabled = true } = options
+  const { dateRange, wabaAccountId, enabled = true } = options
 
   return useQuery({
-    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate), 'templates'],
+    queryKey: [...getInsightsCacheKey(dateRange.startDate, dateRange.endDate, wabaAccountId || undefined), 'templates'],
     queryFn: () =>
       insightsApi.getTemplatePerformance({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
+        wabaAccountId: wabaAccountId || undefined,
       }),
     ...CACHE_TIMES.insights,
     enabled,
@@ -187,14 +196,14 @@ export function useTemplatePerformance(options: Omit<UseInsightsOptions, 'granul
  * Requirements: 6.1, 6.2, 6.3, 6.4
  */
 export function useInsights(options: UseInsightsOptions): UseInsightsReturn {
-  const { dateRange, granularity = 'DAY', enabled = true } = options
+  const { dateRange, granularity = 'DAY', phoneNumbers, wabaAccountId, enabled = true } = options
   const queryClient = useQueryClient()
 
   // Fetch all insights data
-  const overviewQuery = useInsightsOverview({ dateRange, granularity, enabled })
-  const messagesQuery = useMessageAnalytics({ dateRange, granularity, enabled })
-  const conversationsQuery = useConversationAnalytics({ dateRange, granularity, enabled })
-  const templatesQuery = useTemplatePerformance({ dateRange, enabled })
+  const overviewQuery = useInsightsOverview({ dateRange, granularity, phoneNumbers, wabaAccountId, enabled })
+  const messagesQuery = useMessageAnalytics({ dateRange, granularity, phoneNumbers, wabaAccountId, enabled })
+  const conversationsQuery = useConversationAnalytics({ dateRange, granularity, phoneNumbers, wabaAccountId, enabled })
+  const templatesQuery = useTemplatePerformance({ dateRange, wabaAccountId, enabled })
 
   // Combined loading states
   const isLoading =
@@ -211,9 +220,9 @@ export function useInsights(options: UseInsightsOptions): UseInsightsReturn {
 
   // Refetch all queries
   const refetchAll = useCallback(async () => {
-    const cacheKey = getInsightsCacheKey(dateRange.startDate, dateRange.endDate)
+    const cacheKey = getInsightsCacheKey(dateRange.startDate, dateRange.endDate, wabaAccountId || undefined)
     await queryClient.invalidateQueries({ queryKey: cacheKey })
-  }, [queryClient, dateRange.startDate, dateRange.endDate])
+  }, [queryClient, dateRange.startDate, dateRange.endDate, wabaAccountId])
 
   return {
     // Overview

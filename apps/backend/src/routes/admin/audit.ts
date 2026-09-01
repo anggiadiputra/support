@@ -21,6 +21,7 @@ app.get('/', async (c: Context) => {
     const entityType = query.entityType || undefined
     const startDate = query.startDate || undefined
     const endDate = query.endDate || undefined
+    const search = query.search || undefined
 
     // Validate date formats if provided
     if (startDate && isNaN(new Date(startDate).getTime())) {
@@ -48,7 +49,8 @@ app.get('/', async (c: Context) => {
       userId,
       entityType,
       startDate,
-      endDate
+      endDate,
+      search
     })
 
     return c.json({

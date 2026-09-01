@@ -1,9 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { UserX, Bot } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Tooltip,
@@ -11,16 +9,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { IconUserOff, IconRobot } from "@tabler/icons-react"
+import { cn } from "@/lib/utils"
 import type { AssignableUser, AssigneeType } from "../types/unified-inbox"
 
 /**
  * AssignmentBadge Component
- *
+ * 
  * Displays the assignee avatar or initials for a conversation.
  * Shows "Unassigned" state when no assignee is present.
  * Supports AI Agent assignments with robot icon.
  * Supports tooltip with assignee name on hover.
- *
+ * 
  * Requirements: 1.5, 1.6, 4.1, 4.2, 4.3
  */
 
@@ -76,7 +76,7 @@ export function AssignmentBadge({
         className
       )}
     >
-      <Bot className={size === "sm" ? "h-3.5 w-3.5" : "h-4.5 w-4.5"} />
+      <IconRobot className={size === "sm" ? "h-3.5 w-3.5" : "h-4.5 w-4.5"} />
     </div>
   )
 
@@ -84,9 +84,7 @@ export function AssignmentBadge({
   const humanBadge = assignee ? (
     <Avatar className={cn(sizeClasses[size], className)}>
       <AvatarImage src={assignee.image || undefined} alt={assignee.name} />
-      <AvatarFallback
-        className={cn("font-medium", getRoleColor(assignee.role))}
-      >
+      <AvatarFallback className={cn("font-medium", getRoleColor(assignee.role))}>
         {getInitials(assignee.name)}
       </AvatarFallback>
     </Avatar>
@@ -97,11 +95,11 @@ export function AssignmentBadge({
     <div
       className={cn(
         sizeClasses[size],
-        "bg-muted text-muted-foreground border-muted-foreground/30 flex items-center justify-center rounded-full border border-dashed",
+        "flex items-center justify-center rounded-full bg-muted text-muted-foreground border border-dashed border-muted-foreground/30",
         className
       )}
     >
-      <UserX className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
+      <IconUserOff className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
     </div>
   )
 
@@ -133,9 +131,7 @@ export function AssignmentBadge({
       <div className="text-center">
         <p className="font-medium">{assignee.name}</p>
         <p className="text-xs opacity-80">
-          {assignee.role === "BUSINESS_OWNER"
-            ? tDropdown("owner")
-            : tDropdown("agent")}
+          {assignee.role === "BUSINESS_OWNER" ? tDropdown("owner") : tDropdown("agent")}
         </p>
       </div>
     )

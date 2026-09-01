@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { format } from "date-fns"
-import { RefreshCw, Filter, X, Calendar as CalendarIcon, FileText, User, Eye, ChevronRight, Clock, Globe, Activity } from "lucide-react"
+import { RefreshCw, Filter, X, Calendar as CalendarIcon, FileText, User, Eye, ChevronRight, Clock, Globe, Activity, Search } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -349,11 +350,39 @@ export default function AdminAuditPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [searchInput, setSearchInput] = useState("")
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { actions, entityTypes, isLoading: filtersLoading } = useAuditFilters()
   const { logs, pagination, isLoading, error, refetch, setQuery, query } = useAdminAudit({
     page: 1,
     limit: 20,
   })
+
+  // Debounced search handler
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value)
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setQuery({
+        ...query,
+        search: value.trim() || undefined,
+        page: 1,
+      })
+    }, 500)
+  }, [query, setQuery])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleActionFilter = useCallback((value: string) => {
     setQuery({
@@ -387,6 +416,7 @@ export default function AdminAuditPage() {
 
   const clearFilters = useCallback(() => {
     setDateRange(undefined)
+    setSearchInput("")
     setQuery({ page: 1, limit: 20 })
   }, [setQuery])
 
@@ -395,7 +425,7 @@ export default function AdminAuditPage() {
     setSheetOpen(true)
   }, [])
 
-  const hasActiveFilters = query.action || query.entityType || query.startDate || query.endDate
+  const hasActiveFilters = query.action || query.entityType || query.startDate || query.endDate || query.search
 
   const renderPaginationItems = () => {
     if (!pagination) return null
@@ -480,6 +510,26 @@ export default function AdminAuditPage() {
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+        {/* Search Input */}
+        <div className="relative w-full sm:w-[280px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari user, entity, akun..."
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => handleSearchChange("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <DateRangePicker
           dateRange={dateRange}
           onDateRangeChange={handleDateRangeChange}

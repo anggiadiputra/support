@@ -1,0 +1,95 @@
+{
+  "title": "Pengaturan CRM",
+  "description": "Kelola pipeline penjualan dan field kustom Anda.",
+  "sidebar": {
+    "pipelines": "Pipeline",
+    "customFields": "Field Kustom"
+  },
+  "pipelines": {
+    "title": "Pipeline",
+    "description": "Konfigurasikan tahapan pipeline penjualan untuk melacak progres pelanggan",
+    "info": "Pipeline membantu Anda melacak perjalanan pelanggan dari prospek hingga konversi. Seret pelanggan antar tahapan di Pipeline Board untuk memperbarui status mereka.",
+    "empty": {
+      "title": "Belum ada pipeline",
+      "description": "Buat pipeline pertama Anda untuk mulai melacak progres pelanggan"
+    },
+    "newPipeline": "Pipeline Baru",
+    "editPipeline": "Edit Pipeline",
+    "deletePipeline": "Hapus Pipeline",
+    "deleteConfirm": "Apakah Anda yakin ingin menghapus \"{name}\"? Ini akan menghapus semua data terkait. Tindakan ini tidak dapat dibatalkan.",
+    "stages": "tahapan",
+    "default": "Default",
+    "dialog": {
+      "createTitle": "Pipeline Baru",
+      "editTitle": "Edit Pipeline",
+      "description": "Konfigurasikan tahapan pipeline penjualan Anda. Seret untuk mengatur urutan.",
+      "pipelineName": "Nama Pipeline",
+      "pipelineNamePlaceholder": "contoh: Pipeline Penjualan",
+      "stagesLabel": "Tahapan",
+      "addStage": "Tambah Tahapan",
+      "stageName": "Nama Tahapan",
+      "newStage": "Tahapan Baru"
+    },
+    "toast": {
+      "created": "Pipeline dibuat",
+      "updated": "Pipeline diperbarui",
+      "deleted": "Pipeline dihapus",
+      "error": "Operasi gagal"
+    }
+  },
+  "customFields": {
+    "title": "Field Kustom",
+    "description": "Tentukan field data kustom untuk menyimpan informasi pelanggan tambahan",
+    "info": "Field kustom memungkinkan Anda menyimpan informasi tambahan tentang pelanggan. Field ini akan muncul di tampilan detail pelanggan dan dapat difilter dalam laporan.",
+    "empty": {
+      "title": "Belum ada field kustom",
+      "description": "Buat field kustom pertama Anda untuk menyimpan data pelanggan tambahan"
+    },
+    "newField": "Field Baru",
+    "table": {
+      "name": "Nama",
+      "key": "Kunci",
+      "type": "Tipe",
+      "required": "Wajib"
+    },
+    "dialog": {
+      "createTitle": "Field Kustom Baru",
+      "editTitle": "Edit Field",
+      "createDescription": "Buat field kustom baru untuk menyimpan informasi pelanggan tambahan.",
+      "editDescription": "Perbarui pengaturan field. Perhatikan bahwa kunci dan tipe tidak dapat diubah.",
+      "fieldName": "Nama",
+      "fieldNamePlaceholder": "contoh: Tipe Pelanggan",
+      "fieldKey": "Kunci (Identifier API)",
+      "fieldKeyPlaceholder": "contoh: tipe_pelanggan",
+      "fieldKeyHelp": "Digunakan untuk mereferensikan field ini di API",
+      "fieldType": "Tipe",
+      "options": "Opsi (pisahkan dengan koma)",
+      "optionsPlaceholder": "Opsi 1, Opsi 2, Opsi 3",
+      "requiredField": "Field ini wajib diisi",
+      "createButton": "Buat Field",
+      "saveButton": "Simpan Perubahan"
+    },
+    "deleteConfirm": "Apakah Anda yakin ingin menghapus \"{name}\"? Ini akan menghapus semua data untuk field ini dari semua pelanggan. Tindakan ini tidak dapat dibatalkan.",
+    "types": {
+      "TEXT": "Teks",
+      "NUMBER": "Angka",
+      "DATE": "Tanggal",
+      "BOOLEAN": "Ya/Tidak",
+      "SELECT": "Pilihan",
+      "MULTI_SELECT": "Pilihan Ganda"
+    },
+    "toast": {
+      "created": "Field dibuat",
+      "updated": "Field diperbarui",
+      "deleted": "Field dihapus",
+      "error": "Operasi gagal"
+    }
+  },
+  "common": {
+    "edit": "Edit",
+    "delete": "Hapus",
+    "cancel": "Batal",
+    "save": "Simpan Perubahan",
+    "yes": "Ya"
+  }
+}

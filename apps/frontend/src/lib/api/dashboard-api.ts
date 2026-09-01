@@ -117,8 +117,25 @@ export interface QualityMetrics {
 }
 
 export const dashboardApi = {
-  async getStats(): Promise<EnhancedDashboardStats> {
-    const response = await fetch(`${API_URL}/api/v1/dashboard/stats`, {
+  async getStats(filters?: { 
+    whatsappPhoneNumberId?: string
+    startDate?: string
+    endDate?: string 
+  }): Promise<EnhancedDashboardStats> {
+    const params = new URLSearchParams()
+    if (filters?.whatsappPhoneNumberId) {
+      params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
+    }
+    if (filters?.startDate) {
+      params.append('startDate', filters.startDate)
+    }
+    if (filters?.endDate) {
+      params.append('endDate', filters.endDate)
+    }
+    const queryString = params.toString()
+    const url = `${API_URL}/api/v1/dashboard/stats${queryString ? `?${queryString}` : ''}`
+
+    const response = await fetch(url, {
       method: 'GET',
       credentials: 'include',
     })
@@ -132,8 +149,12 @@ export const dashboardApi = {
     return result.data
   },
 
-  async getMessageVolume(days: number = 30): Promise<MessageVolumeData[]> {
-    const response = await fetch(`${API_URL}/api/v1/dashboard/message-volume?days=${days}`, {
+  async getMessageVolume(days: number = 30, filters?: { whatsappPhoneNumberId?: string }): Promise<MessageVolumeData[]> {
+    const params = new URLSearchParams({ days: String(days) })
+    if (filters?.whatsappPhoneNumberId) {
+      params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
+    }
+    const response = await fetch(`${API_URL}/api/v1/dashboard/message-volume?${params.toString()}`, {
       method: 'GET',
       credentials: 'include',
     })
@@ -147,8 +168,13 @@ export const dashboardApi = {
     return result.data
   },
 
-  async getCustomerInsights(): Promise<CustomerInsights> {
-    const response = await fetch(`${API_URL}/api/v1/dashboard/customer-insights`, {
+  async getCustomerInsights(filters?: { whatsappPhoneNumberId?: string }): Promise<CustomerInsights> {
+    const params = new URLSearchParams()
+    if (filters?.whatsappPhoneNumberId) {
+      params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
+    }
+    const queryString = params.toString()
+    const response = await fetch(`${API_URL}/api/v1/dashboard/customer-insights${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
       credentials: 'include',
     })
@@ -162,8 +188,13 @@ export const dashboardApi = {
     return result.data
   },
 
-  async getQualityMetrics(): Promise<QualityMetrics> {
-    const response = await fetch(`${API_URL}/api/v1/dashboard/quality-metrics`, {
+  async getQualityMetrics(filters?: { whatsappPhoneNumberId?: string }): Promise<QualityMetrics> {
+    const params = new URLSearchParams()
+    if (filters?.whatsappPhoneNumberId) {
+      params.append('whatsappPhoneNumberId', filters.whatsappPhoneNumberId)
+    }
+    const queryString = params.toString()
+    const response = await fetch(`${API_URL}/api/v1/dashboard/quality-metrics${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
       credentials: 'include',
     })

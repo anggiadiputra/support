@@ -1,0 +1,88 @@
+{
+  "status": {
+    "active": "Aktif",
+    "restricted": "Dibatasi",
+    "underReview": "Sedang Ditinjau",
+    "flagged": "Ditandai",
+    "disabled": "Dinonaktifkan"
+  },
+  "banner": {
+    "title": {
+      "restricted": "Akun WhatsApp Anda Sedang Dibatasi",
+      "underReview": "Akun WhatsApp Anda Sedang Ditinjau",
+      "flagged": "Akun WhatsApp Anda Ditandai",
+      "disabled": "Akun WhatsApp Anda Dinonaktifkan"
+    },
+    "detectedAt": "Terdeteksi: {time}",
+    "reason": "Alasan: {reason}",
+    "viewDetail": "Lihat Detail",
+    "contactAdmin": "Hubungi Admin"
+  },
+  "dialog": {
+    "title": "Pesan Gagal Terkirim",
+    "errorTitle": "Error {code} - {title}",
+    "recoveryTitle": "Langkah Penyelesaian:",
+    "needHelp": "Butuh bantuan? Hubungi admin untuk panduan lebih lanjut dalam menyelesaikan masalah ini.",
+    "contactAdmin": "Hubungi Admin",
+    "close": "Tutup"
+  },
+  "errors": {
+    "131031": {
+      "title": "Akun Terkunci",
+      "description": "Akun WhatsApp Business Anda dibatasi karena terdeteksi melanggar kebijakan platform atau data verifikasi tidak cocok.",
+      "recovery": [
+        "Buka WhatsApp Manager di business.facebook.com",
+        "Periksa notifikasi atau peringatan di dashboard",
+        "Jika ada opsi 'Request Review', ajukan banding",
+        "Tunggu 24-48 jam untuk review dari Meta"
+      ]
+    },
+    "368": {
+      "title": "Diblokir Sementara",
+      "description": "Akun diblokir sementara karena terdeteksi melanggar kebijakan WhatsApp.",
+      "recovery": [
+        "Tinjau kebijakan WhatsApp Business di business.whatsapp.com/policy",
+        "Pastikan konten pesan sesuai guideline",
+        "Tunggu hingga periode blokir berakhir",
+        "Hubungi admin jika perlu bantuan"
+      ]
+    },
+    "131048": {
+      "title": "Batas Spam Tercapai",
+      "description": "Terlalu banyak pesan sebelumnya diblokir atau dilaporkan sebagai spam oleh penerima.",
+      "recovery": [
+        "Kurangi frekuensi pengiriman pesan",
+        "Pastikan penerima sudah opt-in menerima pesan",
+        "Tingkatkan kualitas dan relevansi konten pesan",
+        "Cek quality rating di WhatsApp Manager"
+      ]
+    },
+    "131049": {
+      "title": "Pengiriman Ditolak",
+      "description": "Meta memilih untuk tidak mengirim pesan ini untuk menjaga ekosistem yang sehat.",
+      "recovery": [
+        "Tunggu minimal 24 jam sebelum mengirim ulang",
+        "Kurangi frekuensi pesan marketing ke user yang sama",
+        "Pastikan konten relevan dengan penerima"
+      ]
+    },
+    "unknown": {
+      "title": "Kesalahan Tidak Diketahui",
+      "description": "Terjadi kesalahan yang tidak diketahui saat mengirim pesan.",
+      "recovery": [
+        "Coba kirim ulang pesan",
+        "Periksa koneksi internet Anda",
+        "Hubungi admin jika masalah berlanjut"
+      ]
+    }
+  },
+  "restrictionTypes": {
+    "ACCOUNT_LOCKED": "Akun Terkunci",
+    "POLICY_VIOLATION": "Pelanggaran Kebijakan",
+    "SPAM_RATE_LIMIT": "Batas Spam Tercapai",
+    "DELIVERY_BLOCKED": "Pengiriman Diblokir",
+    "CANNOT_SEND_MESSAGE": "Tidak Dapat Mengirim Pesan",
+    "PENDING_REVIEW": "Menunggu Review",
+    "ENTITY_RESTRICTED": "Entitas Dibatasi"
+  }
+}

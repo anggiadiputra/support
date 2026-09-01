@@ -10,13 +10,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AIAgent, KnowledgeDocument } from "@/lib/api/ai-api"
 import { Loader2 } from "lucide-react"
+import { IconBrandWhatsapp } from "@tabler/icons-react"
+import type { WhatsAppPhoneNumberOption } from "@/hooks/use-whatsapp-phone-numbers"
 
 interface AgentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   agent?: AIAgent
   documents: KnowledgeDocument[]
-  onSave: (data: { name: string; systemPrompt: string; documentIds: string[] }) => Promise<void>
+  phoneNumbers: WhatsAppPhoneNumberOption[]
+  onSave: (data: { name: string; systemPrompt: string; documentIds: string[]; assignedPhoneNumberIds: string[] }) => Promise<void>
 }
 
 export function AgentDialog({
@@ -24,26 +27,26 @@ export function AgentDialog({
   onOpenChange,
   agent,
   documents,
+  phoneNumbers,
   onSave,
 }: AgentDialogProps) {
   const [name, setName] = useState("")
   const [systemPrompt, setSystemPrompt] = useState("")
   const [selectedDocs, setSelectedDocs] = useState<string[]>([])
+  const [selectedPhones, setSelectedPhones] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (agent) {
       setName(agent.name)
       setSystemPrompt(agent.systemPrompt)
-      // If agent has documents attached, we would set them here.
-      // For now, the list endpoint returns counts, but the detail endpoint returns the full object.
-      // Assuming the parent passes the full object if available or we might need to fetch it.
-      // Ideally, the parent component should fetch the full agent details before opening the dialog for editing.
       setSelectedDocs(agent.knowledgeDocuments?.map(d => d.id) || [])
+      setSelectedPhones(agent.assignedPhoneNumberIds || [])
     } else {
       setName("")
       setSystemPrompt("You are a helpful customer support assistant.")
       setSelectedDocs([])
+      setSelectedPhones([])
     }
   }, [agent, open])
 
@@ -51,7 +54,7 @@ export function AgentDialog({
     e.preventDefault()
     try {
       setSaving(true)
-      await onSave({ name, systemPrompt, documentIds: selectedDocs })
+      await onSave({ name, systemPrompt, documentIds: selectedDocs, assignedPhoneNumberIds: selectedPhones })
       onOpenChange(false)
     } catch (error) {
       console.error(error)
@@ -68,13 +71,21 @@ export function AgentDialog({
     )
   }
 
+  const togglePhone = (whatsappAccountId: string) => {
+    setSelectedPhones(prev =>
+      prev.includes(whatsappAccountId)
+        ? prev.filter(id => id !== whatsappAccountId)
+        : [...prev, whatsappAccountId]
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{agent ? "Edit Agent" : "Create New Agent"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto flex-1 pr-2">
           <div className="space-y-2">
             <Label htmlFor="name">Agent Name</Label>
             <Input
@@ -135,12 +146,46 @@ export function AgentDialog({
             </p>
           </div>
 
+          {phoneNumbers.length > 0 && (
+            <div className="space-y-2">
+              <Label>Assign to WhatsApp Numbers</Label>
+              <div className="border rounded-md p-4">
+                <div className="space-y-2">
+                  {phoneNumbers.map((pn) => (
+                    <div key={pn.whatsappAccountId} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`phone-${pn.whatsappAccountId}`}
+                        checked={selectedPhones.includes(pn.whatsappAccountId)}
+                        onCheckedChange={() => togglePhone(pn.whatsappAccountId)}
+                      />
+                      <Label
+                        htmlFor={`phone-${pn.whatsappAccountId}`}
+                        className="text-sm font-normal cursor-pointer flex-1 flex items-center gap-2"
+                      >
+                        <IconBrandWhatsapp className="h-4 w-4 text-green-500" />
+                        {pn.displayPhoneNumber}
+                        {pn.verifiedName && (
+                          <span className="text-xs text-muted-foreground">
+                            ({pn.verifiedName})
+                          </span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select which WhatsApp numbers this agent should handle. The agent will auto-reply on selected numbers.
+              </p>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {agent ? "Update Agent" : "Create Agent"}
             </Button>
           </DialogFooter>

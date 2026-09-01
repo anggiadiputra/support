@@ -48,6 +48,7 @@ export interface MessageAnalyticsParams {
   endDate: number
   granularity?: Granularity
   phoneNumbers?: string[]
+  wabaAccountId?: string
 }
 
 export interface MessageAnalyticsDataPoint {
@@ -76,6 +77,7 @@ export interface ConversationAnalyticsParams {
   granularity?: Granularity
   phoneNumbers?: string[]
   categories?: ConversationCategory[]
+  wabaAccountId?: string
 }
 
 export interface ConversationDataPoint {
@@ -115,6 +117,7 @@ export interface TemplatePerformanceParams {
   startDate: number
   endDate: number
   templateIds?: string[]
+  wabaAccountId?: string
 }
 
 export interface TemplatePerformanceItem {
@@ -140,6 +143,7 @@ export interface InsightsOverviewParams {
   endDate: number
   granularity?: Granularity
   phoneNumbers?: string[]
+  wabaAccountId?: string
 }
 
 export interface InsightsOverviewData {
@@ -236,6 +240,7 @@ export const insightsApi = {
       endDate: params.endDate,
       granularity: params.granularity || 'DAY',
       phoneNumbers: params.phoneNumbers,
+      wabaAccountId: params.wabaAccountId,
     })
 
     const response = await fetch(`${API_URL}/api/v1/insights/messages?${queryString}`, {
@@ -257,6 +262,7 @@ export const insightsApi = {
       granularity: params.granularity || 'DAY',
       phoneNumbers: params.phoneNumbers,
       categories: params.categories,
+      wabaAccountId: params.wabaAccountId,
     })
 
     const response = await fetch(`${API_URL}/api/v1/insights/conversations?${queryString}`, {
@@ -276,6 +282,7 @@ export const insightsApi = {
       startDate: params.startDate,
       endDate: params.endDate,
       templateIds: params.templateIds,
+      wabaAccountId: params.wabaAccountId,
     })
 
     const response = await fetch(`${API_URL}/api/v1/insights/templates?${queryString}`, {
@@ -296,6 +303,7 @@ export const insightsApi = {
       endDate: params.endDate,
       granularity: params.granularity || 'DAY',
       phoneNumbers: params.phoneNumbers,
+      wabaAccountId: params.wabaAccountId,
     })
 
     const response = await fetch(`${API_URL}/api/v1/insights/overview?${queryString}`, {

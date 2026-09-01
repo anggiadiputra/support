@@ -4,11 +4,9 @@ import { useState } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { MutateWebhook } from "./mutate-webhook"
-import { useWebhooksContext } from "./webhooks-context"
 
 export function AddWebhook() {
   const [open, setOpen] = useState(false)
-  const { onWebhookCreated } = useWebhooksContext()
 
   return (
     <>
@@ -19,7 +17,6 @@ export function AddWebhook() {
       <MutateWebhook
         open={open}
         setOpen={setOpen}
-        onSuccess={onWebhookCreated}
       />
     </>
   )

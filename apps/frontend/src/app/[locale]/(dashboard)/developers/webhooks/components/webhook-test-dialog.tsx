@@ -1,13 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Check, X } from "lucide-react"
-import {
-  webhooksApi,
-  type WebhookEndpoint,
-  type TestWebhookResult,
-} from "@/lib/api/webhooks-api"
-import { toast } from "@/hooks/use-toast"
+import { IconCheck, IconX } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -17,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "@/hooks/use-toast"
+import { webhooksApi, type WebhookEndpoint, type TestWebhookResult } from "@/lib/api/webhooks-api"
 
 interface Props {
   open: boolean
@@ -34,7 +31,7 @@ export function WebhookTestDialog({ open, onOpenChange, webhook }: Props) {
       setResult(null)
       const testResult = await webhooksApi.test(webhook.id)
       setResult(testResult)
-
+      
       if (testResult.success) {
         toast({
           title: "Test Successful",
@@ -69,17 +66,14 @@ export function WebhookTestDialog({ open, onOpenChange, webhook }: Props) {
         <DialogHeader>
           <DialogTitle>Test Webhook</DialogTitle>
           <DialogDescription>
-            Send a test payload to verify your webhook endpoint is working
-            correctly.
+            Send a test payload to verify your webhook endpoint is working correctly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Endpoint</label>
-            <p className="text-muted-foreground text-sm break-all">
-              {webhook.url}
-            </p>
+            <p className="text-muted-foreground break-all text-sm">{webhook.url}</p>
           </div>
 
           {result && (
@@ -92,9 +86,9 @@ export function WebhookTestDialog({ open, onOpenChange, webhook }: Props) {
             >
               <div className="flex items-center gap-2">
                 {result.success ? (
-                  <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <IconCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
                 ) : (
-                  <X className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <IconX className="h-5 w-5 text-red-600 dark:text-red-400" />
                 )}
                 <span
                   className={`font-medium ${

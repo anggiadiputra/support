@@ -7,9 +7,9 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { requireRole } from '../../middleware/auth.js';
-import { 
-  adminSubscriptionPlansService, 
-  type PlanConfig, 
+import {
+  adminSubscriptionPlansService,
+  type PlanConfig,
   type PlanTier,
   type DurationConfig,
 } from '../../services/admin/subscription-plans-service.js';
@@ -19,7 +19,7 @@ const app = new Hono();
 // All routes require ADMIN role
 app.use('/*', requireRole(['ADMIN']));
 
-const VALID_TIERS: PlanTier[] = ['free', 'lite', 'pro'];
+const VALID_TIERS: PlanTier[] = ['free', 'basic', 'lite', 'pro'];
 
 /**
  * GET /api/v1/admin/subscription-plans
@@ -81,6 +81,11 @@ app.put('/:tier', async (c: Context) => {
       price: body.price,
       features: body.features ?? [],
       durations: body.durations ?? [],
+      enabled: body.enabled ?? true,
+      isContactUs: body.isContactUs ?? false,
+      contactUrl: body.contactUrl ?? '',
+      channelLimits: body.channelLimits,
+      numericLimits: body.numericLimits,
     };
 
     // Basic validation before service call
@@ -149,7 +154,7 @@ app.put('/:tier', async (c: Context) => {
   } catch (error) {
     console.error('Admin update subscription plan error:', error);
     const message = error instanceof Error ? error.message : 'Failed to update subscription plan';
-    
+
     // Check if it's a validation error from the service
     if (message.includes('tidak boleh') || message.includes('harus')) {
       return c.json({
@@ -222,9 +227,9 @@ app.put('/:tier/durations', async (c: Context) => {
 
     // Basic validation for each duration
     for (const duration of durations) {
-      if (typeof duration.discountPercent !== 'number' || 
-          duration.discountPercent < 0 || 
-          duration.discountPercent > 100) {
+      if (typeof duration.discountPercent !== 'number' ||
+        duration.discountPercent < 0 ||
+        duration.discountPercent > 100) {
         return c.json({
           error: {
             code: 'ValidationError',
@@ -263,7 +268,7 @@ app.put('/:tier/durations', async (c: Context) => {
   } catch (error) {
     console.error('Admin update duration config error:', error);
     const message = error instanceof Error ? error.message : 'Failed to update duration configuration';
-    
+
     // Check if it's a validation error from the service
     if (message.includes('tidak') || message.includes('harus') || message.includes('Diskon')) {
       return c.json({

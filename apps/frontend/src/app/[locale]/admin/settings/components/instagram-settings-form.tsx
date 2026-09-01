@@ -1,35 +1,30 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  RefreshCw,
-  PlugZap,
-  Save,
-  AlertCircle,
-  CircleCheck,
-  Info,
-  SquarePen,
-} from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAdminSettings } from "../../hooks/use-admin-settings"
+import { Switch } from "@/components/ui/switch"
 import { SensitiveInput } from "./sensitive-input"
+import { useAdminSettings } from "../../hooks/use-admin-settings"
+import {
+  IconRefresh,
+  IconPlugConnected,
+  IconDeviceFloppy,
+  IconAlertCircle,
+  IconCircleCheck,
+  IconInfoCircle,
+} from "@tabler/icons-react"
 
 interface InstagramSettings {
   appId: string
   appSecret: string
   redirectUri: string
   webhookVerifyToken: string
+  enabled: boolean
 }
 
 const defaultSettings: InstagramSettings = {
@@ -37,6 +32,7 @@ const defaultSettings: InstagramSettings = {
   appSecret: "",
   redirectUri: "",
   webhookVerifyToken: "",
+  enabled: false,
 }
 
 export function InstagramSettingsForm() {
@@ -54,15 +50,8 @@ export function InstagramSettingsForm() {
   } = useAdminSettings<InstagramSettings>("instagram")
 
   const [formData, setFormData] = useState<InstagramSettings>(defaultSettings)
-  const [isEditing, setIsEditing] = useState(false)
-  const [testResult, setTestResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
-  const [saveResult, setSaveResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [saveResult, setSaveResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (settings) {
@@ -70,21 +59,23 @@ export function InstagramSettingsForm() {
     }
   }, [settings])
 
-  const handleChange =
-    (field: keyof InstagramSettings) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }))
-      setSaveResult(null)
-    }
+  const handleChange = (field: keyof InstagramSettings) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }))
+    setSaveResult(null)
+  }
+
+  const handleEnabledChange = (checked: boolean) => {
+    setFormData((prev) => ({ ...prev, enabled: checked }))
+    setSaveResult(null)
+  }
 
   const handleSave = async () => {
     setSaveResult(null)
     setTestResult(null)
     const result = await updateSettings(formData)
     setSaveResult(result)
-    if (result.success) {
-      setIsEditing(false)
-    }
   }
 
   const handleTest = async () => {
@@ -98,10 +89,7 @@ export function InstagramSettingsForm() {
     setTestResult(null)
     const result = await resetToDefault()
     if (result.success) {
-      setSaveResult({
-        success: true,
-        message: "Settings reset to .env defaults",
-      })
+      setSaveResult({ success: true, message: "Settings reset to .env defaults" })
     } else {
       setSaveResult(result)
     }
@@ -128,30 +116,16 @@ export function InstagramSettingsForm() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <div className="space-y-1">
-          <CardTitle>Instagram Configuration</CardTitle>
-          <CardDescription>
-            Configure Instagram API credentials and webhook settings
-          </CardDescription>
-        </div>
-        {!isEditing && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-            className="gap-1.5"
-          >
-            <SquarePen className="h-4 w-4" />
-            Edit
-          </Button>
-        )}
+      <CardHeader>
+        <CardTitle>Instagram Configuration</CardTitle>
+        <CardDescription>
+          Configure Instagram API credentials and webhook settings
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {source && (
           <Alert variant={source === "database" ? "default" : "destructive"}>
-            <Info className="h-4 w-4" />
+            <IconInfoCircle className="h-4 w-4" />
             <AlertDescription>
               {source === "database"
                 ? "Settings loaded from database"
@@ -162,7 +136,7 @@ export function InstagramSettingsForm() {
 
         {error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <IconAlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -170,9 +144,9 @@ export function InstagramSettingsForm() {
         {testResult && (
           <Alert variant={testResult.success ? "default" : "destructive"}>
             {testResult.success ? (
-              <CircleCheck className="h-4 w-4" />
+              <IconCircleCheck className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <IconAlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>{testResult.message}</AlertDescription>
           </Alert>
@@ -181,15 +155,24 @@ export function InstagramSettingsForm() {
         {saveResult && (
           <Alert variant={saveResult.success ? "default" : "destructive"}>
             {saveResult.success ? (
-              <CircleCheck className="h-4 w-4" />
+              <IconCircleCheck className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <IconAlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>{saveResult.message}</AlertDescription>
           </Alert>
         )}
 
         <div className="grid gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="instagram-enabled"
+              checked={formData.enabled}
+              onCheckedChange={handleEnabledChange}
+            />
+            <Label htmlFor="instagram-enabled">Enable Instagram Channel</Label>
+          </div>
+
           <div className="grid gap-2">
             <Label htmlFor="appId">App ID</Label>
             <Input
@@ -197,7 +180,7 @@ export function InstagramSettingsForm() {
               value={formData.appId}
               onChange={handleChange("appId")}
               placeholder="Enter Instagram App ID"
-              disabled={!isEditing}
+              disabled={!formData.enabled}
             />
           </div>
 
@@ -209,7 +192,7 @@ export function InstagramSettingsForm() {
               onChange={handleChange("appSecret")}
               placeholder="Enter Instagram App Secret"
               isMasked={formData.appSecret?.includes("****")}
-              disabled={!isEditing}
+              disabled={!formData.enabled}
             />
           </div>
 
@@ -220,7 +203,7 @@ export function InstagramSettingsForm() {
               value={formData.redirectUri}
               onChange={handleChange("redirectUri")}
               placeholder="https://example.com/instagram/callback"
-              disabled={!isEditing}
+              disabled={!formData.enabled}
             />
           </div>
 
@@ -232,7 +215,7 @@ export function InstagramSettingsForm() {
               onChange={handleChange("webhookVerifyToken")}
               placeholder="Enter Webhook Verify Token"
               isMasked={formData.webhookVerifyToken?.includes("****")}
-              disabled={!isEditing}
+              disabled={!formData.enabled}
             />
           </div>
         </div>
@@ -241,42 +224,23 @@ export function InstagramSettingsForm() {
           <Button
             variant="outline"
             onClick={handleTest}
-            disabled={isTesting || isUpdating}
+            disabled={isTesting || isUpdating || !formData.enabled}
           >
-            <PlugZap className="mr-2 h-4 w-4" />
+            <IconPlugConnected className="mr-2 h-4 w-4" />
             {isTesting ? "Testing..." : "Test Connection"}
           </Button>
-          {isEditing && (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                disabled={isResetting || isUpdating}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {isResetting ? "Resetting..." : "Reset to Default"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isUpdating}
-                onClick={() => {
-                  setFormData(settings || defaultSettings)
-                  setIsEditing(false)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            disabled={isResetting || isUpdating}
+          >
+            <IconRefresh className="mr-2 h-4 w-4" />
+            {isResetting ? "Resetting..." : "Reset to Default"}
+          </Button>
+          <Button onClick={handleSave} disabled={isUpdating}>
+            <IconDeviceFloppy className="mr-2 h-4 w-4" />
+            {isUpdating ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </CardContent>
     </Card>

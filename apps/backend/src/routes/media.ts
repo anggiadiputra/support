@@ -4,8 +4,10 @@ import { requireRole } from '../middleware/auth.js'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
-import { getSafeExtension, hasValidMagicBytes, validateFileType, MAX_FILE_SIZE } from '../utils/validation.js'
-import { getWhatsAppClientAsync } from '../utils/whatsapp.js'
+import { validateFileType, MAX_FILE_SIZE } from '../utils/validation.js'
+import { WhatsAppAPI } from '../utils/whatsapp.js'
+import { getWhatsAppAccountByPhoneNumberId, createWhatsAppApiForAccount, resolveCredentialsForSending } from '../utils/whatsapp-account-helper.js'
+import { logDetailedError } from '../middleware/errorHandler.js'
 
 const app = new Hono()
 
@@ -47,18 +49,6 @@ app.post('/upload', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c:
       }, 400)
     }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const safeExtension = getSafeExtension(mimeType)
-    if (!safeExtension || !hasValidMagicBytes(buffer, mimeType)) {
-      return c.json({
-        error: {
-          code: 'BadRequest',
-          message: 'File contents do not match the declared file type'
-        }
-      }, 400)
-    }
-
     // Create uploads directory if not exists
     const uploadsDir = path.join(process.cwd(), 'uploads')
     if (!existsSync(uploadsDir)) {
@@ -68,10 +58,13 @@ app.post('/upload', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c:
     // Generate unique filename
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(7)
-    const filename = `${timestamp}-${randomStr}${safeExtension}`
+    const ext = path.extname(file.name)
+    const filename = `${timestamp}-${randomStr}${ext}`
     const filePath = path.join(uploadsDir, filename)
 
-    // Save the already-inspected bytes using a server-selected extension.
+    // Convert File to Buffer and save locally
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     await writeFile(filePath, buffer)
 
     // Generate public URL (using Cloudflare Tunnel URL)
@@ -81,22 +74,25 @@ app.post('/upload', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c:
     // Check if upload target is WhatsApp
     let whatsappMediaId = null
     const target = formData.get('target')
-    
+
     if (target === 'whatsapp') {
       const phoneNumberId = formData.get('phoneNumberId') as string
       if (phoneNumberId) {
         try {
-          // Upload to WhatsApp
-          const whatsapp = await getWhatsAppClientAsync()
-          const result = await whatsapp.uploadMedia(
-            phoneNumberId,
-            buffer,
-            file.type,
-            file.name
-          )
-          whatsappMediaId = result.id
+          // Resolve per-account credentials from the phone number
+          const phoneRecord = await getWhatsAppAccountByPhoneNumberId(phoneNumberId)
+          if (phoneRecord?.whatsappAccount) {
+            const whatsapp = createWhatsAppApiForAccount(phoneRecord.whatsappAccount)
+            const result = await whatsapp.uploadMedia(
+              phoneNumberId,
+              buffer,
+              file.type,
+              file.name
+            )
+            whatsappMediaId = result.id
+          }
         } catch (error) {
-          console.error('Failed to upload to WhatsApp:', error)
+          logDetailedError(error, { path: c.req.path, method: c.req.method })
           // Continue execution - we still have the local file
         }
       }
@@ -113,12 +109,12 @@ app.post('/upload', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c:
       }
     })
   } catch (error: any) {
-    console.error('Media upload error:', error)
-    return c.json({ 
-      error: { 
-        code: 'UploadError', 
-        message: error.message || 'Failed to upload media'
-      } 
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+    return c.json({
+      error: {
+        code: 'UploadError',
+        message: 'Failed to upload media'
+      }
     }, 500)
   }
 })
@@ -127,18 +123,25 @@ app.post('/upload', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c:
 app.get('/:mediaId', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), async (c: Context) => {
   try {
     const mediaId = c.req.param('mediaId')
+    const userId = (c as any).user?.id
 
-    const whatsapp = await getWhatsAppClientAsync()
+    // Resolve credentials for the user's WhatsApp account
+    const credentials = await resolveCredentialsForSending(userId)
+    if (!credentials) {
+      return c.json({ error: { code: 'WhatsAppNotConnected', message: 'No WhatsApp account connected' } }, 400)
+    }
+
+    const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
     const result = await whatsapp.getMediaUrl(mediaId)
 
     return c.json({ success: true, data: result })
   } catch (error: any) {
-    console.error('Get media URL error:', error)
-    return c.json({ 
-      error: { 
-        code: 'MediaError', 
-        message: error.response?.data?.error?.message || error.message || 'Failed to get media URL'
-      } 
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+    return c.json({
+      error: {
+        code: 'MediaError',
+        message: 'Failed to get media URL'
+      }
     }, 500)
   }
 })
@@ -156,7 +159,20 @@ app.get('/proxy/:mediaId', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), as
       }, 400)
     }
 
-    const whatsapp = await getWhatsAppClientAsync()
+    const userId = (c as any).user?.id
+
+    // Resolve credentials for the user's WhatsApp account
+    const credentials = await resolveCredentialsForSending(userId)
+    if (!credentials) {
+      return c.json({
+        error: {
+          code: 'WhatsAppNotConfigured',
+          message: 'No WhatsApp account connected. Media proxy is unavailable.'
+        }
+      }, 503)
+    }
+
+    const whatsapp = new WhatsAppAPI({ accessToken: credentials.accessToken })
 
     // 1. Get media URL from WhatsApp (valid for 5 minutes)
     const mediaInfo = await whatsapp.getMediaUrl(mediaId)
@@ -180,40 +196,74 @@ app.get('/proxy/:mediaId', requireRole(['ADMIN', 'BUSINESS_OWNER', 'AGENT']), as
       },
     })
   } catch (error: any) {
-    // Extract meaningful error info without logging entire axios error object
-    const errorMessage = error.response?.data?.error?.message || error.message
-    const errorCode = error.response?.data?.error?.code
-    const httpStatus = error.response?.status
-    
-    console.error('Media proxy error:', {
-      mediaId,
-      httpStatus,
-      errorCode,
-      errorMessage
+    // Log full error details server-side only
+    logDetailedError(error, {
+      path: c.req.path,
+      method: c.req.method,
+      requestId: mediaId,
     })
-    
-    // Handle specific WhatsApp API errors
+
+    // Extract HTTP status for error routing (without exposing details)
+    // Check both axios-style response and native fetch-style status
+    const httpStatus = error.response?.status || error.status
+
+    // Handle specific WhatsApp API errors with user-friendly messages
     if (httpStatus === 404) {
-      return c.json({ 
-        error: { code: 'MediaNotFound', message: 'Media not found or expired' } 
+      return c.json({
+        error: { code: 'MediaNotFound', message: 'Media not found or expired' }
       }, 404)
     }
-    
+
     // Handle 400 errors - typically means media expired or wrong access token
     if (httpStatus === 400) {
-      return c.json({ 
-        error: { 
-          code: 'MediaExpired', 
-          message: 'Media has expired or is no longer accessible. WhatsApp media is only available for a limited time after being received.' 
-        } 
+      return c.json({
+        error: {
+          code: 'MediaExpired',
+          message: 'Media has expired or is no longer accessible. WhatsApp media is only available for a limited time after being received.'
+        }
       }, 410) // 410 Gone - resource no longer available
     }
+
+    // Handle 401/403 - authentication issues
+    if (httpStatus === 401 || httpStatus === 403) {
+      return c.json({
+        error: {
+          code: 'MediaAccessDenied',
+          message: 'Access denied to media. The WhatsApp access token may have expired.'
+        }
+      }, 403)
+    }
+
+    // Check for WhatsApp API error codes in the response body
+    const waErrorCode = error.response?.data?.error?.code
+    const waErrorMessage = error.response?.data?.error?.message
     
-    return c.json({ 
-      error: { 
-        code: 'ProxyError', 
-        message: errorMessage || 'Failed to proxy media'
-      } 
+    // Common WhatsApp API error: media no longer available
+    if (waErrorCode === 100 || waErrorMessage?.includes('does not exist') || waErrorMessage?.includes('expired')) {
+      return c.json({
+        error: {
+          code: 'MediaExpired',
+          message: 'Media has expired or is no longer accessible. WhatsApp media is only available for approximately 30 days.'
+        }
+      }, 410)
+    }
+
+    // Check if error message indicates expired/unavailable media
+    const errorMsg = error.message?.toLowerCase() || ''
+    if (errorMsg.includes('expired') || errorMsg.includes('not found') || errorMsg.includes('unavailable')) {
+      return c.json({
+        error: {
+          code: 'MediaExpired',
+          message: 'Media has expired or is no longer accessible.'
+        }
+      }, 410)
+    }
+
+    return c.json({
+      error: {
+        code: 'ProxyError',
+        message: 'Failed to proxy media. The media may have expired or be temporarily unavailable.'
+      }
     }, 500)
   }
 })

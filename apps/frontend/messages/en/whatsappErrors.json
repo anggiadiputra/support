@@ -1,0 +1,231 @@
+{
+  "131000": {
+    "message": "Message failed to send due to an unknown error.",
+    "recovery": "Please try again. If the problem persists, contact support."
+  },
+  "131048": {
+    "message": "Message failed to send due to spam rate limit.",
+    "recovery": "Check quality status in WhatsApp Manager."
+  },
+  "131049": {
+    "message": "Message was not delivered to maintain a healthy ecosystem.",
+    "recovery": "Wait 24 hours before resending."
+  },
+  "131050": {
+    "message": "Recipient has stopped receiving marketing messages from your business.",
+    "recovery": "Respect user preferences and do not send marketing messages again."
+  },
+  "368": {
+    "message": "WhatsApp Business account temporarily blocked for policy violations.",
+    "recovery": "Review WhatsApp Business policies and appeal if necessary."
+  },
+  "0": {
+    "message": "Unable to authenticate. Access token may be expired or invalid.",
+    "recovery": "Update your access token in settings."
+  },
+  "131005": {
+    "message": "Access denied. Permission not granted or has been removed.",
+    "recovery": "Check app permissions in Meta Business Suite."
+  },
+  "131016": {
+    "message": "WhatsApp service is temporarily unavailable.",
+    "recovery": "Please try again later."
+  },
+  "131021": {
+    "message": "Sender and recipient numbers cannot be the same.",
+    "recovery": "Use a different recipient number."
+  },
+  "131037": {
+    "message": "Business phone number display name has not been approved.",
+    "recovery": "Wait for display name approval or resubmit."
+  },
+  "131056": {
+    "message": "Too many messages to the same number.",
+    "recovery": "Wait before sending again to this number."
+  },
+  "131057": {
+    "message": "WhatsApp Business account is in maintenance mode.",
+    "recovery": "Try again after maintenance is complete."
+  },
+  "130497": {
+    "message": "Account is restricted from sending messages to certain countries.",
+    "recovery": "Contact Meta support for more information."
+  },
+  "132016": {
+    "message": "Template has been permanently disabled due to low quality.",
+    "recovery": "Create a new template with better content."
+  },
+  "132068": {
+    "message": "WhatsApp Flow is blocked.",
+    "recovery": "Fix the flow first in WhatsApp Manager."
+  },
+  "132069": {
+    "message": "WhatsApp Flow is throttled. Maximum 10 messages per hour for this flow.",
+    "recovery": "Wait before sending flow messages again."
+  },
+  "2388040": {
+    "message": "Template exceeds maximum character limit.",
+    "recovery": "Reduce the template text length."
+  },
+  "2388019": {
+    "message": "Maximum template count (250) has been reached.",
+    "recovery": "Delete unused templates before creating new ones."
+  },
+  "132000": {
+    "message": "Template parameter count mismatch.",
+    "recovery": "Ensure parameter count matches the template."
+  },
+  "132001": {
+    "message": "Template not found.",
+    "recovery": "Check template name and sync from WhatsApp Manager."
+  },
+  "132005": {
+    "message": "Template text after hydration is too long.",
+    "recovery": "Use shorter parameter values."
+  },
+  "132007": {
+    "message": "Template format character policy violated.",
+    "recovery": "Remove disallowed special characters from template."
+  },
+  "132012": {
+    "message": "Template parameter format mismatch.",
+    "recovery": "Check parameter format (text, image, etc)."
+  },
+  "132015": {
+    "message": "Template is paused due to quality issues.",
+    "recovery": "Improve template quality or wait until pause ends."
+  },
+  "133005": {
+    "message": "Two-step verification PIN is incorrect.",
+    "recovery": "Enter the correct PIN."
+  },
+  "133006": {
+    "message": "Phone number needs to be re-verified before registering.",
+    "recovery": "Re-verify the phone number."
+  },
+  "133008": {
+    "message": "Too many PIN attempts.",
+    "recovery": "Try again later."
+  },
+  "133015": {
+    "message": "Wait before trying to register this number.",
+    "recovery": "Wait 5 minutes before trying again."
+  },
+  "133016": {
+    "message": "Registration attempt limit reached.",
+    "recovery": "Try again after the number is unblocked."
+  },
+  "133000": {
+    "message": "Incomplete deregistration process.",
+    "recovery": "Complete the deregistration process first."
+  },
+  "133004": {
+    "message": "Server temporarily unavailable.",
+    "recovery": "Try again in a few minutes."
+  },
+  "133009": {
+    "message": "PIN attempts too fast.",
+    "recovery": "Wait a moment before trying again."
+  },
+  "133010": {
+    "message": "Phone number is not registered.",
+    "recovery": "Register the phone number first."
+  },
+  "4": {
+    "message": "Too many API calls.",
+    "recovery": "Reduce API request frequency."
+  },
+  "80007": {
+    "message": "Rate limit issues.",
+    "recovery": "Wait before sending requests again."
+  },
+  "130429": {
+    "message": "Rate limit reached.",
+    "recovery": "Wait before sending messages again."
+  },
+  "1": {
+    "message": "Unknown API error.",
+    "recovery": "Try again later."
+  },
+  "2": {
+    "message": "API service unavailable.",
+    "recovery": "Try again in a few minutes."
+  },
+  "3": {
+    "message": "API method not allowed.",
+    "recovery": "Check the HTTP method used."
+  },
+  "10": {
+    "message": "Permission denied.",
+    "recovery": "Check your app permissions."
+  },
+  "33": {
+    "message": "Parameter value is not valid.",
+    "recovery": "Check the parameter values sent."
+  },
+  "100": {
+    "message": "Invalid parameter.",
+    "recovery": "Check your request parameters."
+  },
+  "190": {
+    "message": "Access token has expired.",
+    "recovery": "Refresh your access token."
+  },
+  "131008": {
+    "message": "Required parameter is missing.",
+    "recovery": "Add the required parameter."
+  },
+  "131009": {
+    "message": "Parameter value is not valid.",
+    "recovery": "Check the parameter values sent."
+  },
+  "131026": {
+    "message": "Message undeliverable.",
+    "recovery": "Ensure recipient number is valid and can receive messages."
+  },
+  "131042": {
+    "message": "Business eligibility payment issue.",
+    "recovery": "Check payment status in Meta Business Suite."
+  },
+  "131045": {
+    "message": "Incorrect certificate.",
+    "recovery": "Check certificate configuration."
+  },
+  "131047": {
+    "message": "Re-engagement message required.",
+    "recovery": "Send a template message first to open conversation window."
+  },
+  "131051": {
+    "message": "Unsupported message type.",
+    "recovery": "Use a supported message type."
+  },
+  "131052": {
+    "message": "Media download error.",
+    "recovery": "Check media URL and try again."
+  },
+  "131053": {
+    "message": "Media upload error.",
+    "recovery": "Check media file and try again."
+  },
+  "135000": {
+    "message": "Generic user error.",
+    "recovery": "Check your request and try again."
+  },
+  "131031": {
+    "message": "Account has been locked.",
+    "recovery": "Contact Meta support to unlock account."
+  },
+  "unknown": {
+    "message": "An unknown error occurred.",
+    "recovery": "Please try again or contact support."
+  },
+  "categories": {
+    "AUTHORIZATION": "Authorization Error",
+    "INTEGRITY": "Integrity Error",
+    "TEMPLATE_CREATION": "Template Creation Error",
+    "TEMPLATE_SEND": "Template Send Error",
+    "THROTTLING": "Rate Limiting",
+    "REGISTRATION": "Registration Error",
+    "OTHER": "Other Error"
+  }
+}

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../../utils/database.js'
+import { logger } from '../../utils/logger.js'
 import type { MessageType, MessageDirection, MessageStatus, MessageSource } from '@prisma/client'
 
 interface HistoryWebhookPayload {
@@ -19,9 +20,19 @@ interface HistoryWebhookPayload {
       progress: number // 0-100
     }
     threads?: Array<{
-      id: string // WhatsApp user phone number
+      // Optional since the BSUID rollout: omitted when the thread's user
+      // adopted a username and Meta cannot share their phone. Identity then
+      // lives in `context.user_id`. See docs/bsuid.md "History webhooks".
+      id?: string // WhatsApp user phone number
+      context?: {
+        wa_id?: string
+        user_id?: string // BSUID
+        parent_user_id?: string
+        username?: string
+      }
       messages: Array<{
-        from: string
+        from?: string
+        from_user_id?: string
         to?: string
         id: string
         timestamp: string
@@ -53,11 +64,23 @@ export async function handleHistorySync(
 ): Promise<void> {
   try {
     if (!user) {
-      console.warn('⚠️ History sync webhook received but user not found')
+      logger.warn('History sync webhook received but user not found')
       return
     }
 
-    console.log(`📜 Processing history sync for user ${user.id}`)
+    logger.info('Processing history sync', { userId: user.id })
+
+    // Defensive check - history field may be undefined in some webhook payloads
+    if (!payload.history || !Array.isArray(payload.history)) {
+      // NEVER dump the full payload — it contains phone numbers, contact names,
+      // and message previews for many customers in a single line. Summarize keys.
+      logger.warn('History sync payload missing history array', {
+        userId: user.id,
+        payloadKeys: Object.keys(payload || {}),
+        hasMetadata: !!payload?.metadata,
+      })
+      return
+    }
 
     for (const historyData of payload.history) {
       // Check for error (user declined history sharing)
@@ -66,10 +89,10 @@ export async function handleHistorySync(
 
         if (error.code === 2593109) {
           // User declined history sharing
-          console.log(`❌ User ${user.id} declined history sharing`)
+          logger.info('User declined history sharing', { userId: user.id })
 
-          await prisma.user.update({
-            where: { id: user.id },
+          await prisma.whatsAppAccount.updateMany({
+            where: { userId: user.id },
             data: {
               historySharingConsent: false,
               coexistenceSyncStatus: 'partial',
@@ -94,8 +117,8 @@ export async function handleHistorySync(
       }
 
       // User approved history sharing
-      await prisma.user.update({
-        where: { id: user.id },
+      await prisma.whatsAppAccount.updateMany({
+        where: { userId: user.id },
         data: {
           historySharingConsent: true
         }
@@ -107,7 +130,7 @@ export async function handleHistorySync(
       if (metadata) {
         const { phase, chunk_order, progress } = metadata
 
-        console.log(`📊 History sync - Phase: ${phase}, Chunk: ${chunk_order}, Progress: ${progress}%`)
+        logger.debug('History sync chunk', { phase, chunkOrder: chunk_order, progress })
 
         // Update sync status
         await prisma.coexistenceSyncStatus.updateMany({
@@ -124,11 +147,11 @@ export async function handleHistorySync(
           }
         })
 
-        // Update user progress
-        await prisma.user.update({
-          where: { id: user.id },
+        // Update account progress
+        await prisma.whatsAppAccount.updateMany({
+          where: { userId: user.id },
           data: {
-            coexistenceSyncProgress: Math.floor((progress + (user.coexistenceSyncProgress || 0)) / 2),
+            coexistenceSyncProgress: progress,
             coexistenceSyncStatus: progress === 100 ? 'completed' : 'in_progress',
             historySyncCompletedAt: progress === 100 ? new Date() : undefined
           }
@@ -145,7 +168,7 @@ export async function handleHistorySync(
       const allPhoneNumbers = threads.map(t => t.id)
       const allMessageIds = threads.flatMap(t => t.messages.map(m => m.id))
 
-      console.log(`📊 Processing ${threads.length} threads with ${allMessageIds.length} total messages`)
+      logger.debug('Processing history threads', { threadCount: threads.length, messageCount: allMessageIds.length })
 
       // STEP 2: Batch fetch existing customers (1 query instead of N)
       const existingCustomers = await prisma.customer.findMany({
@@ -164,7 +187,7 @@ export async function handleHistorySync(
         existingCustomers.map(c => [c.phoneNumber, c.id])
       )
 
-      console.log(`✅ Found ${existingCustomers.length} existing customers`)
+      logger.debug('Found existing customers', { count: existingCustomers.length })
 
       // STEP 3: Batch fetch existing messages (1 query instead of M)
       const existingMessages = await prisma.message.findMany({
@@ -179,7 +202,7 @@ export async function handleHistorySync(
       // Create set for O(1) lookup
       const existingMessageSet = new Set(existingMessages.map(m => m.wamId))
 
-      console.log(`✅ Found ${existingMessages.length} existing messages`)
+      logger.debug('Found existing messages', { count: existingMessages.length })
 
       // STEP 4: Identify new customers to create
       const newCustomerPhones = allPhoneNumbers.filter(
@@ -187,7 +210,7 @@ export async function handleHistorySync(
       )
 
       if (newCustomerPhones.length > 0) {
-        console.log(`📝 Creating ${newCustomerPhones.length} new customers...`)
+        logger.debug('Creating new customers from history', { count: newCustomerPhones.length })
 
         // Batch insert customers (1 query instead of N)
         await prisma.customer.createMany({
@@ -217,6 +240,43 @@ export async function handleHistorySync(
         // Update customer map with new customers
         newCustomers.forEach(c => customerMap.set(c.phoneNumber, c.id))
 
+        // Best-effort BSUID enrichment: when a thread carries its identity
+        // context (BSUID/username) alongside a phone, stamp it onto the
+        // customer so the same person is anchored on their stable BSUID and
+        // won't later re-appear as a separate BSUID-only row. Never null-out an
+        // existing value; only fill when the column is empty. Non-fatal — a
+        // failure here must not abort the history import.
+        try {
+          const phoneToBsuid = new Map<string, { bsuid: string; parentBsuid?: string; username?: string }>()
+          for (const t of threads) {
+            const ctx = t.context
+            if (t.id && ctx?.user_id) {
+              phoneToBsuid.set(t.id, {
+                bsuid: ctx.user_id,
+                parentBsuid: ctx.parent_user_id,
+                username: ctx.username,
+              })
+            }
+          }
+          for (const [phone, ident] of phoneToBsuid) {
+            const customerId = customerMap.get(phone)
+            if (!customerId) continue
+            await prisma.customer.updateMany({
+              where: { id: customerId, whatsappBsuid: null },
+              data: {
+                whatsappBsuid: ident.bsuid,
+                ...(ident.parentBsuid ? { whatsappParentBsuid: ident.parentBsuid } : {}),
+                ...(ident.username ? { whatsappUsername: ident.username } : {}),
+                bsuidMappedAt: new Date(),
+              },
+            })
+          }
+        } catch (err) {
+          logger.warn('History sync BSUID enrichment failed (non-fatal)', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
+
         // Batch insert consent logs (1 query instead of N)
         await prisma.consentLog.createMany({
           data: newCustomers.map(c => ({
@@ -228,7 +288,7 @@ export async function handleHistorySync(
           }))
         })
 
-        console.log(`✅ Created ${newCustomers.length} customers with consent logs`)
+        logger.info('Created customers with consent logs', { count: newCustomers.length, userId: user.id })
       }
 
       // STEP 5: Prepare all messages for batch insert
@@ -237,7 +297,13 @@ export async function handleHistorySync(
       for (const thread of threads) {
         const customerId = customerMap.get(thread.id)
         if (!customerId) {
-          console.error(`❌ Customer not found for phone: ${thread.id}`)
+          // thread.id is the WhatsApp phone identifier — log via logger so the
+          // serializer's `phone`-key mask doesn't apply but the value is bounded;
+          // we use threadIdLength + suffix to keep diagnostic signal without PII.
+          logger.warn('Customer not found for history thread', {
+            userId: user.id,
+            threadIdLength: thread.id?.length ?? 0,
+          })
           continue
         }
 
@@ -280,22 +346,25 @@ export async function handleHistorySync(
 
       // STEP 6: Batch insert all messages (1 query instead of M)
       if (messagesToCreate.length > 0) {
-        console.log(`📝 Creating ${messagesToCreate.length} new messages...`)
+        logger.debug('Creating new messages from history', { count: messagesToCreate.length })
 
         await prisma.message.createMany({
           data: messagesToCreate,
           skipDuplicates: true
         })
 
-        console.log(`✅ Synced ${messagesToCreate.length} messages from history`)
+        logger.info('Synced messages from history', { count: messagesToCreate.length, userId: user.id })
       } else {
-        console.log(`ℹ️  No new messages to sync`)
+        logger.debug('No new messages to sync')
       }
     }
 
-    console.log(`✅ History sync processed for user ${user.id}`)
+    logger.info('History sync processed', { userId: user.id })
   } catch (error) {
-    console.error('❌ History sync webhook error:', error)
+    logger.error('History sync webhook error', {
+      error: error instanceof Error ? error.message : String(error),
+      userId: user?.id,
+    })
     throw error
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { Search as SearchIcon } from "lucide-react"
+import { IconSearch } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { useSearch } from "./search-provider"
 import { Button } from "./ui/button"
@@ -22,7 +22,7 @@ export function Search({ className = "", placeholder = "Search" }: Props) {
       )}
       onClick={() => setOpen(true)}
     >
-      <SearchIcon
+      <IconSearch
         aria-hidden="true"
         className="absolute top-1/2 left-1.5 -translate-y-1/2"
       />

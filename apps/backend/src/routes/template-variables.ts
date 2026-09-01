@@ -14,6 +14,7 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import { templateVariableService, TEMPLATE_VARIABLE_ERRORS } from '../services/template-variable-service.js'
 import { resolveContext, getEffectiveUserId } from '../middleware/resolveContext.js'
+import { handleValidationError, logDetailedError } from '../middleware/errorHandler.js'
 
 const app = new Hono()
 
@@ -131,7 +132,7 @@ app.get('/mappings/:templateName', async (c: Context) => {
       data: mappings
     })
   } catch (error) {
-    console.error('Get template mappings error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -175,13 +176,7 @@ app.post('/mappings', async (c: Context) => {
     const validation = createMappingsSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data',
-          details: validation.error.issues
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const { templateName, mappings } = validation.data
@@ -212,8 +207,8 @@ app.post('/mappings', async (c: Context) => {
       data: createdMappings
     }, 201)
   } catch (error) {
-    console.error('Create template mappings error:', error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     // Handle known errors
     if (error instanceof Error) {
       if (error.message === TEMPLATE_VARIABLE_ERRORS.VARIABLE_NOT_FOUND) {
@@ -271,7 +266,7 @@ app.delete('/mappings/:templateName', async (c: Context) => {
       message: 'Mappings deleted successfully'
     })
   } catch (error) {
-    console.error('Delete template mappings error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -313,7 +308,7 @@ app.get('/', async (c: Context) => {
       data: variables
     })
   } catch (error) {
-    console.error('List template variables error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -359,7 +354,7 @@ app.get('/:id', async (c: Context) => {
       data: variable
     })
   } catch (error) {
-    console.error('Get template variable error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -411,7 +406,7 @@ app.get('/:id/usage', async (c: Context) => {
       }
     })
   } catch (error) {
-    console.error('Get variable usage error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: {
         code: 'InternalServerError',
@@ -451,12 +446,7 @@ app.post('/', async (c: Context) => {
     const validation = createVariableSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data'
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     const variable = await templateVariableService.createVariable(userId, validation.data)
@@ -466,8 +456,8 @@ app.post('/', async (c: Context) => {
       data: variable
     }, 201)
   } catch (error) {
-    console.error('Create template variable error:', error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     // Handle known errors
     if (error instanceof Error) {
       if (error.message === TEMPLATE_VARIABLE_ERRORS.VARIABLE_NAME_EXISTS) {
@@ -520,12 +510,7 @@ app.put('/:id', async (c: Context) => {
     const validation = updateVariableSchema.safeParse(body)
 
     if (!validation.success) {
-      return c.json({
-        error: {
-          code: 'ValidationError',
-          message: validation.error.issues[0]?.message || 'Invalid request data'
-        }
-      }, 400)
+      return handleValidationError(validation.error, c)
     }
 
     // Convert null values to undefined for the service
@@ -542,8 +527,8 @@ app.put('/:id', async (c: Context) => {
       data: variable
     })
   } catch (error) {
-    console.error('Update template variable error:', error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     // Handle known errors
     if (error instanceof Error) {
       if (error.message === TEMPLATE_VARIABLE_ERRORS.VARIABLE_NOT_FOUND) {
@@ -602,8 +587,8 @@ app.delete('/:id', async (c: Context) => {
       message: 'Variable deleted successfully'
     })
   } catch (error) {
-    console.error('Delete template variable error:', error)
-    
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
+
     // Handle known errors
     if (error instanceof Error) {
       if (error.message === TEMPLATE_VARIABLE_ERRORS.VARIABLE_NOT_FOUND) {

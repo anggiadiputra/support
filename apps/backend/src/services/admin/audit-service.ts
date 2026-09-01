@@ -8,6 +8,7 @@ export interface AuditLogsQuery {
   entityType?: string
   startDate?: string
   endDate?: string
+  search?: string
 }
 
 export interface AuditLogItem {
@@ -46,12 +47,8 @@ export class AdminAuditService {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: {
-      action?: string
-      userId?: string
-      entityType?: string
-      timestamp?: { gte?: Date; lte?: Date }
-    } = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {}
 
     if (query.action) {
       where.action = query.action
@@ -73,6 +70,17 @@ export class AdminAuditService {
       if (query.endDate) {
         where.timestamp.lte = new Date(query.endDate)
       }
+    }
+
+    // Search filter - search across multiple fields
+    if (query.search) {
+      const searchTerm = query.search.trim()
+      where.OR = [
+        { entityId: { contains: searchTerm, mode: 'insensitive' } },
+        { user: { name: { contains: searchTerm, mode: 'insensitive' } } },
+        { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+        { details: { string_contains: searchTerm } }
+      ]
     }
 
     const [logs, total] = await Promise.all([

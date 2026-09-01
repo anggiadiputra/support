@@ -1,12 +1,18 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, RefreshCw } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { IconPlus, IconRefresh } from "@tabler/icons-react"
+import { useState } from "react"
 import { TemplatesMutateDrawer } from "./templates-mutate-drawer"
+import { useToast } from "@/hooks/use-toast"
+import type { WhatsAppPhoneNumberOption } from "@/hooks/use-whatsapp-phone-numbers"
 
-export function TemplatesPrimaryActions() {
+interface Props {
+  phoneNumbers?: WhatsAppPhoneNumberOption[]
+  selectedWhatsappAccountId?: string | null
+}
+
+export function TemplatesPrimaryActions({ phoneNumbers, selectedWhatsappAccountId }: Props) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const { toast } = useToast()
@@ -25,16 +31,14 @@ export function TemplatesPrimaryActions() {
       if (response.ok) {
         toast({
           title: "Templates Synced!",
-          description:
-            result.data.message || "Templates synced successfully from Meta",
+          description: result.data.message || "Templates synced successfully from Meta",
         })
         // Reload to show new templates
         setTimeout(() => window.location.reload(), 1000)
       } else {
         toast({
           title: "Sync Failed",
-          description:
-            result.error?.message || "Failed to sync templates from Meta",
+          description: result.error?.message || "Failed to sync templates from Meta",
           variant: "destructive",
         })
       }
@@ -58,17 +62,19 @@ export function TemplatesPrimaryActions() {
         onClick={handleSync}
         disabled={isSyncing}
       >
-        <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+        <IconRefresh className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
         {isSyncing ? "Syncing..." : "Sync from Meta"}
       </Button>
       <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-        <Plus className="h-4 w-4" />
+        <IconPlus className="h-4 w-4" />
         Create Template
       </Button>
 
       <TemplatesMutateDrawer
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
+        phoneNumbers={phoneNumbers}
+        defaultWhatsappAccountId={selectedWhatsappAccountId ?? undefined}
       />
     </div>
   )

@@ -18,7 +18,7 @@
   "officialApi": {
     "badge": "Official Meta API",
     "title": "Powered by Official WhatsApp Cloud API",
-    "description": "Our platform uses the official Meta WhatsApp Business Cloud API. Your data is secure and compliant with Meta's policies.",
+    "description": "{websiteName} uses the official Meta WhatsApp Business Cloud API. Your data is secure and compliant with Meta's policies.",
     "benefits": {
       "official": "Direct integration with Meta's official API",
       "compliant": "Fully compliant with Meta's terms"

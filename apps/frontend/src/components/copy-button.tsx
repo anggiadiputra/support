@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Copy } from "lucide-react"
+import { IconCheck, IconCopy } from "@tabler/icons-react"
 import { Button, ButtonProps } from "@/components/ui/button"
 import {
   Tooltip,
@@ -42,9 +42,9 @@ export function CopyButton({ text, className, ...rest }: Props) {
             {...rest}
           >
             {isCopied ? (
-              <Check strokeWidth={1.5} className="m-auto" />
+              <IconCheck strokeWidth={1.5} className="m-auto" />
             ) : (
-              <Copy strokeWidth={1.5} className="m-auto" />
+              <IconCopy strokeWidth={1.5} className="m-auto" />
             )}
           </Button>
         </TooltipTrigger>

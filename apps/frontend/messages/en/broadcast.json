@@ -36,7 +36,8 @@
     "title": "Template Variables",
     "description": "Fill in the variable values for your template",
     "placeholder": "Enter value for {{variable}}",
-    "required": "This field is required"
+    "required": "This field is required",
+    "customerPlaceholderHint": "Use the 'Insert Field' button to add customer data like name, email, etc. Data will be automatically filled from the database."
   },
   "recipientSelector": {
     "title": "Select Recipients",
@@ -68,7 +69,11 @@
     "clear": "Clear",
     "validCount": "{count} valid",
     "invalidCount": "{count} invalid",
-    "invalidNumbers": "Invalid phone numbers:"
+    "invalidNumbers": "Invalid phone numbers:",
+    "extractedNumbers": "{count} phone numbers found",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "selectedForBroadcast": "{selected} of {total} selected for broadcast"
   },
   "form": {
     "send": "Send Broadcast",
@@ -84,20 +89,101 @@
     "pending": "Pending",
     "processing": "Processing",
     "completed": "Completed",
+    "partialSuccess": "Partial Success",
+    "mostlyFailed": "Mostly Failed",
     "failed": "Failed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "stuck": "Stuck"
   },
   "jobCard": {
     "recipients": "Recipients",
     "success": "Success",
+    "sent": "Sent",
+    "delivered": "Delivered",
+    "read": "Read",
     "failed": "Failed",
     "progress": "Progress",
     "cancelJob": "Cancel Job",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "successRate": "success",
+    "resume": "Resume",
+    "stuckWarning": "Broadcast is stuck. Click Resume to continue sending.",
+    "resumeTitle": "Resume Broadcast",
+    "resumeConfirm": "Resume Broadcast",
+    "resumeSuccess": "Broadcast resumed",
+    "resumeSuccessDesc": "The broadcast will continue shortly",
+    "resumeFailed": "Failed to resume",
+    "totalRecipients": "Total",
+    "pending": "Pending",
+    "sentRecipients": "Sent",
+    "pendingRecipients": "Pending",
+    "noSentYet": "No messages sent yet",
+    "allSent": "All messages sent",
+    "failedLoadDetail": "Failed to load broadcast details"
+  },
+  "jobDetail": {
+    "deliveryRate": "Delivery Rate",
+    "criticalIssues": "Critical Issues Detected",
+    "paymentIssueDesc": "Messages failed because payment method is not configured in Meta Business. Please add a payment method to continue sending.",
+    "templateIssueDesc": "Template has issues preventing message delivery. Check template configuration in Meta.",
+    "authIssueDesc": "Authorization failed. Please reconnect your WhatsApp Business Account.",
+    "integrityIssueDesc": "Account is restricted due to policy violations. Review Meta's guidelines.",
+    "errorSummary": "Error Summary",
+    "detailedResults": "Detailed Results",
+    "recipients": "recipients",
+    "sent": "Sent",
+    "delivered": "Delivered",
+    "read": "Read",
+    "failedBadge": "Failed",
+    "recoveryAction": "Suggestion",
+    "noResultsForFilter": "No results match this filter",
+    "exportCSV": "Export {filter} ({count})",
+    "filter": {
+      "all": "All"
+    }
+  },
+  "errors": {
+    "categories": {
+      "payment": "Payment Issue",
+      "paymentDesc": "Payment method not configured in Meta Business",
+      "rateLimit": "Rate Limited",
+      "rateLimitDesc": "Too many messages sent too quickly",
+      "template": "Template Issue",
+      "templateDesc": "Problem with template configuration",
+      "recipient": "Recipient Issue",
+      "recipientDesc": "Recipient blocked or invalid number",
+      "authorization": "Authorization Error",
+      "authorizationDesc": "Access token expired or permission denied",
+      "integrity": "Policy Violation",
+      "integrityDesc": "Account restricted due to policy",
+      "other": "Other Error",
+      "otherDesc": "Unexpected error occurred"
+    },
+    "actions": {
+      "setupPayment": "Add payment method in Meta Business Manager",
+      "checkTemplate": "Review template in Meta",
+      "reconnect": "Reconnect WhatsApp Business Account",
+      "reviewPolicy": "Review Meta's messaging policies"
+    },
+    "recovery": {
+      "PAYMENT": "Check payment method in Meta Business Suite",
+      "RATE_LIMIT": "Wait a moment and reduce sending speed",
+      "TEMPLATE": "Check template configuration and parameters",
+      "RECIPIENT": "Verify recipient number and their WhatsApp status",
+      "AUTHORIZATION": "Reconnect WhatsApp Business account",
+      "INTEGRITY": "Review Meta policies and appeal if necessary",
+      "OTHER": "Try again later or contact support"
+    }
   },
   "preview": {
     "title": "Message Preview",
     "description": "See how your message will look to recipients",
     "placeholder": "Select a template to see preview"
+  },
+  "pricingInfo": {
+    "title": "Pricing Information",
+    "description": "Sending WhatsApp template messages incurs charges from Meta. Costs vary based on category (Marketing, Utility, Authentication) and destination country.",
+    "pricingLink": "View WhatsApp Pricing",
+    "paymentLink": "Add Payment Method in Meta Business"
   }
 }

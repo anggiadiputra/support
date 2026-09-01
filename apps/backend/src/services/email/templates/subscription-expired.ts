@@ -14,8 +14,10 @@ export interface SubscriptionExpiredParams {
   tierName: string;
   /** Date when subscription expired */
   expiredDate: Date;
-  /** Application name (defaults to KirimChat) */
+  /** Application name */
   appName?: string;
+  /** Support email address (rendered only if provided) */
+  supportEmail?: string;
 }
 
 export interface SubscriptionExpiredTemplate {
@@ -47,8 +49,12 @@ export function subscriptionExpiredTemplate(
     userName,
     tierName,
     expiredDate,
-    appName = 'KirimChat',
+    appName = process.env.APP_NAME || 'Messaging Platform',
+    supportEmail = process.env.SUPPORT_EMAIL || '',
   } = params;
+  const locale = process.env.DEFAULT_LOCALE || 'en';
+  const subscriptionUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${locale}/subscription`;
+  const sanitizedSupportEmail = supportEmail ? escapeHtml(supportEmail) : '';
 
   // Sanitize inputs
   const sanitizedUserName = escapeHtml(userName);
@@ -82,7 +88,7 @@ export function subscriptionExpiredTemplate(
           <tr>
             <td style="padding: 32px 32px 16px; text-align: center;">
               <div style="width: 64px; height: 64px; margin: 0 auto; background-color: #6b7280; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px; color: #ffffff;">📋</span>
+                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">i</span>
               </div>
             </td>
           </tr>
@@ -120,7 +126,7 @@ export function subscriptionExpiredTemplate(
               
               <!-- CTA Button -->
               <div style="text-align: center; margin-bottom: 24px;">
-                <a href="${process.env.FRONTEND_URL || 'https://app.kirim.chat'}/subscription" 
+                <a href="${subscriptionUrl}"
                    style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                   Aktifkan Kembali
                 </a>
@@ -135,9 +141,9 @@ export function subscriptionExpiredTemplate(
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 32px; background-color: #f8f9fa; border-radius: 0 0 12px 12px;">
-              <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
-                Butuh bantuan? Hubungi support@kirim.chat
-              </p>
+              ${sanitizedSupportEmail ? `<p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
+                Butuh bantuan? Hubungi ${sanitizedSupportEmail}
+              </p>` : ''}
             </td>
           </tr>
         </table>
@@ -166,9 +172,7 @@ Fitur yang tidak lagi tersedia:
 Data Anda tetap aman dan tersimpan. Anda dapat mengaktifkan kembali subscription kapan saja.
 
 Aktifkan kembali subscription Anda:
-${process.env.FRONTEND_URL || 'https://app.kirim.chat'}/subscription
-
-Butuh bantuan? Hubungi support@kirim.chat
+${subscriptionUrl}${sanitizedSupportEmail ? `\n\nButuh bantuan? Hubungi ${sanitizedSupportEmail}` : ''}
 
 Ini adalah pesan otomatis. Jangan balas email ini.
 `.trim();

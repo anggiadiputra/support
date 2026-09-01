@@ -1,6 +1,3 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import {
     Card,
     CardContent,
@@ -8,84 +5,42 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import {
     TrendingUp,
     TrendingDown,
-    Download,
     ArrowUpRight,
     ArrowDownRight,
     MessageSquare,
     Users,
     CheckCircle2,
-    XCircle,
     Target,
 } from "lucide-react"
-import { useBusinessAccount } from "@/hooks/use-business-account"
-import { analyticsApi, type AnalyticsData } from "@/lib/api/analytics-api"
+import { getAnalyticsServer } from "@/lib/api/analytics-server"
 import { Header } from "@/components/layout/header"
 import { MessageVolumeChart } from "./components/message-volume-chart"
 import { LeadScoreChart } from "./components/lead-score-chart"
 import { PipelineChart } from "./components/pipeline-chart"
 import { MessageBreakdownChart } from "./components/message-breakdown-chart"
+import { AnalyticsFilter } from "./components/analytics-filter"
 
-export default function AnalyticsPage() {
-    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [timeRange, setTimeRange] = useState("7d")
-    const { userId } = useBusinessAccount()
+interface PageProps {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
 
-    useEffect(() => {
-        if (userId) {
-            loadAnalytics()
-        }
-    }, [timeRange, userId])
-
-    const loadAnalytics = async () => {
-        if (!userId) {
-            setLoading(false)
-            return
-        }
-
-        try {
-            setLoading(true)
-            const data = await analyticsApi.getAnalytics(timeRange)
-            setAnalytics(data)
-        } catch (error) {
-            console.error("Failed to load analytics:", error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    if (loading) {
-        return (
-            <>
-                <Header />
-                <div className="p-8 flex items-center justify-center h-[calc(100vh-4rem)]">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                        <p className="text-muted-foreground">Loading analytics...</p>
-                    </div>
-                </div>
-            </>
-        )
-    }
+export default async function AnalyticsPage({ searchParams }: PageProps) {
+    const params = await searchParams
+    const timeRange = typeof params.timeRange === 'string' ? params.timeRange : '7d'
+    const analytics = await getAnalyticsServer(timeRange)
 
     if (!analytics) {
         return (
             <>
                 <Header />
                 <div className="p-8">
-                    <p className="text-muted-foreground">No analytics data available</p>
+                    <p className="text-muted-foreground">
+                        No analytics data available or failed to load. Please try again later.
+                    </p>
                 </div>
             </>
         )
@@ -109,23 +64,7 @@ export default function AnalyticsPage() {
                             Track your messaging performance and customer engagement
                         </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <Select value={timeRange} onValueChange={setTimeRange}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="24h">Last 24 Hours</SelectItem>
-                                <SelectItem value="7d">Last 7 Days</SelectItem>
-                                <SelectItem value="30d">Last 30 Days</SelectItem>
-                                <SelectItem value="90d">Last 90 Days</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4 mr-2" />
-                            Export
-                        </Button>
-                    </div>
+                    <AnalyticsFilter />
                 </div>
 
                 {/* Key Metrics */}

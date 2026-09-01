@@ -48,7 +48,7 @@ export function WebhooksTable({ columns, data }: Props) {
   return (
     <div className="mt-4 space-y-2">
       <DataTableToolbar table={table} />
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table className="min-w-[50rem]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

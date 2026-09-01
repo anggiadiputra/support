@@ -1,9 +1,7 @@
 "use client"
 
-import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config"
-import { Check, Languages } from "lucide-react"
+import { IconCheck, IconLanguage } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
-import { useLocalePreference } from "@/hooks/use-locale-preference"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,6 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config"
+import { useLocalePreference } from "@/hooks/use-locale-preference"
 
 interface LanguageSwitcherProps {
   className?: string
@@ -32,15 +32,11 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
           className={cn("scale-95 rounded-full", className)}
           aria-label="Select language"
         >
-          <span
-            className="text-base"
-            role="img"
-            aria-label={localeNames[locale]}
-          >
+          <span className="text-base" role="img" aria-label={localeNames[locale]}>
             {localeFlags[locale]}
           </span>
           <span className="sr-only">
-            <Languages className="size-[1.2rem]" />
+            <IconLanguage className="size-[1.2rem]" />
             Select language
           </span>
         </Button>
@@ -56,7 +52,7 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
               {localeFlags[loc]}
             </span>
             {localeNames[loc]}
-            <Check
+            <IconCheck
               size={14}
               className={cn("ml-auto", locale !== loc && "hidden")}
             />

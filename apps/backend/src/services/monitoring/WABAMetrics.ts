@@ -24,8 +24,8 @@ export class WABAMetrics {
       totalMessages,
       messagesLast24h
     ] = await Promise.all([
-      prisma.user.findMany({
-        where: { wabaId: { not: null } }
+      prisma.whatsAppAccount.findMany({
+        select: { connectionStatus: true }
       }),
       prisma.phoneNumber.count(),
       prisma.messageTemplate.count(),
@@ -44,8 +44,8 @@ export class WABAMetrics {
 
     return {
       totalUsers: users.length,
-      connectedUsers: users.filter(u => u.wabaConnectionStatus === 'connected').length,
-      disconnectedUsers: users.filter(u => u.wabaConnectionStatus === 'disconnected').length,
+      connectedUsers: users.filter(u => u.connectionStatus === 'connected').length,
+      disconnectedUsers: users.filter(u => u.connectionStatus === 'disconnected').length,
       totalPhoneNumbers: phoneNumbers,
       totalTemplates: templates,
       approvedTemplates,

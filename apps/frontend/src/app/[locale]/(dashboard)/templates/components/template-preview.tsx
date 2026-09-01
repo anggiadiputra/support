@@ -2,16 +2,16 @@
 
 import { useMemo } from "react"
 import { format } from "date-fns"
-import {
-  Image,
-  Video,
-  File,
-  ExternalLink,
-  Phone,
-  Check,
-  CheckCheck,
-} from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  IconPhoto,
+  IconVideo,
+  IconFile,
+  IconExternalLink,
+  IconPhone,
+  IconCheck,
+  IconChecks,
+} from "@tabler/icons-react"
 import type { Template } from "../data/schema"
 
 /**
@@ -74,7 +74,7 @@ function extractOrderedValues(
 
 /**
  * WhatsApp-style Template Preview Component
- *
+ * 
  * Renders a template message in WhatsApp message bubble style with:
  * - Header (text/image/video/document)
  * - Body with line breaks
@@ -82,7 +82,7 @@ function extractOrderedValues(
  * - Buttons (reply/URL/phone)
  * - Timestamp and status indicators
  * - Responsive design
- *
+ * 
  * Requirements: 3.2, 3.3, 3.4, 3.5
  */
 export function TemplatePreview({
@@ -105,13 +105,9 @@ export function TemplatePreview({
         content: template.headerContent,
       }
     }
-    if (
-      template.headerType &&
-      ["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType)
-    ) {
+    if (template.headerType && ["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType)) {
       return {
-        type: template.headerType.toLowerCase() as
-          "image" | "video" | "document",
+        type: template.headerType.toLowerCase() as "image" | "video" | "document",
         content: "",
       }
     }
@@ -131,9 +127,7 @@ export function TemplatePreview({
       return renderedPreview.buttons
     }
     // Extract buttons from template components
-    const buttonComponent = template.components?.find(
-      (c) => c.type === "BUTTONS"
-    )
+    const buttonComponent = template.components?.find((c) => c.type === "BUTTONS")
     if (buttonComponent?.buttons) {
       return buttonComponent.buttons.map((btn) => ({
         type: btn.type.toLowerCase() as "url" | "phone_number" | "quick_reply",
@@ -148,74 +142,62 @@ export function TemplatePreview({
   const renderStatusIcon = () => {
     switch (status) {
       case "read":
-        return <CheckCheck className="h-3 w-3 text-blue-500" />
+        return <IconChecks className="h-3 w-3 text-blue-500" />
       case "delivered":
-        return <CheckCheck className="h-3 w-3 text-gray-400" />
+        return <IconChecks className="h-3 w-3 text-gray-400" />
       case "sent":
       default:
-        return <Check className="h-3 w-3 text-gray-400" />
+        return <IconCheck className="h-3 w-3 text-gray-400" />
     }
   }
 
   return (
-    <div
-      className={cn(
-        "min-h-[200px] rounded-lg bg-[#e5ddd5] p-4 dark:bg-gray-800",
-        className
-      )}
-    >
-      <div className="ml-auto max-w-[300px]">
+    <div className={cn("bg-[#e5ddd5] dark:bg-gray-800 rounded-lg p-4 min-h-[200px]", className)}>
+      <div className="max-w-[300px] ml-auto">
         {/* Message bubble */}
-        <div className="relative overflow-hidden rounded-lg bg-[#dcf8c6] shadow-sm dark:bg-green-900">
+        <div className="bg-[#dcf8c6] dark:bg-green-900 rounded-lg shadow-sm relative overflow-hidden">
           {/* Header */}
           {headerContent && (
             <div className={cn(headerContent.type !== "text" && "mb-0")}>
               {headerContent.type === "text" && (
                 <div className="p-3 pb-0">
-                  <p className="text-sm font-semibold break-words whitespace-pre-wrap">
+                  <p className="font-semibold text-sm whitespace-pre-wrap break-words">
                     {headerContent.content}
                   </p>
                 </div>
               )}
               {headerContent.type === "image" && (
-                <div className="flex h-40 items-center justify-center bg-gray-200 dark:bg-gray-700">
+                <div className="bg-gray-200 dark:bg-gray-700 h-40 flex items-center justify-center">
                   {headerContent.content ? (
                     <img
                       src={headerContent.content}
                       alt="Header"
-                      className="h-full w-full object-cover"
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none"
-                        e.currentTarget.nextElementSibling?.classList.remove(
-                          "hidden"
-                        )
+                        e.currentTarget.nextElementSibling?.classList.remove("hidden")
                       }}
                     />
                   ) : null}
-                  <div
-                    className={cn(
-                      "flex flex-col items-center gap-2",
-                      headerContent.content && "hidden"
-                    )}
-                  >
-                    <Image className="h-10 w-10 text-gray-400" />
+                  <div className={cn("flex flex-col items-center gap-2", headerContent.content && "hidden")}>
+                    <IconPhoto className="h-10 w-10 text-gray-400" />
                     <span className="text-xs text-gray-500">Image</span>
                   </div>
                 </div>
               )}
               {headerContent.type === "video" && (
-                <div className="flex h-40 flex-col items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700">
-                  <Video className="h-10 w-10 text-gray-400" />
+                <div className="bg-gray-200 dark:bg-gray-700 h-40 flex flex-col items-center justify-center gap-2">
+                  <IconVideo className="h-10 w-10 text-gray-400" />
                   <span className="text-xs text-gray-500">Video</span>
                 </div>
               )}
               {headerContent.type === "document" && (
-                <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-100 p-3 dark:border-gray-600 dark:bg-gray-700">
-                  <div className="rounded bg-red-100 p-2 dark:bg-red-900/30">
-                    <File className="h-6 w-6 text-red-500" />
+                <div className="bg-gray-100 dark:bg-gray-700 p-3 flex items-center gap-3 border-b border-gray-200 dark:border-gray-600">
+                  <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded">
+                    <IconFile className="h-6 w-6 text-red-500" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">Document</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">Document</p>
                     <p className="text-xs text-gray-500">PDF</p>
                   </div>
                 </div>
@@ -225,20 +207,20 @@ export function TemplatePreview({
 
           {/* Body */}
           <div className="p-3">
-            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
               {bodyContent}
             </p>
 
             {/* Footer */}
             {footerContent && (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 {footerContent}
               </p>
             )}
 
             {/* Timestamp and status */}
             {showTimestamp && (
-              <div className="mt-1 flex items-center justify-end gap-1">
+              <div className="flex items-center justify-end gap-1 mt-1">
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
                   {format(timestamp, "HH:mm")}
                 </span>
@@ -254,13 +236,11 @@ export function TemplatePreview({
             {buttons.map((button, index) => (
               <button
                 key={index}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-blue-500 shadow-sm transition-colors hover:bg-gray-50 dark:bg-gray-700 dark:text-blue-400 dark:hover:bg-gray-600"
+                className="w-full bg-white dark:bg-gray-700 rounded-lg py-2.5 px-3 text-sm text-blue-500 dark:text-blue-400 flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 onClick={(e) => e.preventDefault()}
               >
-                {button.type === "url" && <ExternalLink className="h-4 w-4" />}
-                {button.type === "phone_number" && (
-                  <Phone className="h-4 w-4" />
-                )}
+                {button.type === "url" && <IconExternalLink className="h-4 w-4" />}
+                {button.type === "phone_number" && <IconPhone className="h-4 w-4" />}
                 <span className="truncate">{button.text}</span>
               </button>
             ))}
@@ -285,27 +265,27 @@ export function TemplatePreviewCompact({
     <div className={cn("bg-muted/50 rounded-lg p-3 text-sm", className)}>
       {/* Header indicator */}
       {template.headerType && (
-        <div className="text-muted-foreground mb-2 flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2 text-muted-foreground">
           {template.headerType === "TEXT" && (
-            <span className="text-foreground truncate font-medium">
+            <span className="font-medium text-foreground truncate">
               {template.headerContent}
             </span>
           )}
           {template.headerType === "IMAGE" && (
             <>
-              <Image className="h-4 w-4" />
+              <IconPhoto className="h-4 w-4" />
               <span>Image header</span>
             </>
           )}
           {template.headerType === "VIDEO" && (
             <>
-              <Video className="h-4 w-4" />
+              <IconVideo className="h-4 w-4" />
               <span>Video header</span>
             </>
           )}
           {template.headerType === "DOCUMENT" && (
             <>
-              <File className="h-4 w-4" />
+              <IconFile className="h-4 w-4" />
               <span>Document header</span>
             </>
           )}
@@ -319,7 +299,7 @@ export function TemplatePreviewCompact({
 
       {/* Footer */}
       {template.footerText && (
-        <p className="text-muted-foreground mt-2 truncate text-xs">
+        <p className="text-xs text-muted-foreground mt-2 truncate">
           {template.footerText}
         </p>
       )}

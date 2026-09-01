@@ -25,6 +25,8 @@ import {
 } from "./components/insights-error-states"
 import { InsightsApiError } from "@/lib/api/insights-api"
 import { useInsights } from "@/hooks/use-insights"
+import { useWhatsAppPhoneNumbers } from "@/hooks/use-whatsapp-phone-numbers"
+import { WhatsAppPhoneSelector } from "@/components/whatsapp-phone-selector"
 
 type TimeRange = "24h" | "7d" | "30d" | "90d"
 
@@ -58,11 +60,26 @@ export default function InsightsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
+  // Multi-number support
+  const {
+    phoneNumbers,
+    selectedPhoneNumberId,
+    selectedPhoneNumber,
+    selectedWhatsappAccountId,
+    setSelectedPhoneNumberId,
+  } = useWhatsAppPhoneNumbers()
+
   // Memoize date range to prevent unnecessary re-renders
   const dateRange = useMemo(() => getDateRange(timeRange), [timeRange])
 
   // Determine granularity based on time range
   const granularity = timeRange === "24h" ? "HALF_HOUR" : "DAY"
+
+  // Build phoneNumbers filter from selected phone number
+  const phoneNumbersFilter = useMemo(
+    () => selectedPhoneNumber ? [selectedPhoneNumber.phoneNumberId] : undefined,
+    [selectedPhoneNumber]
+  )
 
   // Use the combined insights hook with proper caching
   const {
@@ -87,6 +104,8 @@ export default function InsightsPage() {
   } = useInsights({
     dateRange,
     granularity,
+    phoneNumbers: phoneNumbersFilter,
+    wabaAccountId: selectedWhatsappAccountId,
   })
 
   // Check for NO_WABA_CONNECTED error
@@ -144,16 +163,10 @@ export default function InsightsPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Last updated */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Updated: {formatLastUpdated(lastUpdated)}</span>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-2">
             {/* Time range selector */}
             <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="h-9 w-[140px] text-sm">
                 <SelectValue placeholder="Select range" />
               </SelectTrigger>
               <SelectContent>
@@ -165,16 +178,29 @@ export default function InsightsPage() {
               </SelectContent>
             </Select>
 
+            {/* Phone number selector */}
+            <WhatsAppPhoneSelector
+              phoneNumbers={phoneNumbers}
+              selectedId={selectedPhoneNumberId}
+              onSelect={setSelectedPhoneNumberId}
+            />
+
+            <div className="h-6 w-px bg-border" />
+
+            {/* Last updated */}
+            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{formatLastUpdated(lastUpdated)}</span>
+            </div>
+
             {/* Refresh button */}
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
               disabled={isFetching}
-              className="gap-2"
             >
               <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-              {isFetching ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </div>

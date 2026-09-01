@@ -10,6 +10,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { randomBytes } from 'crypto';
 import { TokenEncryptionService } from '../../utils/tokenEncryption.js';
+import { logger, extractAxiosError } from '../../utils/logger.js';
 import { AuthUrlResponse, TokenResponse, LongLivedTokenResponse } from './types.js';
 import { IGErrorCode, InstagramError } from './errors.js';
 
@@ -73,9 +74,9 @@ export async function generateAuthUrl(
 
     // Build OAuth URL for Instagram Business Login
     const redirect = redirectUri || deps.redirectUri;
-    
-    console.log('[InstagramService] generateAuthUrl - redirect_uri:', redirect);
-    
+
+    logger.debug('[InstagramService] generateAuthUrl', { redirectUri: redirect });
+
     const authUrl = new URL('https://www.instagram.com/oauth/authorize');
 
     authUrl.searchParams.set('client_id', deps.appId);
@@ -84,8 +85,8 @@ export async function generateAuthUrl(
     authUrl.searchParams.set('response_type', 'code');
     // Required scopes for Instagram DM
     authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_business_manage_messages');
-    
-    console.log('[InstagramService] Generated OAuth URL:', authUrl.toString());
+
+    logger.debug('[InstagramService] Generated OAuth URL', { authUrl: authUrl.toString() });
 
     // State expires in 10 minutes
     const expiresAt = new Date(timestamp + 10 * 60 * 1000).toISOString();
@@ -147,11 +148,10 @@ export async function exchangeCodeForToken(
     formData.append('redirect_uri', deps.redirectUri);
     formData.append('code', cleanCode);
 
-    console.log('[IG OAuth] Token exchange request:', {
+    logger.debug('[IG OAuth] Token exchange request', {
       client_id: deps.appId,
       redirect_uri: deps.redirectUri,
       code_length: cleanCode.length,
-      code_preview: cleanCode.substring(0, 20) + '...',
     });
 
     let response;
@@ -165,13 +165,11 @@ export async function exchangeCodeForToken(
           },
         }
       );
-    } catch (axiosError: any) {
-      console.error('[IG OAuth] Token exchange error:', {
-        message: axiosError.message,
-        code: axiosError.code,
-        status: axiosError.response?.status,
-        data: axiosError.response?.data,
-        cause: axiosError.cause?.message,
+    } catch (axiosError: unknown) {
+      // extractAxiosError drops config/request/response.headers (Bearer leak vector)
+      // and the winston sanitizer further redacts any client_secret in the URL.
+      logger.error('[IG OAuth] Token exchange error', {
+        error: extractAxiosError(axiosError),
       });
       throw axiosError;
     }

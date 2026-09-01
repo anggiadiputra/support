@@ -14,6 +14,8 @@ import { authMiddleware } from '../../middleware/auth.js'
 import { resolveContext, getEffectiveUserId } from '../../middleware/resolveContext.js'
 import { assignmentService, ASSIGNMENT_ERRORS, AI_ASSIGNMENT_ERRORS } from '../../services/assignment-service.js'
 import { eventEmitter } from '../../websocket/index.js'
+import { logDetailedError } from '../../middleware/errorHandler.js'
+import { auditLog } from '../../utils/auditLog.js'
 
 // Define ConversationType locally to avoid Prisma client regeneration issues
 type ConversationType = 'WHATSAPP' | 'INSTAGRAM'
@@ -48,7 +50,7 @@ const assignConversationExtendedSchema = z.object({
  */
 function parseConversationType(type: string): ConversationType | null {
   const upperType = type.toUpperCase()
-  if (upperType === 'WHATSAPP' || upperType === 'INSTAGRAM') {
+  if (upperType === 'WHATSAPP' || upperType === 'INSTAGRAM' || upperType === 'MESSENGER') {
     return upperType as ConversationType
   }
   return null
@@ -108,7 +110,7 @@ app.get('/assignable-users', authMiddleware, resolveContext, async (c: Context) 
       data: users
     })
   } catch (error) {
-    console.error('Get assignable users error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch assignable users' }
     }, 500)
@@ -145,7 +147,7 @@ app.get('/assignable-entities', authMiddleware, resolveContext, async (c: Contex
       }
     })
   } catch (error) {
-    console.error('Get assignable entities error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch assignable entities' }
     }, 500)
@@ -174,7 +176,7 @@ app.get('/:conversationType/:conversationId', authMiddleware, resolveContext, as
     const conversationType = parseConversationType(conversationTypeParam)
     if (!conversationType) {
       return c.json({
-        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP or INSTAGRAM' }
+        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP, INSTAGRAM, or MESSENGER' }
       }, 400)
     }
 
@@ -189,7 +191,7 @@ app.get('/:conversationType/:conversationId', authMiddleware, resolveContext, as
       data: assignment
     })
   } catch (error) {
-    console.error('Get assignment error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch assignment' }
     }, 500)
@@ -217,7 +219,7 @@ app.post('/:conversationType/:conversationId', authMiddleware, resolveContext, a
     const conversationType = parseConversationType(conversationTypeParam)
     if (!conversationType) {
       return c.json({
-        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP or INSTAGRAM' }
+        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP, INSTAGRAM, or MESSENGER' }
       }, 400)
     }
 
@@ -246,6 +248,27 @@ app.post('/:conversationType/:conversationId', authMiddleware, resolveContext, a
 
     // Handle AI Agent assignment (Requirement 1.4, 4.3)
     if (aiAgentId) {
+      // For agents, check if conversation is available (unassigned or AI-assigned)
+      if (c.user.role === 'AGENT') {
+        const currentAssignment = await assignmentService.getAssignment(
+          conversationId,
+          conversationType,
+          businessOwnerId
+        )
+
+        const isUnassigned = !currentAssignment
+        const isAssignedToAI = currentAssignment?.assigneeType === 'AI_AGENT'
+
+        if (!isUnassigned && !isAssignedToAI) {
+          return c.json({
+            error: {
+              code: 'UNAUTHORIZED_ASSIGN',
+              message: 'Cannot assign: conversation is already assigned to another agent'
+            }
+          }, 403)
+        }
+      }
+
       try {
         const assignment = await assignmentService.assignToAIAgent(
           conversationId,
@@ -254,6 +277,15 @@ app.post('/:conversationType/:conversationId', authMiddleware, resolveContext, a
           c.user.id,
           businessOwnerId
         )
+
+        // Audit log
+        await auditLog('CONVERSATION_ASSIGNED', 'Conversation', conversationId, {
+          assigneeType: 'AI_AGENT',
+          aiAgentId,
+          aiAgentName: assignment.aiAgentName,
+          conversationType,
+          assignedBy: c.user.id
+        }, businessOwnerId)
 
         // Emit WebSocket event (Requirements: 2.4)
         emitAssignmentChanged(
@@ -327,6 +359,15 @@ app.post('/:conversationType/:conversationId', authMiddleware, resolveContext, a
         businessOwnerId
       )
 
+      // Audit log
+      await auditLog('CONVERSATION_ASSIGNED', 'Conversation', conversationId, {
+        assigneeType: 'HUMAN',
+        assigneeId,
+        assigneeName: assignment.assigneeName,
+        conversationType,
+        assignedBy: c.user.id
+      }, businessOwnerId)
+
       // Emit WebSocket event (Requirements: 2.4)
       emitAssignmentChanged(
         businessOwnerId,
@@ -352,7 +393,7 @@ app.post('/:conversationType/:conversationId', authMiddleware, resolveContext, a
       }
     }, 400)
   } catch (error) {
-    console.error('Assign conversation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error) {
       if (error.message === ASSIGNMENT_ERRORS.ALREADY_ASSIGNED) {
@@ -393,7 +434,7 @@ app.delete('/:conversationType/:conversationId', authMiddleware, resolveContext,
     const conversationType = parseConversationType(conversationTypeParam)
     if (!conversationType) {
       return c.json({
-        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP or INSTAGRAM' }
+        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP, INSTAGRAM, or MESSENGER' }
       }, 400)
     }
 
@@ -423,6 +464,12 @@ app.delete('/:conversationType/:conversationId', authMiddleware, resolveContext,
       businessOwnerId
     )
 
+    // Audit log
+    await auditLog('CONVERSATION_UNASSIGNED', 'Conversation', conversationId, {
+      conversationType,
+      unassignedBy: c.user.id
+    }, businessOwnerId)
+
     // Emit WebSocket event (Requirements: 2.4)
     emitAssignmentChanged(
       businessOwnerId,
@@ -439,7 +486,7 @@ app.delete('/:conversationType/:conversationId', authMiddleware, resolveContext,
       message: 'Conversation unassigned successfully'
     })
   } catch (error) {
-    console.error('Unassign conversation error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
 
     if (error instanceof Error) {
       if (error.message === ASSIGNMENT_ERRORS.NOT_ASSIGNED) {
@@ -477,7 +524,7 @@ app.get('/:conversationType/:conversationId/history', authMiddleware, resolveCon
     const conversationType = parseConversationType(conversationTypeParam)
     if (!conversationType) {
       return c.json({
-        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP or INSTAGRAM' }
+        error: { code: 'ValidationError', message: 'Invalid conversation type. Must be WHATSAPP, INSTAGRAM, or MESSENGER' }
       }, 400)
     }
 
@@ -492,7 +539,7 @@ app.get('/:conversationType/:conversationId/history', authMiddleware, resolveCon
       data: history
     })
   } catch (error) {
-    console.error('Get assignment history error:', error)
+    logDetailedError(error, { path: c.req.path, method: c.req.method })
     return c.json({
       error: { code: 'InternalServerError', message: 'Failed to fetch assignment history' }
     }, 500)

@@ -40,13 +40,17 @@ export function initializeWebSocket(httpServer: HTTPServer): SocketIOServer {
   io.on('connection', (socket: AuthenticatedSocket) => {
     const userId = socket.userId
     const socketId = socket.id
+    const businessOwnerId = socket.businessOwnerId
 
-    console.log(`[WebSocket] User ${userId} connected (socket: ${socketId})`)
+    console.log(`[WebSocket] User ${userId} connected (socket: ${socketId}, business: ${businessOwnerId})`)
 
-    // Add connection to manager
-    connectionManager.addConnection(userId, socketId, socket.userAgent)
+    // Add connection to manager with businessOwnerId
+    connectionManager.addConnection(userId, socketId, businessOwnerId, socket.userAgent)
 
-    // Join user-specific room for targeted broadcasts
+    // Join business room for team-wide broadcasts (all team members receive events together)
+    socket.join(`business:${businessOwnerId}`)
+
+    // Keep user-specific room for personal notifications
     socket.join(`user:${userId}`)
 
     // Handle disconnect

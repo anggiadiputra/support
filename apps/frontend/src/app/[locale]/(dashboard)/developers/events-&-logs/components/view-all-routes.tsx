@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Maximize } from "lucide-react"
+import { IconMaximize } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -57,7 +57,7 @@ export default function ViewAllRouteDialog() {
           className="rounded-full px-3 pt-[2px] pb-[2px] text-xs"
         >
           View All
-          <Maximize className="ml-2 h-4 w-4" />
+          <IconMaximize className="ml-2 h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[890px]">

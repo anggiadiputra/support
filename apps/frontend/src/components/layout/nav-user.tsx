@@ -66,19 +66,11 @@ export function NavUser({ user }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="flex h-9 items-center gap-2.5 rounded-full px-2 py-1 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          <Avatar className="h-7 w-7 border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Avatar className="h-8 w-8">
             <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 text-xs font-semibold">
-              {user.name ? user.name.slice(0, 2).toUpperCase() : "U"}
-            </AvatarFallback>
+            <AvatarFallback>KC</AvatarFallback>
           </Avatar>
-          <span className="hidden text-xs font-medium md:inline-block max-w-[120px] truncate text-slate-700 dark:text-slate-200">
-            {user.name}
-          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

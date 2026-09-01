@@ -16,7 +16,7 @@ export interface InvitationEmailParams {
   invitationLink: string;
   /** Invitation expiry date */
   expiresAt: Date;
-  /** Application name (defaults to KirimChat) */
+  /** Application name */
   appName?: string;
 }
 
@@ -48,7 +48,7 @@ export function invitationEmailTemplate(params: InvitationEmailParams): Invitati
     inviteeEmail, 
     invitationLink, 
     expiresAt,
-    appName = 'KirimChat' 
+    appName = process.env.APP_NAME || 'Messaging Platform' 
   } = params;
   
   // Sanitize inputs (link tidak perlu sanitize karena plain text)

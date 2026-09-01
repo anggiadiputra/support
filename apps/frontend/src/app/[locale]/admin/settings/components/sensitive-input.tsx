@@ -1,14 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { IconEye, IconEyeOff } from "@tabler/icons-react"
 
-export interface SensitiveInputProps extends Omit<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  "type"
-> {
+export interface SensitiveInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   /** Whether the value is currently masked (from API response) */
   isMasked?: boolean
 }
@@ -16,12 +14,12 @@ export interface SensitiveInputProps extends Omit<
 /**
  * SensitiveInput component for displaying and editing sensitive values
  * like API keys, secrets, and passwords.
- *
+ * 
  * Features:
  * - Toggle button to reveal/hide value
  * - Support for password type switching
  * - Masked value display (e.g., "••••••••abc1")
- *
+ * 
  * Requirements: 1.3, 2.3
  */
 const SensitiveInput = React.forwardRef<HTMLInputElement, SensitiveInputProps>(
@@ -49,18 +47,15 @@ const SensitiveInput = React.forwardRef<HTMLInputElement, SensitiveInputProps>(
           type="button"
           variant="ghost"
           size="sm"
-          className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
           onClick={toggleVisibility}
           disabled={disabled}
           tabIndex={-1}
         >
           {showValue ? (
-            <EyeOff
-              className="text-muted-foreground h-4 w-4"
-              aria-hidden="true"
-            />
+            <IconEyeOff className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           ) : (
-            <Eye className="text-muted-foreground h-4 w-4" aria-hidden="true" />
+            <IconEye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           )}
           <span className="sr-only">
             {showValue ? "Hide value" : "Show value"}

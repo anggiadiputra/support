@@ -1,32 +1,33 @@
 import {
-  BrainCircuit,
-  HelpCircle,
-  LayoutDashboard,
-  Settings,
-  MessageSquare,
-  Users,
-  BarChart3,
-  Instagram,
-  MessageCircle,
-  Inbox,
-  Code,
-  LayoutTemplate,
-  CreditCard,
-} from "lucide-react"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+  IconLayoutDashboard,
+  IconSettings,
+  IconMessage,
+  IconUsers,
+  IconChartBar,
+  IconBrandInstagram,
+  IconBrandWhatsapp,
+  IconBrandFacebook,
+  IconInbox,
+  IconCode,
+  IconTemplate,
+  IconCreditCard,
+  IconUsersGroup,
+  IconBolt,
+} from "@tabler/icons-react"
+import { BrainCircuit, HelpCircle } from "lucide-react"
 import { type SidebarData } from "../types"
 
 export const sidebarData: SidebarData = {
   user: {
     name: "User",
-    email: "user@example.com",
+    email: "user@yourdomain.com",
     avatar: "/favicon.svg",
   },
   teams: [
     {
-      name: process.env.NEXT_PUBLIC_APP_NAME || "App",
+      name: process.env.NEXT_PUBLIC_APP_NAME || "Messaging Platform",
       logo: ({ className }: { className: string }) => (
-        <MessageSquare className={className} />
+        <IconMessage className={className} />
       ),
       plan: "WhatsApp Business",
     },
@@ -38,17 +39,17 @@ export const sidebarData: SidebarData = {
         {
           title: "Dashboard",
           url: "/dashboard",
-          icon: LayoutDashboard,
+          icon: IconLayoutDashboard,
         },
         {
           title: "Inbox",
           url: "/oneinbox",
-          icon: Inbox,
+          icon: IconInbox,
         },
         {
           title: "Templates",
           url: "/templates",
-          icon: LayoutTemplate,
+          icon: IconTemplate,
         },
       ],
     },
@@ -58,12 +59,12 @@ export const sidebarData: SidebarData = {
         {
           title: "Customers",
           url: "/customers",
-          icon: Users,
+          icon: IconUsers,
         },
         {
           title: "Pipeline",
           url: "/crm/pipeline",
-          icon: BarChart3,
+          icon: IconChartBar,
         },
       ],
     },
@@ -73,12 +74,17 @@ export const sidebarData: SidebarData = {
         {
           title: "WhatsApp",
           url: "/waba",
-          icon: WhatsAppIcon,
+          icon: IconBrandWhatsapp,
         },
         {
           title: "Instagram",
           url: "/instagram",
-          icon: Instagram,
+          icon: IconBrandInstagram,
+        },
+        {
+          title: "Messenger",
+          url: "/messenger",
+          icon: IconBrandFacebook,
         },
       ],
     },
@@ -91,19 +97,30 @@ export const sidebarData: SidebarData = {
           icon: BrainCircuit,
         },
         {
+          title: "Automation",
+          url: "/automation",
+          icon: IconBolt,
+          badge: "New",
+        },
+        {
           title: "Developers",
           url: "/developers",
-          icon: Code,
+          icon: IconCode,
         },
         {
           title: "Subscription",
           url: "/subscription",
-          icon: CreditCard,
+          icon: IconCreditCard,
+        },
+        {
+          title: "Affiliate",
+          url: "/affiliate",
+          icon: IconUsersGroup,
         },
         {
           title: "Settings",
           url: "/settings",
-          icon: Settings,
+          icon: IconSettings,
         },
       ],
     },

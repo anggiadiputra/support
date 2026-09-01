@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
-import { Loader2, Check, X, RefreshCw, Clock } from "lucide-react"
-import {
-  webhooksApi,
-  type WebhookEndpoint,
-  type WebhookDeliveryLog,
-} from "@/lib/api/webhooks-api"
-import { toast } from "@/hooks/use-toast"
-import { Badge } from "@/components/ui/badge"
+import { IconCheck, IconX, IconRefresh, IconClock } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,8 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/hooks/use-toast"
+import {
+  webhooksApi,
+  type WebhookEndpoint,
+  type WebhookDeliveryLog,
+} from "@/lib/api/webhooks-api"
 
 interface Props {
   open: boolean
@@ -58,28 +59,28 @@ export function WebhookLogsDialog({ open, onOpenChange, webhook }: Props) {
       case "success":
         return (
           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-            <Check className="mr-1 h-3 w-3" />
+            <IconCheck className="mr-1 h-3 w-3" />
             Success
           </Badge>
         )
       case "failed":
         return (
           <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-            <X className="mr-1 h-3 w-3" />
+            <IconX className="mr-1 h-3 w-3" />
             Failed
           </Badge>
         )
       case "retrying":
         return (
           <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-            <RefreshCw className="mr-1 h-3 w-3" />
+            <IconRefresh className="mr-1 h-3 w-3" />
             Retrying
           </Badge>
         )
       case "pending":
         return (
           <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-            <Clock className="mr-1 h-3 w-3" />
+            <IconClock className="mr-1 h-3 w-3" />
             Pending
           </Badge>
         )
@@ -111,7 +112,7 @@ export function WebhookLogsDialog({ open, onOpenChange, webhook }: Props) {
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <IconRefresh className="h-4 w-4" />
             )}
           </Button>
         </div>
@@ -131,7 +132,7 @@ export function WebhookLogsDialog({ open, onOpenChange, webhook }: Props) {
             </div>
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10">
-              <Clock className="text-muted-foreground h-12 w-12" />
+              <IconClock className="text-muted-foreground h-12 w-12" />
               <p className="text-muted-foreground mt-2">No delivery logs yet</p>
             </div>
           ) : (

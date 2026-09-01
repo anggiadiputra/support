@@ -35,11 +35,19 @@ export interface ValidatedApiKey {
 // Cache TTL for validated API keys (5 minutes)
 const API_KEY_CACHE_TTL = 300;
 
-// Maximum number of API keys per user
-const MAX_API_KEYS_PER_USER = 5;
+// API key prefix - configurable via environment variable
+// Default: 'kc' for KirimChat, can be changed to match branding (e.g., 'otk' for Otika)
+const API_KEY_PREFIX = `${process.env.API_KEY_PREFIX || 'kc'}_live_`;
 
-// API key prefix
-const API_KEY_PREFIX = 'kc_live_';
+// Legacy prefix for backward compatibility with existing keys
+const LEGACY_API_KEY_PREFIX = 'kc_live_';
+
+/**
+ * Check if API key has valid prefix (current or legacy)
+ */
+function hasValidPrefix(apiKey: string): boolean {
+  return apiKey.startsWith(API_KEY_PREFIX) || apiKey.startsWith(LEGACY_API_KEY_PREFIX);
+}
 
 /**
  * ApiKeyService
@@ -86,17 +94,7 @@ export class ApiKeyService {
   async createApiKey(input: CreateApiKeyInput): Promise<ApiKeyResponse> {
     const { userId, name, expiresInDays = 365 } = input;
 
-    // Check if user has reached the maximum limit
-    const existingKeysCount = await prisma.apiKey.count({
-      where: {
-        userId,
-        revokedAt: null,
-      },
-    });
-
-    if (existingKeysCount >= MAX_API_KEYS_PER_USER) {
-      throw new Error(`Maximum limit of ${MAX_API_KEYS_PER_USER} active API keys reached`);
-    }
+    // Note: Limit check is done at route level via checkUsageLimit()
 
     // Generate the API key
     const fullKey = this.generateKey();
@@ -137,8 +135,8 @@ export class ApiKeyService {
    * @returns ValidatedApiKey with userId and apiKeyId, or null if invalid
    */
   async validateApiKey(apiKey: string): Promise<ValidatedApiKey | null> {
-    // Basic format validation
-    if (!apiKey || !apiKey.startsWith(API_KEY_PREFIX)) {
+    // Basic format validation - accept both current and legacy prefix
+    if (!apiKey || !hasValidPrefix(apiKey)) {
       return null;
     }
 

@@ -6,6 +6,7 @@ import { getEffectiveUserId } from '../../middleware/resolveContext.js'
 const app = new Hono()
 
 // GET /api/v1/customers - List customers
+// Only returns customers from connected WhatsApp accounts
 app.get('/', async (c: Context) => {
   try {
     if (!c.user) {
@@ -16,7 +17,42 @@ app.get('/', async (c: Context) => {
     // Requirements: 5.3, 6.2
     const userId = getEffectiveUserId(c)
 
+    // Get phone numbers from connected WhatsApp accounts only
+    const includeDisconnected = c.req.query('includeDisconnected') === 'true'
+    
+    let connectedPhoneNumberIds: string[] = []
+    if (!includeDisconnected) {
+      const connectedPhoneNumbers = await prisma.phoneNumber.findMany({
+        where: {
+          whatsappAccount: {
+            userId,
+            connectionStatus: 'connected'
+          }
+        },
+        select: { id: true }
+      })
+      connectedPhoneNumberIds = connectedPhoneNumbers.map(p => p.id)
+    }
+
     const where: any = { userId }
+
+    // Filter by WhatsApp phone number (multi-number support)
+    const whatsappPhoneNumberId = c.req.query('whatsappPhoneNumberId')
+    if (whatsappPhoneNumberId) {
+      // Specific phone number selected - show ONLY customers for that number
+      where.whatsappPhoneNumberId = whatsappPhoneNumberId
+    } else if (!includeDisconnected && connectedPhoneNumberIds.length > 0) {
+      // "All Accounts" selected - show customers from all connected phone numbers
+      // Also include legacy customers without whatsappPhoneNumberId for backward compatibility
+      where.OR = [
+        { whatsappPhoneNumberId: { in: connectedPhoneNumberIds } },
+        { whatsappPhoneNumberId: null }
+      ]
+    } else if (!includeDisconnected && connectedPhoneNumberIds.length === 0) {
+      // No connected accounts - only show customers without whatsappPhoneNumberId
+      // (Instagram, Messenger, or legacy customers)
+      where.whatsappPhoneNumberId = null
+    }
 
     // Filter by consent status
     const consentStatus = c.req.query('consentStatus')
@@ -34,6 +70,21 @@ app.get('/', async (c: Context) => {
       where,
       include: {
         pipelineStage: true,
+        messengerConversations: { select: { id: true }, take: 1 },
+        customerNotes: {
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
         // TODO: Uncomment when CustomerCustomField table is created via migration
         // customFields: {
         //   include: { fieldDefinition: true }

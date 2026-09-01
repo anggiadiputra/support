@@ -1,9 +1,12 @@
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/database.js';
+import { invalidateUserCache } from '../utils/cache.js';
 import { emailService } from './email/EmailService.js';
 import { teamService } from './team-service.js';
 import { invitationEmailTemplate } from './email/templates/index.js';
+import { PLAN_LIMITS } from '../config/plans.js';
+import { adminSubscriptionPlansService, type PlanTier } from './admin/subscription-plans-service.js';
 
 /**
  * Invitation status enum (mirrors Prisma enum)
@@ -41,13 +44,20 @@ export interface AcceptInvitationUserData {
 }
 
 /**
- * Subscription tier agent limits
+ * Get agent limit from admin-configurable settings (with fallback to static config)
+ * This ensures consistency across the application
  */
-const AGENT_LIMITS: Record<string, number> = {
-  FREE: 0,
-  LITE: 2,
-  PRO: 5,
-};
+async function getAgentLimitFromPlan(tier: string): Promise<number> {
+  try {
+    const planTier = tier.toLowerCase() as PlanTier;
+    const numericLimits = await adminSubscriptionPlansService.getNumericLimits(planTier);
+    return numericLimits.maxTeamMembers;
+  } catch {
+    // Fallback to static config
+    const planLimit = PLAN_LIMITS[tier as keyof typeof PLAN_LIMITS];
+    return planLimit?.maxTeamMembers ?? 0;
+  }
+}
 
 /**
  * Maximum pending invitations per business owner
@@ -77,11 +87,12 @@ export class InvitationService {
     return randomBytes(32).toString('hex');
   }
 
-  /**
+/**
    * Get agent limit for a subscription tier
+   * Uses admin-configurable settings from SystemSetting (with fallback to static config)
    */
-  getAgentLimit(tier: string): number {
-    return AGENT_LIMITS[tier] ?? 0;
+  async getAgentLimit(tier: string): Promise<number> {
+    return getAgentLimitFromPlan(tier);
   }
 
   /**
@@ -103,7 +114,7 @@ export class InvitationService {
     });
 
     const tier = user?.subscriptionTier ?? 'FREE';
-    const limit = this.getAgentLimit(tier);
+    const limit = await this.getAgentLimit(tier);
     const currentCount = await teamService.getActiveAgentCount(businessOwnerId);
 
     return {
@@ -144,17 +155,29 @@ export class InvitationService {
       throw new Error('MAX_PENDING_INVITATIONS_REACHED');
     }
 
-    // Check for existing pending invitation to same email
+    // Check for existing invitation to same email
     const existingInvitation = await prisma.invitation.findFirst({
       where: {
         businessOwnerId,
         email: normalizedEmail,
-        status: 'PENDING',
       },
     });
 
     if (existingInvitation) {
-      throw new Error('INVITATION_EXISTS');
+      // If pending, don't allow duplicate
+      if (existingInvitation.status === 'PENDING') {
+        throw new Error('INVITATION_EXISTS');
+      }
+
+      // For any non-pending status (CANCELLED, EXPIRED, FAILED, ACCEPTED),
+      // delete the stale record to allow re-invite. ACCEPTED must be included:
+      // if the previously-accepted agent was later removed, the invitation row
+      // stays ACCEPTED and the @@unique([businessOwnerId, email]) constraint
+      // would otherwise block re-invite with a raw P2002 -> generic 500.
+      // A genuinely-active agent is still blocked by the ALREADY_AGENT check below.
+      await prisma.invitation.delete({
+        where: { id: existingInvitation.id },
+      });
     }
 
     // Check if email is already an active agent of this business owner
@@ -210,7 +233,7 @@ export class InvitationService {
     // Send invitation email
     try {
       await this.sendInvitationEmail(invitation);
-      
+
       // Update email sent timestamp
       await prisma.invitation.update({
         where: { id: invitation.id },
@@ -239,7 +262,7 @@ export class InvitationService {
     // Include locale prefix in the invitation link (default to 'en')
     const locale = process.env.DEFAULT_LOCALE || 'en';
     const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${locale}/accept-invitation?token=${invitation.token}`;
-    
+
     const template = invitationEmailTemplate({
       businessOwnerName: invitation.businessOwner.name,
       inviteeEmail: invitation.email,
@@ -314,7 +337,7 @@ export class InvitationService {
     userData?: AcceptInvitationUserData
   ): Promise<{ userId: string; isNewUser: boolean }> {
     const invitation = await this.validateToken(token);
-    
+
     if (!invitation) {
       throw new Error('INVITATION_INVALID');
     }
@@ -359,40 +382,78 @@ export class InvitationService {
       // Hash password using bcrypt
       const passwordHash = await bcrypt.hash(userData.password, 10);
 
-      const newUser = await prisma.user.create({
-        data: {
-          email: invitation.email,
-          name: userData.name,
-          role: 'AGENT',
-          emailVerified: true, // Verified via invitation
-          emailVerifiedAt: new Date(),
-        },
-      });
+      const newUser = await prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email: invitation.email,
+            name: userData.name,
+            role: 'AGENT',
+            emailVerified: true, // Verified via invitation
+            emailVerifiedAt: new Date(),
+          },
+        });
 
-      // Create account with password
-      await prisma.account.create({
-        data: {
-          id: `acc_${newUser.id}`,
-          userId: newUser.id,
-          accountId: newUser.id,
-          providerId: 'credential',
-          password: passwordHash,
-        },
+        // Create account with password
+        await tx.account.create({
+          data: {
+            id: `acc_${createdUser.id}`,
+            userId: createdUser.id,
+            accountId: createdUser.id,
+            providerId: 'credential',
+            password: passwordHash,
+          },
+        });
+
+        // Create FREE subscription for new user
+        await tx.subscription.create({
+          data: {
+            userId: createdUser.id,
+            tier: 'FREE',
+            status: 'ACTIVE',
+            startDate: new Date(),
+            endDate: null, // FREE plan has no expiry
+            autoRenewEnabled: false
+          }
+        });
+
+        return createdUser;
       });
 
       userId = newUser.id;
       isNewUser = true;
     }
 
-    // Create team member record
-    await prisma.teamMember.create({
-      data: {
-        businessOwnerId: invitation.businessOwnerId,
-        agentUserId: userId,
-        status: 'ACTIVE',
-        joinedAt: new Date(),
-      },
+    // Create or reactivate team member record.
+    // TeamMember.agentUserId is @unique, so a leftover REMOVED row (from a prior
+    // membership) still occupies that user's ID. Creating a new row would throw
+    // P2002. Instead, reactivate the existing row and re-point it at the (possibly
+    // different) business owner, which handles both re-invite to the same team and
+    // invite to a different team.
+    const existingRow = await prisma.teamMember.findUnique({
+      where: { agentUserId: userId },
+      select: { id: true },
     });
+
+    if (existingRow) {
+      await prisma.teamMember.update({
+        where: { id: existingRow.id },
+        data: {
+          businessOwnerId: invitation.businessOwnerId,
+          status: 'ACTIVE',
+          joinedAt: new Date(),
+          removedAt: null,
+        },
+      });
+    } else {
+      await prisma.teamMember.create({
+        data: {
+          businessOwnerId: invitation.businessOwnerId,
+          agentUserId: userId,
+          status: 'ACTIVE',
+          joinedAt: new Date(),
+        },
+      });
+    }
 
     // Update invitation status
     await prisma.invitation.update({
@@ -402,6 +463,10 @@ export class InvitationService {
         acceptedAt: new Date(),
       },
     });
+
+    if (!isNewUser) {
+      await invalidateUserCache(userId);
+    }
 
     return { userId, isNewUser };
   }
@@ -485,7 +550,7 @@ export class InvitationService {
     // Send email
     try {
       await this.sendInvitationEmail(updatedInvitation as InvitationWithOwner);
-      
+
       await prisma.invitation.update({
         where: { id: invitationId },
         data: { emailSentAt: new Date() },
@@ -572,20 +637,55 @@ export class InvitationService {
   }
 
   /**
+   * Check if a user with the given email already exists and their auth method
+   * Used to determine whether to show login prompt, password form, or OAuth button
+   * 
+   * @param email - The email to check
+   * @returns Object with exists flag and hasPassword flag, or null if user doesn't exist
+   * Requirements: 3.4
+   */
+  async checkUserAuthInfo(email: string): Promise<{
+    exists: boolean;
+    hasPassword: boolean;
+  }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        accounts: {
+          select: {
+            providerId: true,
+            password: true,
+          }
+        }
+      },
+    });
+
+    if (!user) {
+      return { exists: false, hasPassword: false };
+    }
+
+    // Check if user has a credential account with password
+    const hasPassword = user.accounts.some(
+      account => account.providerId === 'credential' && account.password
+    );
+
+    return { exists: true, hasPassword };
+  }
+
+  /**
    * Check if a user with the given email already exists
    * Used to determine whether to show login prompt or registration form
    * 
    * @param email - The email to check
    * @returns true if user exists, false otherwise
    * Requirements: 3.4
+   * @deprecated Use checkUserAuthInfo instead for more detailed auth info
    */
   async checkUserExists(email: string): Promise<boolean> {
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: { id: true },
-    });
-    return user !== null;
+    const result = await this.checkUserAuthInfo(email);
+    return result.exists;
   }
 }
 
