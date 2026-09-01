@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && tsx src/scripts/copy-error-message-locales.ts",
+    "build": "prisma generate && tsc && tsx src/scripts/copy-error-message-locales.ts",
     "start": "node dist/index.js",
     "test": "vitest",
     "test:race-condition": "tsx test/race-condition.test.js",
