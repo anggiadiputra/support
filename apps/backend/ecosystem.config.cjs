@@ -4,6 +4,7 @@ module.exports = {
       name: 'backend',
       script: 'dist/index.js',
       interpreter: 'node',
+      node_args: '--dns-result-order=ipv4first',
       cwd: './',
       instances: 1,
       autorestart: true,
