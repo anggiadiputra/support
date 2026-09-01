@@ -1,13 +1,11 @@
-import { defineRouting } from 'next-intl/routing';
-import { createNavigation } from 'next-intl/navigation';
-import { locales, defaultLocale } from './config';
+export { Link } from "@/lib/compat/next-link"
+export { useRouter, usePathname, redirect } from "@/lib/compat/next-navigation"
 
-export const routing = defineRouting({
-  locales,
-  defaultLocale,
-  localePrefix: 'always', // Always include locale prefix for proper routing
-  localeDetection: true, // Enable automatic locale detection
-});
+export const routing = {
+  locales: ["id", "en"],
+  defaultLocale: "id",
+}
 
-export const { Link, redirect, usePathname, useRouter, getPathname } =
-  createNavigation(routing);
+export function getPathname({ href }: { href: string }) {
+  return href
+}
