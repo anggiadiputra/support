@@ -1,5 +1,5 @@
 import { IconSettings } from "@tabler/icons-react"
-import { getTranslations } from "next-intl/server"
+import { useTranslations } from "next-intl"
 import { Header } from "@/components/layout/header"
 import { CrmSettingsSidebar } from "./components/crm-settings-sidebar"
 
@@ -7,8 +7,8 @@ interface Props {
   children: React.ReactNode
 }
 
-export default async function CrmSettingsLayout({ children }: Props) {
-  const t = await getTranslations("crmSettings")
+export default function CrmSettingsLayout({ children }: Props) {
+  const t = useTranslations("crmSettings")
 
   return (
     <>

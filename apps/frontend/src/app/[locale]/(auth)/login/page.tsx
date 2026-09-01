@@ -1,20 +1,12 @@
-import { getTranslations } from "next-intl/server"
+import { useTranslations } from "next-intl"
 import { Link } from "@/i18n/routing"
-import { setRequestLocale } from "next-intl/server"
 import { Card } from "@/components/ui/card"
 import { UserAuthForm } from "./components/user-auth-form"
 import { BrandingPageTitle } from "@/components/branding-page-title"
 import { LegalLinks } from "@/components/auth/legal-links"
 
-interface Props {
-  params: Promise<{ locale: string }>
-}
-
-export default async function LoginPage({ params }: Props) {
-  const { locale } = await params
-  setRequestLocale(locale)
-
-  const t = await getTranslations("auth")
+export default function LoginPage() {
+  const t = useTranslations("auth")
 
   return (
     <div className="space-y-6" data-auth-content>

@@ -15,8 +15,11 @@ import {
     Users,
     CheckCircle2,
     Target,
+    RefreshCw,
 } from "lucide-react"
-import { getAnalyticsServer } from "@/lib/api/analytics-server"
+import { useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { analyticsApi } from "@/lib/api/analytics-api"
 import { Header } from "@/components/layout/header"
 import { MessageVolumeChart } from "./components/message-volume-chart"
 import { LeadScoreChart } from "./components/lead-score-chart"
@@ -24,14 +27,25 @@ import { PipelineChart } from "./components/pipeline-chart"
 import { MessageBreakdownChart } from "./components/message-breakdown-chart"
 import { AnalyticsFilter } from "./components/analytics-filter"
 
-interface PageProps {
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
+export default function AnalyticsPage() {
+    const [searchParams] = useSearchParams()
+    const timeRange = searchParams.get('timeRange') || '7d'
 
-export default async function AnalyticsPage({ searchParams }: PageProps) {
-    const params = await searchParams
-    const timeRange = typeof params.timeRange === 'string' ? params.timeRange : '7d'
-    const analytics = await getAnalyticsServer(timeRange)
+    const { data: analytics, isLoading } = useQuery({
+        queryKey: ['analytics', timeRange],
+        queryFn: () => analyticsApi.getAnalytics(timeRange),
+    })
+
+    if (isLoading) {
+        return (
+            <>
+                <Header />
+                <div className="flex h-96 items-center justify-center">
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            </>
+        )
+    }
 
     if (!analytics) {
         return (

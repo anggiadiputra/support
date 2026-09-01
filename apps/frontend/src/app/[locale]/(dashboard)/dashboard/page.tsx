@@ -1,7 +1,7 @@
 import { Header } from "@/components/layout/header"
 import Overview from "../boards/overview"
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
   return (
     <>
       <Header />
