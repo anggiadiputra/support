@@ -51,7 +51,8 @@ app.get('/', async (c: Context) => {
     const offsetParam = c.req.query('offset');
 
     const unreadOnly = unreadOnlyParam === 'true';
-    const limit = Math.min(Math.max(1, parseInt(limitParam || '50', 10) || 50), 100);
+    const parsedLimit = parseInt(limitParam || '50', 10);
+    const limit = Math.min(Math.max(0, isNaN(parsedLimit) ? 50 : parsedLimit), 100);
     const offset = Math.max(0, parseInt(offsetParam || '0', 10) || 0);
 
     const result = await notificationService.getByUser(userId, {

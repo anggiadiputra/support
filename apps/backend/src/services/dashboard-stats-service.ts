@@ -483,21 +483,21 @@ export class DashboardStatsService {
       ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
-    const row = stats[0]
-    const sent = Number(row.sentInRange)
-    const delivered = Number(row.deliveredInRange)
-    const read = Number(row.readInRange)
+    const row = (stats && stats[0]) ? stats[0] : ({} as any)
+    const sent = Number(row.sentInRange || 0)
+    const delivered = Number(row.deliveredInRange || 0)
+    const read = Number(row.readInRange || 0)
 
     return {
-      total: Number(row.total),
-      today: Number(row.today),
-      thisWeek: Number(row.thisWeek),
-      thisMonth: Number(row.inRange), // Now represents selected range
-      inRange: Number(row.inRange),
+      total: Number(row.total || 0),
+      today: Number(row.today || 0),
+      thisWeek: Number(row.thisWeek || 0),
+      thisMonth: Number(row.inRange || 0), // Now represents selected range
+      inRange: Number(row.inRange || 0),
       sent,
       delivered,
       read,
-      failed: Number(row.failedInRange),
+      failed: Number(row.failedInRange || 0),
       deliveryRate: sent > 0 ? Math.round((delivered / sent) * 100 * 10) / 10 : 0,
       readRate: delivered > 0 ? Math.round((read / delivered) * 100 * 10) / 10 : 0
     }
@@ -525,14 +525,14 @@ export class DashboardStatsService {
       ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
-    const row = stats[0]
+    const row = (stats && stats[0]) ? stats[0] : ({} as any)
     return {
-      text: Number(row.text),
-      image: Number(row.image),
-      video: Number(row.video),
-      document: Number(row.document),
-      template: Number(row.template),
-      other: Number(row.other)
+      text: Number(row.text || 0),
+      image: Number(row.image || 0),
+      video: Number(row.video || 0),
+      document: Number(row.document || 0),
+      template: Number(row.template || 0),
+      other: Number(row.other || 0)
     }
   }
 
@@ -553,12 +553,12 @@ export class DashboardStatsService {
       ${whatsappPhoneNumberId ? Prisma.sql`AND "whatsappPhoneNumberId" = ${whatsappPhoneNumberId}` : Prisma.empty}
     `
 
-    const row = stats[0]
+    const row = (stats && stats[0]) ? stats[0] : ({} as any)
     return {
-      total: Number(row.total),
-      newThisWeek: Number(row.newInRange), // Now represents selected range
-      consented: Number(row.consented),
-      blacklisted: Number(row.blacklisted)
+      total: Number(row.total || 0),
+      newThisWeek: Number(row.newInRange || 0), // Now represents selected range
+      consented: Number(row.consented || 0),
+      blacklisted: Number(row.blacklisted || 0)
     }
   }
 
@@ -578,12 +578,12 @@ export class DashboardStatsService {
       WHERE "userId" = ${userId}
     `
 
-    const row = stats[0]
+    const row = (stats && stats[0]) ? stats[0] : ({} as any)
     return {
-      total: Number(row.total),
-      approved: Number(row.approved),
-      pending: Number(row.pending),
-      rejected: Number(row.rejected)
+      total: Number(row.total || 0),
+      approved: Number(row.approved || 0),
+      pending: Number(row.pending || 0),
+      rejected: Number(row.rejected || 0)
     }
   }
 
@@ -601,11 +601,11 @@ export class DashboardStatsService {
       WHERE "userId" = ${userId}
     `
 
-    const row = stats[0]
+    const row = (stats && stats[0]) ? stats[0] : ({} as any)
     return {
-      marketing: Number(row.marketing),
-      utility: Number(row.utility),
-      authentication: Number(row.authentication)
+      marketing: Number(row.marketing || 0),
+      utility: Number(row.utility || 0),
+      authentication: Number(row.authentication || 0)
     }
   }
 
@@ -659,13 +659,13 @@ export class DashboardStatsService {
       })
     ])
 
-    const row = conversationStats[0]
+    const row = (conversationStats && conversationStats[0]) ? conversationStats[0] : ({} as any)
     return {
       connected: true,
-      conversations: Number(row.total),
+      conversations: Number(row.total || 0),
       unreadCount: Number(row.unread || 0),
-      activeWindows: Number(row.activeWindows),
-      messagesTotal: messageCount
+      activeWindows: Number(row.activeWindows || 0),
+      messagesTotal: messageCount || 0
     }
   }
 
