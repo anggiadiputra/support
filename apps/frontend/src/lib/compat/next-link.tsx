@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Link as RouterLink, LinkProps as RouterLinkProps } from "react-router-dom"
 
-export interface LinkProps extends Omit<RouterLinkProps, "to"> {
+export interface LinkProps extends Omit<RouterLinkProps, "to" | "prefetch"> {
   href: string | { pathname?: string; query?: Record<string, string> }
   prefetch?: boolean
   replace?: boolean
@@ -9,7 +9,7 @@ export interface LinkProps extends Omit<RouterLinkProps, "to"> {
 }
 
 export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(
-  ({ href, replace, ...props }, ref) => {
+  ({ href, replace, prefetch: _prefetch, scroll: _scroll, ...props }, ref) => {
     let to = "/"
     if (typeof href === "string") {
       to = href

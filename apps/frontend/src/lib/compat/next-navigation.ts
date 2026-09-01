@@ -5,19 +5,23 @@ import {
   useParams as useRouterParams,
 } from "react-router-dom"
 
+export interface NavigateOptions {
+  scroll?: boolean
+  locale?: string
+}
+
 export function useRouter() {
   const navigate = useNavigate()
 
   return {
-    push: (href: string) => navigate(href),
-    replace: (href: string) => navigate(href, { replace: true }),
+    push: (href: string, _options?: NavigateOptions) => navigate(href),
+    replace: (href: string, _options?: NavigateOptions) => navigate(href, { replace: true }),
     back: () => navigate(-1),
     forward: () => navigate(1),
     refresh: () => {
-      // In SPA, refresh can trigger re-render or window reload if necessary
       window.location.reload()
     },
-    prefetch: () => {},
+    prefetch: (_href?: string, _options?: unknown) => {},
   }
 }
 

@@ -7,8 +7,10 @@ import AdminLayout from "./layouts/admin-layout"
 import AuthLayout from "./layouts/auth-layout"
 
 // Helper for lazy loading with suspense
-function lazyLoad(ComponentPromise: () => Promise<{ default: React.ComponentType<unknown> }>) {
-  const LazyComponent = React.lazy(ComponentPromise)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lazyLoad(ComponentPromise: () => Promise<{ default: React.ComponentType<any> | any }>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const LazyComponent = React.lazy(ComponentPromise as any)
   return (
     <Suspense
       fallback={
@@ -309,6 +311,6 @@ export const router = createBrowserRouter([
   // 404 Fallback
   {
     path: "*",
-    element: lazyLoad(() => import("@/components/errors/not-found-error").then(m => ({ default: m.NotFoundError }))),
+    element: lazyLoad(() => import("@/components/errors/not-found-error")),
   },
 ])
