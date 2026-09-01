@@ -27,6 +27,8 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.production
+!apps/frontend/.env.production
 apps/backend/.env
 apps/frontend/.env
 apps/frontend/.env.local

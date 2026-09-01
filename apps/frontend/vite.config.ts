@@ -6,7 +6,17 @@ import path from "path"
 const rootDir = import.meta.dirname || process.cwd()
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "")
+  const env = {
+    ...loadEnv(mode, rootDir, ""),
+    ...loadEnv(mode, process.cwd(), ""),
+    ...process.env,
+  }
+
+  const defaultApiUrl = mode === "production" ? "https://api.whoops.web.id" : "http://localhost:3005"
+  const defaultAppUrl = mode === "production" ? "https://app.whoops.web.id" : "http://localhost:3000"
+
+  const apiUrl = env.VITE_API_URL || env.NEXT_PUBLIC_API_URL || defaultApiUrl
+  const appUrl = env.VITE_APP_URL || env.NEXT_PUBLIC_APP_URL || defaultAppUrl
 
   return {
     plugins: [
@@ -15,12 +25,8 @@ export default defineConfig(({ mode }) => {
     ],
     define: {
       "process.env.NODE_ENV": JSON.stringify(mode),
-      "process.env.NEXT_PUBLIC_API_URL": JSON.stringify(
-        env.VITE_API_URL || env.NEXT_PUBLIC_API_URL || "http://localhost:3005"
-      ),
-      "process.env.NEXT_PUBLIC_APP_URL": JSON.stringify(
-        env.VITE_APP_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      ),
+      "process.env.NEXT_PUBLIC_API_URL": JSON.stringify(apiUrl),
+      "process.env.NEXT_PUBLIC_APP_URL": JSON.stringify(appUrl),
       "process.env.NEXT_PUBLIC_APP_NAME": JSON.stringify(
         env.VITE_APP_NAME || env.NEXT_PUBLIC_APP_NAME || "Whoops"
       ),

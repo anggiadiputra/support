@@ -14,7 +14,15 @@ export function initializeWebSocket(httpServer: HTTPServer): SocketIOServer {
   const corsOriginsEnv = process.env.CORS_ALLOWED_ORIGINS
   const allowedOrigins = corsOriginsEnv
     ? corsOriginsEnv.split(',').map(o => o.trim())
-    : ['http://localhost:3000', 'http://localhost:3005']
+    : [
+      'http://localhost:3000',
+      'http://localhost:3005',
+      'http://localhost:5173',
+      'https://app.whoops.web.id',
+      'https://dash.whoops.web.id',
+      'https://whoops.web.id',
+      'https://api.whoops.web.id'
+    ]
 
   const config: WebSocketServerConfig = {
     cors: {

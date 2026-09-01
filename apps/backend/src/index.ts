@@ -128,11 +128,16 @@ app.use('*', cors({
       ? corsOriginsEnv.split(',').map(o => o.trim())
       : [
         'http://localhost:3000',
-        'http://localhost:3005'
+        'http://localhost:3005',
+        'http://localhost:5173',
+        'https://app.whoops.web.id',
+        'https://dash.whoops.web.id',
+        'https://whoops.web.id',
+        'https://api.whoops.web.id'
       ]
 
-    // If origin is in allowed list, return it
-    if (origin && allowedOrigins.includes(origin)) {
+    // If origin is in allowed list or is whoops.web.id domain, return it
+    if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.whoops.web.id') || origin === 'https://whoops.web.id')) {
       return origin
     }
 
