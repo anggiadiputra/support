@@ -67,17 +67,17 @@ export function FilterBar({
 
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 border-b bg-muted/30">
+    <div className="flex flex-wrap items-center gap-2 p-3 border-b bg-gray-50/50">
       {/* Read Status Segmented Control */}
-      <div className="flex gap-0.5 p-0.5 bg-muted rounded-md">
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
         {(["all", "unread", "read"] as ReadStatusFilter[]).map((status) => (
           <Button
             key={status}
             variant={readStatusFilter === status ? "secondary" : "ghost"}
             size="sm"
             onClick={() => onReadStatusChange(status)}
-            className={`text-xs h-7 px-3 capitalize ${
-              readStatusFilter === status ? "bg-background shadow-sm" : ""
+            className={`text-xs h-7 px-3 capitalize font-semibold rounded-md ${
+              readStatusFilter === status ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
             }`}
           >
             {status}

@@ -107,7 +107,7 @@ export function NotificationIcon({ className }: NotificationIconProps) {
         <Button
           variant="ghost"
           size="icon"
-          className={cn("relative scale-95 rounded-full", className)}
+          className={cn("relative rounded-lg", className)}
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         >
           <Bell className="size-[1.2rem]" />
