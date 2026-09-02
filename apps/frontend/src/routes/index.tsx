@@ -116,17 +116,12 @@ export const router = createBrowserRouter([
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/broadcast/page")),
           },
           {
-            // Automation routes — nested with AutomationLayout so pages get
-            // their Header + section sidebar. Flat routes previously rendered
-            // the pages "naked" (no Header, no layout wrapper) making the
-            // pages look broken/crashed. Layout mirrors the (dashboard) route
-            // group convention from the Next.js structure.
             path: "/automation",
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/layout")),
             children: [
               {
                 index: true,
-                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/page")),
+                element: <Navigate to="/automation/quick-replies" replace />,
               },
               {
                 path: "auto-tagging",
@@ -155,14 +150,12 @@ export const router = createBrowserRouter([
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm/auto-tagging/page")),
           },
           {
-            // CRM Settings — nested with CrmSettingsLayout (Header + section
-            // sidebar). Flat routes rendered the pages "naked" (broken look).
             path: "/crm-settings",
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/layout")),
             children: [
               {
                 index: true,
-                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/page")),
+                element: <Navigate to="/crm-settings/pipelines" replace />,
               },
               {
                 path: "custom-fields",

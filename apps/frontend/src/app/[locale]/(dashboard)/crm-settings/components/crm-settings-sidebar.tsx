@@ -5,7 +5,6 @@ import { IconLayoutKanban, IconForms } from "@tabler/icons-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@/i18n/routing"
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
@@ -32,12 +31,12 @@ interface SidebarNavItem {
 const sidebarNavItems: SidebarNavItem[] = [
   {
     titleKey: "pipelines",
-    icon: <IconLayoutKanban className="h-[1.125rem] w-[1.125rem]" />,
+    icon: <IconLayoutKanban className="h-4 w-4" />,
     href: "/crm-settings/pipelines",
   },
   {
     titleKey: "customFields",
-    icon: <IconForms className="h-[1.125rem] w-[1.125rem]" />,
+    icon: <IconForms className="h-4 w-4" />,
     href: "/crm-settings/custom-fields",
   },
 ]
@@ -60,8 +59,8 @@ export function CrmSettingsSidebar() {
     <TooltipProvider>
       {/* Mobile: Dropdown Select */}
       <div className="p-1 md:hidden">
-        <Select value={val} onValueChange={handleSelect}>
-          <SelectTrigger className="h-10 sm:w-48">
+        <Select value={currentPath ?? val} onValueChange={handleSelect}>
+          <SelectTrigger className="h-10 sm:w-48 bg-white border-gray-200 rounded-lg">
             <SelectValue placeholder="Select menu" />
           </SelectTrigger>
           <SelectContent>
@@ -71,9 +70,9 @@ export function CrmSettingsSidebar() {
                 value={item.href}
                 disabled={item.disabled}
               >
-                <div className="flex items-center gap-x-3 px-2 py-0.5">
-                  <span className="[&_svg]:size-[1.125rem]">{item.icon}</span>
-                  <span className="text-sm">
+                <div className="flex items-center gap-x-2.5 px-2 py-0.5">
+                  <span>{item.icon}</span>
+                  <span className="text-sm font-medium">
                     {t(item.titleKey)}
                     {item.badge && (
                       <span className="text-muted-foreground ml-2 text-xs">
@@ -92,23 +91,20 @@ export function CrmSettingsSidebar() {
       <ScrollArea
         orientation="horizontal"
         type="always"
-        className="bg-background hidden w-40 shrink-0 px-1 py-2 md:block"
+        className="hidden w-48 shrink-0 px-1 py-2 md:block"
       >
-        <nav className="flex space-x-2 py-1 lg:flex-col lg:space-y-1 lg:space-x-0">
-          {sidebarNavItems.map((item) =>
-            item.disabled ? (
+        <nav className="flex space-x-2 py-1 lg:flex-col lg:space-y-1.5 lg:space-x-0">
+          {sidebarNavItems.map((item) => {
+            const isActive = currentPath === item.href
+
+            return item.disabled ? (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
                   <span
-                    className={cn(
-                      buttonVariants({ variant: "ghost" }),
-                      "text-muted-foreground cursor-not-allowed justify-start opacity-60"
-                    )}
+                    className="flex items-center gap-2.5 min-h-[36px] px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed rounded-lg opacity-60"
                   >
-                    <span className="mr-2 [&_svg]:size-[1.125rem]">
-                      {item.icon}
-                    </span>
-                    {t(item.titleKey)}
+                    <span>{item.icon}</span>
+                    <span>{t(item.titleKey)}</span>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -120,20 +116,17 @@ export function CrmSettingsSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  buttonVariants({ variant: "ghost" }),
-                  currentPath === item.href
-                    ? "bg-muted hover:bg-muted"
-                    : "hover:bg-transparent hover:underline",
-                  "justify-start"
+                  "flex items-center gap-2.5 min-h-[36px] px-3 py-2 text-sm rounded-lg transition-colors",
+                  isActive
+                    ? "bg-black text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 font-medium"
                 )}
               >
-                <span className="mr-2 [&_svg]:size-[1.125rem]">
-                  {item.icon}
-                </span>
-                {t(item.titleKey)}
+                <span>{item.icon}</span>
+                <span>{t(item.titleKey)}</span>
               </Link>
             )
-          )}
+          })}
         </nav>
       </ScrollArea>
     </TooltipProvider>
