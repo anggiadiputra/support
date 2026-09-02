@@ -116,16 +116,27 @@ export const router = createBrowserRouter([
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/broadcast/page")),
           },
           {
+            // Automation routes — nested with AutomationLayout so pages get
+            // their Header + section sidebar. Flat routes previously rendered
+            // the pages "naked" (no Header, no layout wrapper) making the
+            // pages look broken/crashed. Layout mirrors the (dashboard) route
+            // group convention from the Next.js structure.
             path: "/automation",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/page")),
-          },
-          {
-            path: "/automation/auto-tagging",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/auto-tagging/page")),
-          },
-          {
-            path: "/automation/quick-replies",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/quick-replies/page")),
+            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/layout")),
+            children: [
+              {
+                index: true,
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/page")),
+              },
+              {
+                path: "auto-tagging",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/auto-tagging/page")),
+              },
+              {
+                path: "quick-replies",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/automation/quick-replies/page")),
+              },
+            ],
           },
           {
             path: "/customers",
@@ -144,16 +155,24 @@ export const router = createBrowserRouter([
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm/auto-tagging/page")),
           },
           {
+            // CRM Settings — nested with CrmSettingsLayout (Header + section
+            // sidebar). Flat routes rendered the pages "naked" (broken look).
             path: "/crm-settings",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/page")),
-          },
-          {
-            path: "/crm-settings/custom-fields",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/custom-fields/page")),
-          },
-          {
-            path: "/crm-settings/pipelines",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/pipelines/page")),
+            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/layout")),
+            children: [
+              {
+                index: true,
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/page")),
+              },
+              {
+                path: "custom-fields",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/custom-fields/page")),
+              },
+              {
+                path: "pipelines",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/crm-settings/pipelines/page")),
+              },
+            ],
           },
           {
             path: "/analytics",
