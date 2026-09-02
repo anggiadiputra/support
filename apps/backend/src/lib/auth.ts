@@ -7,6 +7,7 @@ import { affiliateService } from "../services/affiliate-service.js"
 import { verifySignedReferralToken } from "../routes/affiliate.js"
 import { prisma } from "../utils/database.js"
 import { logger } from "../utils/logger.js"
+import { serverManagedUserFields } from '../config/auth-user-fields.js'
 
 // Helper to check if user was just created (within last 60 seconds)
 function isNewUser(createdAt: Date | string | null | undefined): boolean {
@@ -171,20 +172,7 @@ export const auth = betterAuth({
     }
   },
   user: {
-    additionalFields: {
-      role: {
-        type: "string",
-        required: false,
-        defaultValue: "BUSINESS_OWNER",
-      },
-      subscriptionTier: {
-        type: "string",
-        required: false,
-        defaultValue: "FREE",
-      },
-      // NOTE: whatsappAccountCount dan hasConnectedWhatsApp adalah computed fields
-      // yang dihitung dari relasi whatsappAccounts, bukan disimpan di database
-    },
+    additionalFields: serverManagedUserFields,
   },
   trustedOrigins: process.env.CORS_ALLOWED_ORIGINS
     ? process.env.CORS_ALLOWED_ORIGINS.split(",").map(origin => origin.trim())

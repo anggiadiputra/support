@@ -19,6 +19,7 @@ import { authRateLimiter, apiRateLimiter, webhookRateLimiter, paymentRateLimiter
 
 // Import Better Auth
 import { auth } from './lib/auth.js'
+import { registerBetterAuthRoutes } from './config/better-auth-routes.js'
 
 // Import routes
 import authRoutes from './routes/auth.js'
@@ -191,11 +192,6 @@ app.get('/health', (c: Context) => {
   })
 })
 
-// Better Auth Routes (new auth system)
-app.on(['GET', 'POST'], '/api/auth/**', async (c) => {
-  return auth.handler(c.req.raw)
-})
-
 // API Routes (v1) - Keep old routes for backward compatibility
 //
 // Rate limiting for auth endpoints
@@ -203,8 +199,7 @@ app.on(['GET', 'POST'], '/api/auth/**', async (c) => {
 // Better Auth endpoints (/api/auth/sign-in/*, /api/auth/sign-up/*)
 // are the ones used by the frontend (`authClient.signIn.email(...)`)
 // and MUST stay rate-limited.
-app.use('/api/auth/sign-in/*', authRateLimiter)
-app.use('/api/auth/sign-up/*', authRateLimiter)
+registerBetterAuthRoutes(app, (request) => auth.handler(request), authRateLimiter)
 
 // Custom auth endpoints mounted at /api/v1/auth (see routes/auth.ts).
 // The previous `/api/v1/auth/sign-in/*` and `/api/v1/auth/sign-up/*`
@@ -220,11 +215,6 @@ app.use('/api/v1/auth/forgot-password', authRateLimiter)
 app.use('/api/v1/auth/forgot-password/*', authRateLimiter) // resend
 app.use('/api/v1/auth/reset-password', authRateLimiter)
 app.use('/api/v1/auth/change-password', authRateLimiter)
-
-// Mount Better Auth routes (handles /api/auth/*)
-app.all('/api/auth/*', async (c) => {
-  return auth.handler(c.req.raw)
-})
 
 // Mount custom auth routes for additional functionality
 app.route('/api/v1/auth', authRoutes) // Custom auth endpoints

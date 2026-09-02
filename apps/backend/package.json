@@ -41,6 +41,7 @@
     "prisma": "5.22.0",
     "rate-limiter-flexible": "^4.0.1",
     "socket.io": "^4.8.1",
+    "undici": "^7.29.0",
     "uuid": "^11.1.0",
     "winston": "^3.11.0",
     "zod": "^4.1.12"

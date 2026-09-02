@@ -66,6 +66,8 @@ export default function InsightsPage() {
     selectedPhoneNumberId,
     selectedPhoneNumber,
     selectedWhatsappAccountId,
+    hasConnectedWaba,
+    isLoading: isWabaLoading,
     setSelectedPhoneNumberId,
   } = useWhatsAppPhoneNumbers()
 
@@ -80,6 +82,9 @@ export default function InsightsPage() {
     () => selectedPhoneNumber ? [selectedPhoneNumber.phoneNumberId] : undefined,
     [selectedPhoneNumber]
   )
+
+  const insightsEnabled = !isWabaLoading && hasConnectedWaba
+  const showNoWaba = !isWabaLoading && !hasConnectedWaba
 
   // Use the combined insights hook with proper caching
   const {
@@ -106,6 +111,7 @@ export default function InsightsPage() {
     granularity,
     phoneNumbers: phoneNumbersFilter,
     wabaAccountId: selectedWhatsappAccountId,
+    enabled: insightsEnabled,
   })
 
   // Check for NO_WABA_CONNECTED error
@@ -206,7 +212,7 @@ export default function InsightsPage() {
         </div>
 
         {/* No WABA Connected Error */}
-        {noWabaError && (
+        {(noWabaError || showNoWaba) && (
           <NoWabaConnectedError />
         )}
 

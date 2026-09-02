@@ -8,6 +8,7 @@
 import { useState, useMemo, useCallback } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { wabaApi, type WhatsAppAccountWithPhoneNumbers } from "@/lib/api/waba"
+import { getInsightsAvailability } from "@/lib/insights-availability"
 
 export interface WhatsAppPhoneNumberOption {
   id: string // Internal DB ID (PhoneNumber.id)
@@ -49,6 +50,15 @@ export function useWhatsAppPhoneNumbers(enabled: boolean = true) {
     return result
   }, [accounts])
 
+  const { enabled: hasConnectedWaba } = useMemo(
+    () =>
+      getInsightsAvailability({
+        isLoading,
+        connectionStatuses: accounts.map((account) => account.connectionStatus),
+      }),
+    [accounts, isLoading]
+  )
+
   // Whether we have multiple phone numbers (show selector)
   const hasMultipleNumbers = phoneNumbers.length > 1
 
@@ -70,6 +80,7 @@ export function useWhatsAppPhoneNumbers(enabled: boolean = true) {
     selectedPhoneNumberId,
     selectedPhoneNumber,
     selectedWhatsappAccountId,
+    hasConnectedWaba,
     hasMultipleNumbers,
     isLoading,
     setSelectedPhoneNumberId: handleSelect,

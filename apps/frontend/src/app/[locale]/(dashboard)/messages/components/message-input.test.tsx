@@ -14,6 +14,16 @@ vi.mock("@/hooks/use-typing-indicator", () => ({
   useTypingIndicator: () => ({ sendTyping: vi.fn() }),
 }))
 
+vi.mock("@/hooks/use-cached-session", () => ({
+  useCachedSession: () => ({
+    data: { user: { role: "BUSINESS_OWNER" } },
+    isPending: false,
+    isAuthenticated: true,
+  }),
+}))
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+
 describe("MessageInput carousel composer", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -21,22 +31,29 @@ describe("MessageInput carousel composer", () => {
 
   function renderMessageInput(overrides: Record<string, unknown> = {}) {
     const onSendCarousel = vi.fn().mockResolvedValue(true)
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    })
 
     render(
-      <MessageInput
-        onSendMessage={vi.fn().mockResolvedValue(true)}
-        onSendTemplate={vi.fn().mockResolvedValue(true)}
-        onSendCta={vi.fn().mockResolvedValue(true)}
-        onSendReplyButtons={vi.fn().mockResolvedValue(true)}
-        onSendListMessage={vi.fn().mockResolvedValue(true)}
-        onSendCarousel={onSendCarousel}
-        onSendMedia={vi.fn().mockResolvedValue(true)}
-        sending={false}
-        uploading={false}
-        templates={[]}
-        windowStatus={{ isActive: true } as any}
-        {...overrides}
-      />
+      <QueryClientProvider client={queryClient}>
+        <MessageInput
+          onSendMessage={vi.fn().mockResolvedValue(true)}
+          onSendTemplate={vi.fn().mockResolvedValue(true)}
+          onSendCta={vi.fn().mockResolvedValue(true)}
+          onSendReplyButtons={vi.fn().mockResolvedValue(true)}
+          onSendListMessage={vi.fn().mockResolvedValue(true)}
+          onSendCarousel={onSendCarousel}
+          onSendMedia={vi.fn().mockResolvedValue(true)}
+          sending={false}
+          uploading={false}
+          templates={[]}
+          windowStatus={{ isActive: true } as any}
+          {...overrides}
+        />
+      </QueryClientProvider>
     )
 
     return { onSendCarousel }
