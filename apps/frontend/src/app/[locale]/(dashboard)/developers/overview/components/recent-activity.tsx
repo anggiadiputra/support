@@ -11,54 +11,54 @@ export default function RecentActivity({ className = "" }: Props) {
   return (
     <Card
       className={cn(
-        "space-y-4 rounded-none border-none bg-transparent shadow-none",
+        "bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4 hover:shadow-md transition-shadow",
         className
       )}
     >
-      <CardHeader className="p-0">
-        <CardTitle>Recent activities</CardTitle>
+      <CardHeader className="p-0 border-b border-gray-100 pb-3">
+        <CardTitle className="text-base font-bold text-gray-900">Recent Activities</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 p-0">
+      <CardContent className="space-y-4 p-0 pt-2">
         {recentActivity.map((activity) => (
-          <div key={activity.id} className="flex items-start space-x-4">
-            <div className="mt-1">{getActivityIcon(activity.type)}</div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium tracking-tight">
+          <div key={activity.id} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+            <div className="mt-0.5 p-2 bg-gray-100 rounded-lg shrink-0">{getActivityIcon(activity.type)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900 truncate">
                   {activity.title}
                 </p>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-gray-400 text-xs shrink-0">
                   {activity.time}
                 </span>
               </div>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-gray-500 text-xs mt-0.5">
                 {activity.description}
               </p>
               <div className="flex items-center pt-2">
-                <Avatar className="mr-2 h-8 w-8">
+                <Avatar className="mr-2 h-6 w-6">
                   <AvatarImage
                     src={activity.user.avatar}
                     alt={activity.user.name}
                   />
-                  <AvatarFallback>
+                  <AvatarFallback className="text-[10px] bg-black text-white font-bold">
                     {(activity.user.name || "")
                       .split(" ")
                       .map((n) => n[0])
                       .join("") || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-muted-foreground text-sm">
+                <span className="text-gray-700 text-xs font-medium">
                   {activity.user.name}
                 </span>
                 <span
-                  className={`ml-auto rounded-full px-2 py-1 text-xs ${
+                  className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                     activity.status === "open"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      ? "bg-blue-100 text-blue-800"
                       : activity.status === "closed"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        ? "bg-emerald-100 text-emerald-800"
                         : activity.status === "merged"
-                          ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   {activity.status}

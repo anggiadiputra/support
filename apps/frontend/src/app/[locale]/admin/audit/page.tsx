@@ -481,12 +481,12 @@ export default function AdminAuditPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
+    <div className="p-5 md:p-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Audit Logs</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Audit Logs</h1>
+          <p className="text-sm text-gray-500">
             Track system events and user actions
           </p>
         </div>
@@ -495,7 +495,7 @@ export default function AdminAuditPage() {
           size="sm"
           onClick={() => refetch()}
           disabled={isLoading}
-          className="min-h-[44px] w-full sm:w-auto"
+          className="w-full sm:w-auto rounded-lg border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
@@ -512,18 +512,18 @@ export default function AdminAuditPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
         {/* Search Input */}
         <div className="relative w-full sm:w-[280px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Cari user, entity, akun..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 pr-9"
+            className="pl-9 pr-9 bg-white border-gray-200 rounded-lg"
           />
           {searchInput && (
             <button
               type="button"
               onClick={() => handleSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X className="h-4 w-4" />
             </button>
@@ -537,7 +537,7 @@ export default function AdminAuditPage() {
 
         <div className="flex gap-2 sm:gap-4">
           <Select value={query.action || "all"} onValueChange={handleActionFilter}>
-            <SelectTrigger className="flex-1 sm:w-[160px]">
+            <SelectTrigger className="flex-1 sm:w-[160px] bg-white border-gray-200 rounded-lg text-xs">
               <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
               <SelectValue placeholder="Action" />
             </SelectTrigger>
@@ -552,7 +552,7 @@ export default function AdminAuditPage() {
           </Select>
 
           <Select value={query.entityType || "all"} onValueChange={handleEntityFilter}>
-            <SelectTrigger className="flex-1 sm:w-[160px]">
+            <SelectTrigger className="flex-1 sm:w-[160px] bg-white border-gray-200 rounded-lg text-xs">
               <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
               <SelectValue placeholder="Entity" />
             </SelectTrigger>
@@ -568,7 +568,7 @@ export default function AdminAuditPage() {
         </div>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="self-start sm:self-auto">
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="self-start sm:self-auto text-xs">
             <X className="h-4 w-4 mr-1" />
             Clear
           </Button>
@@ -577,7 +577,7 @@ export default function AdminAuditPage() {
 
       {/* Results count */}
       {pagination && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-gray-500 font-medium">
           Showing {logs.length} of {pagination.total} logs
         </p>
       )}
@@ -588,7 +588,7 @@ export default function AdminAuditPage() {
           <MobileCardSkeleton />
         ) : logs.length === 0 ? (
           <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
+            <CardContent className="p-6 text-center text-gray-500 text-xs">
               No audit logs found.
             </CardContent>
           </Card>
@@ -606,7 +606,7 @@ export default function AdminAuditPage() {
       </div>
 
       {/* Desktop Table View (visible on medium+ screens) */}
-      <div className="hidden md:block rounded-md border overflow-x-auto">
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

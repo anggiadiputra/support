@@ -12,11 +12,11 @@ export default function AdminOverviewPage() {
   const { stats, isLoading, error, refetch } = useAdminStats()
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="p-5 md:p-8 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
+          <p className="text-sm text-gray-500">
             Platform overview and management
           </p>
         </div>
@@ -25,7 +25,7 @@ export default function AdminOverviewPage() {
           size="sm"
           onClick={() => refetch()}
           disabled={isLoading}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto rounded-lg border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
           Refresh

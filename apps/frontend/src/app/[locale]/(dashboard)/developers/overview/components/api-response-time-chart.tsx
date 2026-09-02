@@ -48,30 +48,30 @@ export function ApiResponseTimeChart({ className = "" }: Props) {
   return (
     <Card
       className={cn(
-        "space-y-4 rounded-none border-none bg-transparent shadow-none",
+        "bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4 hover:shadow-md transition-shadow",
         className
       )}
     >
       <CardHeader className="space-y-2 p-0">
-        <CardTitle>API response time</CardTitle>
-        <CardDescription className="flex gap-4">
+        <CardTitle className="text-base font-bold text-gray-900">Response Time</CardTitle>
+        <CardDescription className="flex gap-6">
           <div>
-            <div className="text-muted-foreground/85 text-xs font-semibold">
+            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Min
             </div>
-            <span className="text-foreground text-xs">{minTime}ms</span>
+            <span className="text-xl font-bold text-gray-900">{minTime}ms</span>
           </div>
           <div>
-            <div className="text-muted-foreground/85 text-xs font-semibold">
+            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Avg
             </div>
-            <span className="text-foreground text-xs">{avgTime}ms</span>
+            <span className="text-xl font-bold text-gray-900">{avgTime}ms</span>
           </div>
           <div>
-            <div className="text-muted-foreground/85 text-xs font-semibold">
+            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Max
             </div>
-            <span className="text-foreground text-xs">{maxTime}ms</span>
+            <span className="text-xl font-bold text-gray-900">{maxTime}ms</span>
           </div>
         </CardDescription>
       </CardHeader>
@@ -86,7 +86,7 @@ export function ApiResponseTimeChart({ className = "" }: Props) {
               right: 12,
             }}
           >
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="week"
               tickLine={false}
@@ -101,10 +101,10 @@ export function ApiResponseTimeChart({ className = "" }: Props) {
             <Line
               dataKey="time"
               type="natural"
-              stroke="var(--color-time)"
+              stroke="#6366f1"
               strokeWidth={2}
               dot={{
-                fill: "var(--color-time)",
+                fill: "#6366f1",
               }}
               activeDot={{
                 r: 6,
@@ -113,19 +113,19 @@ export function ApiResponseTimeChart({ className = "" }: Props) {
               <LabelList
                 position="top"
                 offset={12}
-                className="fill-foreground"
-                fontSize={12}
+                className="fill-gray-600 font-semibold"
+                fontSize={11}
               />
             </Line>
           </LineChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 p-0 text-sm">
-        <div className="flex gap-2 leading-none font-medium">
+      <CardFooter className="flex-col items-start gap-1 p-0 text-xs">
+        <div className="flex items-center gap-1.5 font-semibold text-emerald-600">
           Response time decreased by 20ms this week{" "}
-          <TrendingDown className="h-4 w-4" />
+          <TrendingDown className="h-3.5 w-3.5" />
         </div>
-        <div className="text-muted-foreground leading-none">
+        <div className="text-gray-400">
           Average API response time for the past 6 weeks in milliseconds
         </div>
       </CardFooter>

@@ -43,7 +43,7 @@ export default function AdminRevenuePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="p-5 md:p-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-2">
         <Breadcrumb>
@@ -59,10 +59,10 @@ export default function AdminRevenuePage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Revenue Dashboard</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Revenue Dashboard</h2>
+            <p className="text-sm text-gray-500">
               Monitor platform revenue and payment transactions
             </p>
           </div>
@@ -71,6 +71,7 @@ export default function AdminRevenuePage() {
             size="sm"
             onClick={() => refetchAll()}
             disabled={isLoading}
+            className="rounded-lg border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh

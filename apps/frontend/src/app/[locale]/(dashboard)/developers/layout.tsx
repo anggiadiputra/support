@@ -1,12 +1,13 @@
 "use client"
 
 import { IconCode } from "@tabler/icons-react"
-import { usePathname } from "next/navigation"
+import { usePathname } from "@/i18n/routing"
+import { Outlet } from "react-router-dom"
 import { Header } from "@/components/layout/header"
 import { DevelopersSidebar } from "./components/developers-sidebar"
 
 interface Props {
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 export default function DevelopersLayout({ children }: Props) {
@@ -19,8 +20,8 @@ export default function DevelopersLayout({ children }: Props) {
     return (
       <>
         <Header />
-        <main className="flex min-h-0 flex-1 flex-col p-4">
-          {children}
+        <main className="flex min-h-0 flex-1 flex-col p-5 md:p-8">
+          {children || <Outlet />}
         </main>
       </>
     )
@@ -32,23 +33,23 @@ export default function DevelopersLayout({ children }: Props) {
 
       <div
         data-layout="fixed"
-        className="flex flex-1 flex-col gap-4 overflow-hidden p-4"
+        className="flex flex-1 flex-col p-5 md:p-8 space-y-6 overflow-hidden"
       >
-        <div className="space-y-0.5">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight text-gray-900">
             <IconCode className="h-6 w-6" />
             Developers
           </h1>
-          <p className="text-muted-foreground">
-            Manage API keys and webhook integrations.
+          <p className="text-sm text-gray-500">
+            Manage API keys, webhooks, and developer integrations.
           </p>
         </div>
-        <div className="flex flex-1 flex-col gap-4 overflow-auto md:overflow-hidden lg:flex-row lg:gap-8">
+        <div className="flex flex-1 flex-col gap-6 overflow-auto md:overflow-hidden lg:flex-row">
           <aside className="shrink-0">
             <DevelopersSidebar />
           </aside>
           <div className="flex w-full flex-1 flex-col overflow-y-auto">
-            {children}
+            {children || <Outlet />}
           </div>
         </div>
       </div>

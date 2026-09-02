@@ -1,6 +1,5 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { LucideIcon } from "lucide-react"
@@ -30,39 +29,38 @@ export function StatsCard({
 }: StatsCardProps) {
   if (isLoading) {
     return (
-      <Card className={cn(className)}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-20 mb-1" />
-          <Skeleton className="h-3 w-32" />
-        </CardContent>
-      </Card>
+      <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center gap-4", className)}>
+        <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-7 w-24" />
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className={cn(className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value.toLocaleString()}</div>
+    <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center gap-4 hover:shadow-md transition-shadow", className)}>
+      {Icon && (
+        <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
+          <Icon className="w-5.5 h-5.5 text-white" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider truncate">{title}</p>
+        <p className="text-2xl font-black text-gray-900 mt-0.5">{value.toLocaleString()}</p>
         {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{description}</p>
         )}
         {trend && (
           <p className={cn(
-            "text-xs mt-1",
-            trend.isPositive ? "text-green-600" : "text-red-600"
+            "text-xs font-semibold mt-1",
+            trend.isPositive ? "text-emerald-600" : "text-red-600"
           )}>
             {trend.isPositive ? "+" : ""}{trend.value}% {trend.label}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

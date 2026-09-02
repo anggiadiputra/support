@@ -55,43 +55,49 @@ export default function TemplatesPage() {
   return (
     <RoleGuard>
       <Header />
-      <div className="space-y-4 p-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t("title")}
-          </h2>
-          <p className="text-muted-foreground">
-            Create and manage WhatsApp message templates for your business
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <WhatsAppPhoneSelector
-            phoneNumbers={phoneNumbers}
-            selectedId={selectedPhoneNumberId}
-            onSelect={setSelectedPhoneNumberId}
-          />
-          <div className="h-6 w-px bg-border" />
-          <TemplatesPrimaryActions
-            phoneNumbers={phoneNumbers}
-            selectedWhatsappAccountId={selectedWhatsappAccountId}
-          />
+      <div className="p-5 md:p-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">
+              {t("title")}
+              {isFetching && !isLoading && (
+                <span className="ml-2 text-xs text-gray-400 font-normal animate-pulse">
+                  Updating...
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Create and manage WhatsApp message templates for your business
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <WhatsAppPhoneSelector
+              phoneNumbers={phoneNumbers}
+              selectedId={selectedPhoneNumberId}
+              onSelect={setSelectedPhoneNumberId}
+            />
+            <div className="h-6 w-px bg-gray-200" />
+            <TemplatesPrimaryActions
+              phoneNumbers={phoneNumbers}
+              selectedWhatsappAccountId={selectedWhatsappAccountId}
+            />
+          </div>
         </div>
 
         {templates.length === 0 && !isLoading ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <IconTemplate className="text-muted-foreground mb-4 h-12 w-12" />
-              <h3 className="mb-2 text-lg font-semibold">No templates yet</h3>
-              <p className="text-muted-foreground mb-4 text-center text-sm">
-                Create your first WhatsApp message template to start sending
-                messages
-              </p>
-              <TemplatesPrimaryActions
-                phoneNumbers={phoneNumbers}
-                selectedWhatsappAccountId={selectedWhatsappAccountId}
-              />
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center flex flex-col items-center justify-center">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <IconTemplate className="text-gray-400 h-7 w-7" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900 mb-1">No templates yet</h3>
+            <p className="text-sm text-gray-500 max-w-sm mb-6">
+              Create your first WhatsApp message template to start sending messages
+            </p>
+            <TemplatesPrimaryActions
+              phoneNumbers={phoneNumbers}
+              selectedWhatsappAccountId={selectedWhatsappAccountId}
+            />
+          </div>
         ) : (
           <div className="flex-1">
             <TemplatesTable data={templates} columns={columns} />

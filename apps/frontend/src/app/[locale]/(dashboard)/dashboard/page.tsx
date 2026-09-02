@@ -6,11 +6,11 @@ export default function DashboardPage() {
     <>
       <Header />
 
-      <div className="space-y-4 p-4">
-        <div className="mb-2 flex flex-col items-start justify-between space-y-2 md:flex-row md:items-center">
+      <div className="p-5 md:p-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground text-sm">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p className="text-sm text-gray-500">
               WhatsApp Business Overview
             </p>
           </div>

@@ -85,7 +85,7 @@ export function TemplatesTable({ columns, data }: Props) {
   return (
     <div className="space-y-4">
       <DataTableToolbar table={table} />
-      <div className="rounded-md border">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -126,7 +126,7 @@ export function TemplatesTable({ columns, data }: Props) {
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-center text-gray-500 text-xs"
                 >
                   No templates found. Create your first template to get started.
                 </TableCell>
@@ -134,8 +134,8 @@ export function TemplatesTable({ columns, data }: Props) {
             )}
           </TableBody>
         </Table>
+        <DataTablePagination table={table} />
       </div>
-      <DataTablePagination table={table} />
     </div>
   )
 }

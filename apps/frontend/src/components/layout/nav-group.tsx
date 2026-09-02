@@ -145,7 +145,7 @@ export function NavGroup({ title, items }: NavGroup) {
 }
 
 const NavBadge = ({ children }: { children: ReactNode }) => (
-  <Badge className="rounded-full px-1 py-0 text-xs">{children}</Badge>
+  <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200/50 group-data-[active=true]/menu-item:bg-white/20 group-data-[active=true]/menu-item:text-white group-data-[active=true]/menu-item:border-transparent">{children}</span>
 )
 
 function checkIsActive(href: string, item: NavItem, mainNav = false) {

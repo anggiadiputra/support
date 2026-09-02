@@ -105,7 +105,7 @@ export function PaymentTransactionsTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -125,25 +125,25 @@ export function PaymentTransactionsTable({
                 transactions.map((txn) => (
                   <TableRow
                     key={txn.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer hover:bg-gray-50/50"
                     onClick={() => handleRowClick(txn.userId)}
                   >
-                    <TableCell className="font-mono text-sm">{txn.orderId}</TableCell>
+                    <TableCell className="font-mono text-xs text-gray-700">{txn.orderId}</TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{txn.userName}</div>
-                        <div className="text-sm text-muted-foreground">{txn.userEmail}</div>
+                        <div className="font-semibold text-gray-900 text-xs">{txn.userName}</div>
+                        <div className="text-xs text-gray-500">{txn.userEmail}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{formatIDR(txn.amount)}</TableCell>
+                    <TableCell className="font-semibold text-gray-900 text-xs">{formatIDR(txn.amount)}</TableCell>
                     <TableCell>{getTierBadge(txn.targetTier)}</TableCell>
                     <TableCell>{getStatusBadge(txn.status)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(txn.createdAt)}</TableCell>
+                    <TableCell className="text-gray-500 text-xs">{formatDate(txn.createdAt)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center text-gray-500 text-xs">
                     No transactions found.
                   </TableCell>
                 </TableRow>
@@ -151,54 +151,38 @@ export function PaymentTransactionsTable({
             </TableBody>
           )}
         </Table>
-      </div>
 
-      {pagination && (
-        <div className="flex items-center justify-between px-2">
-          <div className="text-sm text-muted-foreground">
-            Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-            {pagination.total} transactions
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(1)}
-              disabled={pagination.page <= 1}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium">
-              Page {pagination.page} of {pagination.totalPages}
+        {pagination && (
+          <div className="bg-gray-50 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100">
+            <span className="text-xs text-gray-500 font-medium">
+              Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+              {pagination.total} transactions
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pagination.totalPages)}
-              disabled={pagination.page >= pagination.totalPages}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onPageChange(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-semibold px-2 text-gray-700">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPageChange(pagination.page + 1)}
+                disabled={pagination.page >= pagination.totalPages}
+                className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

@@ -42,24 +42,24 @@ export function ApiRequestsChart({ className = "" }: Props) {
   return (
     <Card
       className={cn(
-        "space-y-4 rounded-none border-none bg-transparent shadow-none",
+        "bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4 hover:shadow-md transition-shadow",
         className
       )}
     >
       <CardHeader className="space-y-2 p-0">
-        <CardTitle>API requests</CardTitle>
-        <CardDescription className="flex gap-4">
+        <CardTitle className="text-base font-bold text-gray-900">API Requests</CardTitle>
+        <CardDescription className="flex gap-6">
           <div>
-            <div className="text-muted-foreground/85 text-xs font-semibold">
+            <div className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">
               Successful
             </div>
-            <span className="text-foreground text-sm">270</span>
+            <span className="text-xl font-bold text-gray-900">270</span>
           </div>
           <div>
-            <div className="text-muted-foreground/85 text-xs font-semibold">
+            <div className="text-[10px] uppercase font-bold text-rose-500 tracking-wider">
               Failed
             </div>
-            <span className="text-foreground text-sm">6</span>
+            <span className="text-xl font-bold text-gray-900">6</span>
           </div>
         </CardDescription>
       </CardHeader>
@@ -73,7 +73,7 @@ export function ApiRequestsChart({ className = "" }: Props) {
               right: 12,
             }}
           >
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="week"
               tickLine={false}
@@ -87,19 +87,19 @@ export function ApiRequestsChart({ className = "" }: Props) {
             <Line
               dataKey="count"
               type="linear"
-              stroke="var(--color-count)"
+              stroke="#10b981"
               strokeWidth={2}
               dot={false}
             />
           </LineChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 p-0 text-sm">
-        <div className="flex gap-2 leading-none font-medium">
+      <CardFooter className="flex-col items-start gap-1 p-0 text-xs">
+        <div className="flex items-center gap-1.5 font-semibold text-emerald-600">
           Requests increased by 8.7% this week{" "}
-          <TrendingUp className="h-4 w-4" />
+          <TrendingUp className="h-3.5 w-3.5" />
         </div>
-        <div className="text-muted-foreground leading-none">
+        <div className="text-gray-400">
           Displaying total API requests for the past {chartData.length} weeks
         </div>
       </CardFooter>

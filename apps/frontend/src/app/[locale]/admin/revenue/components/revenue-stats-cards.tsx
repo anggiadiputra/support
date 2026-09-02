@@ -21,16 +21,13 @@ function formatIDR(amount: number): string {
 
 function StatCardSkeleton() {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-4 w-4" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-32 mb-1" />
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center gap-4">
+      <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+      <div className="flex-1 space-y-2">
         <Skeleton className="h-3 w-20" />
-      </CardContent>
-    </Card>
+        <Skeleton className="h-7 w-28" />
+      </div>
+    </div>
   )
 }
 
@@ -46,51 +43,47 @@ export function RevenueStatsCards({ stats, isLoading }: RevenueStatsCardsProps) 
     )
   }
 
+  const items = [
+    {
+      title: "Total Revenue",
+      value: formatIDR(stats?.totalRevenue ?? 0),
+      desc: "All time",
+      icon: DollarSign,
+    },
+    {
+      title: "Monthly Revenue",
+      value: formatIDR(stats?.monthlyRevenue ?? 0),
+      desc: "This month",
+      icon: TrendingUp,
+    },
+    {
+      title: "Successful Txns",
+      value: (stats?.successfulTransactions ?? 0).toLocaleString(),
+      desc: "This month",
+      icon: CheckCircle,
+    },
+    {
+      title: "Pending Txns",
+      value: (stats?.pendingTransactions ?? 0).toLocaleString(),
+      desc: "Awaiting payment",
+      icon: Clock,
+    },
+  ]
+
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatIDR(stats?.totalRevenue ?? 0)}</div>
-          <p className="text-xs text-muted-foreground">All time</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatIDR(stats?.monthlyRevenue ?? 0)}</div>
-          <p className="text-xs text-muted-foreground">This month</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Successful Txns</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.successfulTransactions ?? 0}</div>
-          <p className="text-xs text-muted-foreground">This month</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Txns</CardTitle>
-          <Clock className="h-4 w-4 text-yellow-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.pendingTransactions ?? 0}</div>
-          <p className="text-xs text-muted-foreground">Awaiting payment</p>
-        </CardContent>
-      </Card>
+      {items.map((item) => (
+        <div key={item.title} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
+            <item.icon className="w-5.5 h-5.5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider truncate">{item.title}</p>
+            <p className="text-2xl font-black text-gray-900 mt-0.5 truncate">{item.value}</p>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{item.desc}</p>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

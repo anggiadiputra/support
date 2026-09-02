@@ -97,7 +97,7 @@ export function UsersTable({ columns, data, isLoading, onSearch, searchValue, is
         searchValue={searchValue}
         isSearching={isSearching}
       />
-      <div className="rounded-md border">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -149,7 +149,7 @@ export function UsersTable({ columns, data, isLoading, onSearch, searchValue, is
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
-                    className="h-24 text-center"
+                    className="h-24 text-center text-gray-500 text-xs"
                   >
                     No users found.
                   </TableCell>
@@ -158,8 +158,8 @@ export function UsersTable({ columns, data, isLoading, onSearch, searchValue, is
             </TableBody>
           )}
         </Table>
+        <DataTablePagination table={table} />
       </div>
-      <DataTablePagination table={table} />
     </div>
   )
 }

@@ -11,9 +11,13 @@ import { IconBrandInstagram, IconPlus } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useRouter } from "@/i18n/routing"
+import { useToast } from "@/hooks/use-toast"
 
 export default function InstagramPage() {
   const { userId, isLoading: sessionLoading } = useBusinessAccount()
+  const router = useRouter()
+  const { toast } = useToast()
   const { getChannelUsageText, canAddChannel, refetch: refetchSubscription } = useSubscription()
   const [accounts, setAccounts] = useState<InstagramAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +57,16 @@ export default function InstagramPage() {
   }
 
   const handleConnect = async () => {
+    if (!canAddChannel("instagramAccounts")) {
+      toast({
+        title: "Batas Akun Tercapai",
+        description: `Anda telah mencapai batas maksimum akun Instagram (${getChannelUsageText("instagramAccounts")}) untuk paket Anda. Silakan upgrade paket untuk menambah akun.`,
+        variant: "destructive",
+      })
+      router.push("/subscription")
+      return
+    }
+
     try {
       const { url } = await instagramApi.getAuthUrl()
 
@@ -134,7 +148,7 @@ export default function InstagramPage() {
     return (
       <>
         <Header />
-        <div className="space-y-4 p-4">
+        <div className="p-5 md:p-8 space-y-6">
           <div className="animate-pulse space-y-4">
             <div className="bg-muted h-8 w-64 rounded"></div>
             <div className="bg-muted h-48 w-full rounded"></div>
@@ -147,25 +161,25 @@ export default function InstagramPage() {
   return (
     <RoleGuard>
       <Header />
-      <div className="space-y-6 p-4">
+      <div className="p-5 md:p-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <IconBrandInstagram className="h-7 w-7" />
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <IconBrandInstagram className="h-6 w-6 text-pink-600" />
               Instagram Direct Messages
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-gray-500">
               Connect your Instagram Professional account to manage DMs
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-sm">
+            <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-gray-50 text-gray-700 border-gray-200">
               {getChannelUsageText("instagramAccounts")}
             </Badge>
-            {hasConnectedAccounts && canAddChannel("instagramAccounts") && (
-              <Button size="sm" onClick={handleConnect}>
-                <IconPlus className="h-4 w-4" />
+            {hasConnectedAccounts && (
+              <Button size="sm" onClick={handleConnect} className="bg-black text-white hover:bg-gray-800 shadow-sm rounded-lg font-semibold">
+                <IconPlus className="h-4 w-4 mr-1.5" />
                 Add Account
               </Button>
             )}

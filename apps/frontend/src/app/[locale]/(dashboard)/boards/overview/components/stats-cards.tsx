@@ -205,16 +205,33 @@ function StatsCard({
   const isQualityCard = label === "Quality Rating"
 
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between gap-5 space-y-0 pt-4 pb-2">
-        <CardTitle className="flex items-center gap-2 truncate text-sm font-medium">
-          <Icon size={16} />
-          {label}
-        </CardTitle>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
+            <Icon size={22} className="text-white" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">{label}</p>
+            {isQualityCard && badge ? (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold mt-0.5",
+                  badgeColorClasses[badge.color]
+                )}
+              >
+                {badge.label}
+              </span>
+            ) : (
+              <p className="text-2xl font-black text-gray-900 mt-0.5">{stats.toLocaleString()}</p>
+            )}
+          </div>
+        </div>
+
         <TooltipProvider>
           <Tooltip delayDuration={50}>
             <TooltipTrigger>
-              <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+              <IconInfoCircle className="text-gray-400 hover:text-gray-600 size-4" />
               <span className="sr-only">More Info</span>
             </TooltipTrigger>
             <TooltipContent>
@@ -222,70 +239,37 @@ function StatsCard({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      </CardHeader>
-      <CardContent className="flex h-[calc(100%_-_48px)] flex-col justify-between py-4">
-        <div className="flex flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            {isQualityCard && badge ? (
-              <div className="flex flex-col gap-1">
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-3 py-1 text-lg font-semibold",
-                    badgeColorClasses[badge.color]
-                  )}
-                >
-                  {badge.label}
-                </span>
-              </div>
-            ) : (
-              <div className="text-3xl font-bold">{stats.toLocaleString()}</div>
-            )}
-            {chartData.length > 0 && (
-              <ChartContainer className="w-[70px]" config={chartConfig}>
-                <LineChart accessibilityLayer data={chartData}>
-                  <Line
-                    dataKey="value"
-                    type="linear"
-                    stroke="var(--color-value)"
-                    strokeWidth={1.5}
-                    dot={false}
-                  />
-                </LineChart>
-              </ChartContainer>
-            )}
-          </div>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+        <div className="min-w-0">
           {subStats && (
-            <p className="text-muted-foreground mt-1 text-xs">{subStats}</p>
+            <p className="text-gray-500 text-xs truncate">{subStats}</p>
           )}
           {!subStats && !isQualityCard && (
-            <p className="text-muted-foreground text-xs">Since last week</p>
+            <p className="text-gray-400 text-xs">Since last week</p>
           )}
           {isQualityCard && tierInfo && (
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="text-gray-500 text-xs">
               Tier: {tierInfo}
             </p>
           )}
         </div>
 
         {!isQualityCard && percentage > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-5">
-            <div className="text-sm font-semibold">Trend</div>
-            <div
-              className={cn("flex items-center gap-1", {
-                "text-emerald-500 dark:text-emerald-400": type === "up",
-                "text-red-500 dark:text-red-400": type === "down",
-                "text-muted-foreground": type === "neutral",
-              })}
-            >
-              <p className={"text-[13px] font-medium leading-none"}>
-                {percentage.toFixed(1)}%
-              </p>
-              {type === "up" && <IconCaretUpFilled size={18} />}
-              {type === "down" && <IconCaretDownFilled size={18} />}
-            </div>
+          <div
+            className={cn("flex items-center gap-1 shrink-0 font-semibold text-xs", {
+              "text-emerald-600": type === "up",
+              "text-red-600": type === "down",
+              "text-gray-500": type === "neutral",
+            })}
+          >
+            <span>{percentage.toFixed(1)}%</span>
+            {type === "up" && <IconCaretUpFilled size={14} />}
+            {type === "down" && <IconCaretDownFilled size={14} />}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

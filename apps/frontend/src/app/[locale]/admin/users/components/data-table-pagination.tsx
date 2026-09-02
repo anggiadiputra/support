@@ -1,13 +1,7 @@
 "use client"
 
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DoubleArrowLeftIcon,
-  DoubleArrowRightIcon,
-} from "@radix-ui/react-icons"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Table } from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -21,75 +15,88 @@ interface Props<TData> {
 }
 
 export function DataTablePagination<TData>({ table }: Props<TData>) {
+  const pageIndex = table.getState().pagination.pageIndex
+  const pageSize = table.getState().pagination.pageSize
+  const totalRows = table.getFilteredRowModel().rows.length
+  const pageCount = table.getPageCount()
+  const startRow = totalRows === 0 ? 0 : pageIndex * pageSize + 1
+  const endRow = Math.min((pageIndex + 1) * pageSize, totalRows)
+
+  // Generate page numbers to show
+  const getPageNumbers = () => {
+    const pages = []
+    const maxPages = 5
+    let start = Math.max(0, pageIndex - Math.floor(maxPages / 2))
+    let end = Math.min(pageCount - 1, start + maxPages - 1)
+    if (end - start + 1 < maxPages) {
+      start = Math.max(0, end - maxPages + 1)
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+    return pages
+  }
+
   return (
-    <div className="flex items-center justify-between overflow-auto px-2">
-      <div className="text-muted-foreground hidden flex-1 text-sm sm:block">
-        {table.getFilteredSelectedRowModel().rows.length} of{" "}
-        {table.getFilteredRowModel().rows.length} row(s) selected.
-      </div>
-      <div className="flex items-center sm:space-x-6 lg:space-x-8">
-        <div className="flex items-center space-x-2">
-          <p className="hidden text-sm font-medium sm:block">Rows per page</p>
+    <div className="bg-gray-50 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-gray-500 font-medium">
+          Showing {startRow} to {endRow} of {totalRows}
+        </span>
+        <div className="flex items-center gap-1.5">
           <Select
-            value={`${table.getState().pagination.pageSize}`}
+            value={`${pageSize}`}
             onValueChange={(value) => {
               table.setPageSize(Number(value))
             }}
           >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
+            <SelectTrigger className="h-7 w-[65px] text-xs border-gray-200 bg-white">
+              <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-              {[10, 20, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
+              {[10, 20, 30, 50, 100].map((size) => (
+                <SelectItem key={size} value={`${size}`} className="text-xs">
+                  {size}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+          className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {getPageNumbers().map((page) => (
+          <button
+            key={page}
+            type="button"
+            onClick={() => table.setPageIndex(page)}
+            className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
+              page === pageIndex
+                ? "bg-black text-white shadow-sm"
+                : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            }`}
           >
-            <span className="sr-only">Go to first page</span>
-            <DoubleArrowLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">Go to previous page</span>
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to next page</span>
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to last page</span>
-            <DoubleArrowRightIcon className="h-4 w-4" />
-          </Button>
-        </div>
+            {page + 1}
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+          className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )

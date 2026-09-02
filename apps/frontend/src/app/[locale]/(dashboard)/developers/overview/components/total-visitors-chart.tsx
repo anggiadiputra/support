@@ -140,39 +140,36 @@ export function TotalVisitorsChart({ className = "" }: { className?: string }) {
   return (
     <Card
       className={cn(
-        "space-y-4 rounded-none border-none bg-transparent shadow-none",
+        "bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4 hover:shadow-md transition-shadow",
         className
       )}
     >
-      <CardHeader className="flex flex-col items-stretch space-y-0 p-0 sm:flex-row">
-        <div
-          className={cn(
-            "flex flex-1 flex-col justify-center gap-1",
-            "px-0 py-2 sm:py-3"
-          )}
-        >
-          <CardTitle>Total visitors</CardTitle>
-          <CardDescription>
-            Showing total visitors for the last 3 months
+      <CardHeader className="flex flex-col items-stretch space-y-0 p-0 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
+        <div className="flex flex-col gap-0.5">
+          <CardTitle className="text-base font-bold text-gray-900">Total API Traffic</CardTitle>
+          <CardDescription className="text-xs text-gray-500">
+            Showing requests traffic breakdown for the last 3 months
           </CardDescription>
         </div>
-        <div className="flex">
+        <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mt-2 sm:mt-0">
           {["desktop", "mobile"].map((key) => {
             const chart = key as keyof typeof chartConfig
+            const isActive = activeChart === chart
             return (
               <button
                 key={chart}
-                data-active={activeChart === chart}
                 className={cn(
-                  "data-[active=true]:bg-muted/50 flex flex-1 flex-col justify-center gap-0.5 text-left",
-                  "px-4 py-2"
+                  "flex flex-col justify-center px-4 py-1.5 rounded-lg text-left transition-all",
+                  isActive
+                    ? "bg-white text-gray-900 shadow-sm font-semibold"
+                    : "text-gray-500 hover:text-gray-900 font-medium"
                 )}
                 onClick={() => setActiveChart(chart)}
               >
-                <span className="text-muted-foreground text-xs">
+                <span className="text-[10px] uppercase tracking-wider font-bold">
                   {chartConfig[chart].label}
                 </span>
-                <span className="text-lg leading-none font-bold sm:text-xl">
+                <span className="text-base leading-none font-black mt-0.5">
                   {total[key as keyof typeof total].toLocaleString()}
                 </span>
               </button>
@@ -180,7 +177,7 @@ export function TotalVisitorsChart({ className = "" }: { className?: string }) {
           })}
         </div>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="p-0 pt-2">
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"

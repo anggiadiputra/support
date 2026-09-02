@@ -89,28 +89,30 @@ export default function CustomersPage() {
   return (
     <>
       <Header />
-      <div className="space-y-4 p-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t("title")}
-            {isFetching && !loading && (
-              <span className="ml-2 text-xs text-muted-foreground animate-pulse">
-                {t("updating")}
-              </span>
-            )}
-          </h2>
-          <p className="text-muted-foreground">
-            {t("description")}
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <WhatsAppPhoneSelector
-            phoneNumbers={phoneNumbers}
-            selectedId={selectedPhoneNumberId}
-            onSelect={setSelectedPhoneNumberId}
-          />
-          <div className="h-6 w-px bg-border" />
-          <CustomersPrimaryActions />
+      <div className="p-5 md:p-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">
+              {t("title")}
+              {isFetching && !loading && (
+                <span className="ml-2 text-xs text-gray-400 font-normal animate-pulse">
+                  {t("updating")}
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {t("description")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <WhatsAppPhoneSelector
+              phoneNumbers={phoneNumbers}
+              selectedId={selectedPhoneNumberId}
+              onSelect={setSelectedPhoneNumberId}
+            />
+            <div className="h-6 w-px bg-gray-200" />
+            <CustomersPrimaryActions />
+          </div>
         </div>
 
         {/* Stats Cards - filtered by selected phone number */}
@@ -120,16 +122,16 @@ export default function CustomersPage() {
         />
 
         {customers.length === 0 && !loading ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <IconUsers className="text-muted-foreground mb-4 h-12 w-12" />
-              <h3 className="mb-2 text-lg font-semibold">{t("noCustomers")}</h3>
-              <p className="text-muted-foreground mb-4 text-center text-sm">
-                {t("noCustomersDescription")}
-              </p>
-              <CustomersPrimaryActions />
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center flex flex-col items-center justify-center">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <IconUsers className="text-gray-400 h-7 w-7" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900 mb-1">{t("noCustomers")}</h3>
+            <p className="text-sm text-gray-500 max-w-sm mb-6">
+              {t("noCustomersDescription")}
+            </p>
+            <CustomersPrimaryActions />
+          </div>
         ) : (
           <div className="flex-1">
             <CustomersTable

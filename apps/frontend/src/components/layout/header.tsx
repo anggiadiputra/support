@@ -26,7 +26,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "bg-background z-50 flex h-16 shrink-0 items-center gap-2 border-b px-4",
+        "bg-white z-50 flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 px-4",
         "sticky top-0"
       )}
     >

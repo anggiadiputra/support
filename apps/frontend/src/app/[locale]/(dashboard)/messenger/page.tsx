@@ -10,9 +10,13 @@ import { IconBrandFacebook, IconPlus } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useRouter } from "@/i18n/routing"
+import { useToast } from "@/hooks/use-toast"
 
 export default function MessengerPage() {
   const { userId, isLoading: sessionLoading } = useBusinessAccount()
+  const router = useRouter()
+  const { toast } = useToast()
   const { getChannelUsageText, canAddChannel, refetch: refetchSubscription } = useSubscription()
   const [pages, setPages] = useState<FacebookPage[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +48,16 @@ export default function MessengerPage() {
   }
 
   const handleConnect = async () => {
+    if (!canAddChannel("messengerAccounts")) {
+      toast({
+        title: "Batas Halaman Tercapai",
+        description: `Anda telah mencapai batas maksimum halaman Messenger (${getChannelUsageText("messengerAccounts")}) untuk paket Anda. Silakan upgrade paket untuk menambah halaman.`,
+        variant: "destructive",
+      })
+      router.push("/subscription")
+      return
+    }
+
     try {
       const { url } = await messengerApi.getAuthUrl()
 
@@ -114,7 +128,7 @@ export default function MessengerPage() {
     return (
       <>
         <Header />
-        <div className="space-y-4 p-4">
+        <div className="p-5 md:p-8 space-y-6">
           <div className="animate-pulse space-y-4">
             <div className="bg-muted h-8 w-64 rounded"></div>
             <div className="bg-muted h-48 w-full rounded"></div>
@@ -127,29 +141,29 @@ export default function MessengerPage() {
   return (
     <RoleGuard>
       <Header />
-      <div className="space-y-6 p-4">
+      <div className="p-5 md:p-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <IconBrandFacebook className="h-7 w-7 text-[#1877F2]" />
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <IconBrandFacebook className="h-6 w-6 text-[#1877F2]" />
               Facebook Messenger
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-gray-500">
               Connect your Facebook Pages to manage Messenger conversations
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-sm">
+            <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-gray-50 text-gray-700 border-gray-200">
               {getChannelUsageText("messengerAccounts")}
             </Badge>
             {hasConnectedPages && (
               <Button 
                 size="sm"
                 onClick={handleConnect}
-                disabled={!canAddChannel("messengerAccounts")}
+                className="bg-black text-white hover:bg-gray-800 shadow-sm rounded-lg font-semibold"
               >
-                <IconPlus className="h-4 w-4" />
+                <IconPlus className="h-4 w-4 mr-1.5" />
                 Add Another Page
               </Button>
             )}

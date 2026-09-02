@@ -195,29 +195,36 @@ export const router = createBrowserRouter([
             path: "/help-support",
             element: lazyLoad(() => import("@/app/[locale]/(dashboard)/help-support/page")),
           },
+          // Developers Routes (Nested with DevelopersLayout)
           {
             path: "/developers",
-            element: <Navigate to="/developers/overview" replace />,
-          },
-          {
-            path: "/developers/overview",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/overview/page")),
-          },
-          {
-            path: "/developers/api-keys",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/api-keys/page")),
-          },
-          {
-            path: "/developers/webhooks",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/webhooks/page")),
-          },
-          {
-            path: "/developers/events-&-logs",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/events-&-logs/page")),
-          },
-          {
-            path: "/developers/docs",
-            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/docs/page")),
+            element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/layout")),
+            children: [
+              {
+                index: true,
+                element: <Navigate to="/developers/overview" replace />,
+              },
+              {
+                path: "overview",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/overview/page")),
+              },
+              {
+                path: "api-keys",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/api-keys/page")),
+              },
+              {
+                path: "webhooks",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/webhooks/page")),
+              },
+              {
+                path: "events-&-logs",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/events-&-logs/page")),
+              },
+              {
+                path: "docs",
+                element: lazyLoad(() => import("@/app/[locale]/(dashboard)/developers/docs/page")),
+              },
+            ],
           },
           {
             path: "/affiliate",

@@ -20,9 +20,13 @@ import {
   IconX,
 } from "@tabler/icons-react"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useRouter } from "@/i18n/routing"
+import { useToast } from "@/hooks/use-toast"
 
 export default function WABAPage() {
   const { isLoading } = useBusinessAccount()
+  const router = useRouter()
+  const { toast } = useToast()
   const { getChannelUsageText, canAddChannel, refetch: refetchSubscription } = useSubscription()
   const [accounts, setAccounts] = useState<WhatsAppAccountWithPhoneNumbers[]>([])
   const [loading, setLoading] = useState(false)
@@ -71,6 +75,25 @@ export default function WABAPage() {
       loadStats(accounts)
     }
   }, [accounts])
+
+  const handleAddAccountClick = () => {
+    if (showAddAccount) {
+      setShowAddAccount(false)
+      return
+    }
+
+    if (!canAddChannel("whatsappDevices")) {
+      toast({
+        title: "Batas Akun Tercapai",
+        description: `Anda telah mencapai batas maksimum akun WhatsApp (${getChannelUsageText("whatsappDevices")}) untuk paket Anda. Silakan upgrade paket untuk menambah akun.`,
+        variant: "destructive",
+      })
+      router.push("/subscription")
+      return
+    }
+
+    setShowAddAccount(true)
+  }
 
   const handleRefresh = async (wabaId: string) => {
     try {
@@ -130,7 +153,7 @@ export default function WABAPage() {
     return (
       <>
         <Header />
-        <div className="space-y-4 p-4">
+        <div className="p-5 md:p-8 space-y-6">
           <div className="animate-pulse space-y-4">
             <div className="bg-muted h-8 w-64 rounded"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -153,28 +176,37 @@ export default function WABAPage() {
   return (
     <RoleGuard>
       <Header />
-      <div className="space-y-6 p-4">
+      <div className="p-5 md:p-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">
               WhatsApp Business Accounts
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-gray-500">
               Manage your WABA connections and phone numbers
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-sm">
+            <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-gray-50 text-gray-700 border-gray-200">
               {getChannelUsageText("whatsappDevices")}
             </Badge>
             <Button 
               size="sm"
-              onClick={() => setShowAddAccount(true)}
-              disabled={!canAddChannel("whatsappDevices")}
+              onClick={handleAddAccountClick}
+              className={showAddAccount ? "bg-gray-100 text-gray-800 hover:bg-gray-200 rounded-lg font-semibold" : "bg-black text-white hover:bg-gray-800 shadow-sm rounded-lg font-semibold"}
             >
-              <IconPlus className="h-4 w-4" />
-              Add Account
+              {showAddAccount ? (
+                <>
+                  <IconX className="h-4 w-4 mr-1.5" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <IconPlus className="h-4 w-4 mr-1.5" />
+                  Add Account
+                </>
+              )}
             </Button>
           </div>
         </div>
